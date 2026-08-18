@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PhotoboothSessionStatus;
+use App\Exceptions\InvalidPhotoboothSessionTransitionException;
 use Database\Factories\PhotoboothSessionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -42,6 +43,48 @@ class PhotoboothSession extends Model
             'started_at' => 'datetime',
             'expires_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Move this session to the given status, enforcing the allowed lifecycle transitions.
+     *
+     * @throws InvalidPhotoboothSessionTransitionException
+     */
+    public function transitionTo(PhotoboothSessionStatus $status): void
+    {
+        if (! $this->status->canTransitionTo($status)) {
+            throw new InvalidPhotoboothSessionTransitionException($this->status, $status);
+        }
+
+        $this->update(['status' => $status]);
+    }
+
+    /**
+     * Determine whether this session is past its expiration timestamp.
+     */
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    /**
+     * Mark this session as expired if it is past due and not already in a terminal state.
+     *
+     * Returns whether the session is expired after this check.
+     */
+    public function expireIfPast(): bool
+    {
+        if ($this->status->isTerminal()) {
+            return $this->status === PhotoboothSessionStatus::Expired;
+        }
+
+        if (! $this->isExpired()) {
+            return false;
+        }
+
+        $this->update(['status' => PhotoboothSessionStatus::Expired]);
+
+        return true;
     }
 
     /**

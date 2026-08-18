@@ -3,6 +3,7 @@ import { QrCode, Ticket } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useIdleTimer } from '@/hooks/use-idle-timer';
+import { usePhotoboothSession } from '@/hooks/use-photobooth-session';
 
 type KioskStep = 'welcome' | 'pay-via-qr' | 'enter-voucher';
 
@@ -15,12 +16,22 @@ export default function Kiosk({
 }) {
     const [step, setStep] = useState<KioskStep>('welcome');
     const { isIdle, resetTimer } = useIdleTimer(idleTimeoutSeconds * 1000);
+    const { session, startSession } = usePhotoboothSession();
 
     // Abandoned sessions reset back to the start screen once the customer goes idle.
     const activeStep = isIdle ? 'welcome' : step;
 
     const startOver = () => {
         setStep('welcome');
+        resetTimer();
+    };
+
+    const beginStep = async (next: KioskStep) => {
+        if (!session) {
+            await startSession();
+        }
+
+        setStep(next);
         resetTimer();
     };
 
@@ -49,7 +60,13 @@ export default function Kiosk({
                         <Button
                             type="button"
                             size="lg"
-                            onClick={startOver}
+                            onClick={async () => {
+                                if (!session) {
+                                    await startSession();
+                                }
+
+                                resetTimer();
+                            }}
                             className="h-24 w-full max-w-md rounded-2xl text-2xl font-semibold shadow-lg"
                         >
                             Click to Start
@@ -60,10 +77,7 @@ export default function Kiosk({
                                 type="button"
                                 variant="outline"
                                 size="lg"
-                                onClick={() => {
-                                    setStep('pay-via-qr');
-                                    resetTimer();
-                                }}
+                                onClick={() => beginStep('pay-via-qr')}
                                 className="h-20 gap-3 rounded-xl border-white/20 bg-white/5 text-lg text-white hover:bg-white/10"
                             >
                                 <QrCode className="size-6" aria-hidden="true" />
@@ -73,10 +87,7 @@ export default function Kiosk({
                                 type="button"
                                 variant="outline"
                                 size="lg"
-                                onClick={() => {
-                                    setStep('enter-voucher');
-                                    resetTimer();
-                                }}
+                                onClick={() => beginStep('enter-voucher')}
                                 className="h-20 gap-3 rounded-xl border-white/20 bg-white/5 text-lg text-white hover:bg-white/10"
                             >
                                 <Ticket className="size-6" aria-hidden="true" />
