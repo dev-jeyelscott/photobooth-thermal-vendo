@@ -55,6 +55,12 @@ enum PhotoboothSessionStatus: string
             return true;
         }
 
+        // Voucher redemption unlocks a session directly from New, bypassing the
+        // Maya payment-pending step used by the QR checkout flow.
+        if ($this === self::New && $status === self::Paid) {
+            return true;
+        }
+
         return $this->next() === $status;
     }
 }

@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { QrCode, Ticket } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useIdleTimer } from '@/hooks/use-idle-timer';
 import { usePhotoboothSession } from '@/hooks/use-photobooth-session';
 
@@ -15,14 +16,43 @@ export default function Kiosk({
     idleTimeoutSeconds?: number;
 }) {
     const [step, setStep] = useState<KioskStep>('welcome');
+    const [voucherCode, setVoucherCode] = useState('');
+    const [voucherError, setVoucherError] = useState<string | null>(null);
+    const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
     const { isIdle, resetTimer } = useIdleTimer(idleTimeoutSeconds * 1000);
-    const { session, startSession, isResuming } = usePhotoboothSession();
+    const { session, startSession, isResuming, redeemVoucher } =
+        usePhotoboothSession();
 
     // Abandoned sessions reset back to the start screen once the customer goes idle.
     const activeStep = isIdle ? 'welcome' : step;
 
     const startOver = () => {
         setStep('welcome');
+        setVoucherCode('');
+        setVoucherError(null);
+        resetTimer();
+    };
+
+    const submitVoucher = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (isRedeemingVoucher) {
+            return;
+        }
+
+        setIsRedeemingVoucher(true);
+        setVoucherError(null);
+
+        const result = await redeemVoucher(voucherCode.trim());
+
+        setIsRedeemingVoucher(false);
+
+        if (!result.ok) {
+            setVoucherError(result.message);
+
+            return;
+        }
+
         resetTimer();
     };
 
@@ -151,6 +181,42 @@ export default function Kiosk({
                             Enter your voucher code to redeem a session. This
                             screen will reset automatically if left idle.
                         </p>
+                        <form
+                            onSubmit={submitVoucher}
+                            className="flex w-full flex-col items-center gap-3"
+                        >
+                            <Input
+                                data-testid="kiosk-voucher-input"
+                                value={voucherCode}
+                                onChange={(event) => {
+                                    setVoucherCode(event.target.value);
+                                    setVoucherError(null);
+                                }}
+                                placeholder="Voucher code"
+                                autoComplete="off"
+                                className="h-12 text-center text-lg text-white"
+                            />
+                            {voucherError && (
+                                <p
+                                    role="alert"
+                                    data-testid="kiosk-voucher-error"
+                                    className="text-sm text-red-400"
+                                >
+                                    {voucherError}
+                                </p>
+                            )}
+                            <Button
+                                type="submit"
+                                size="lg"
+                                disabled={
+                                    isRedeemingVoucher ||
+                                    voucherCode.trim().length === 0
+                                }
+                                className="h-12 w-full"
+                            >
+                                Redeem Voucher
+                            </Button>
+                        </form>
                         <Button
                             type="button"
                             variant="secondary"

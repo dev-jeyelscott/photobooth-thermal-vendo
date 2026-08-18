@@ -45,4 +45,14 @@ class VoucherFactory extends Factory
             'usage_count' => $attributes['usage_limit'] ?? 1,
         ]);
     }
+
+    /**
+     * Indicate that the voucher is inactive.
+     */
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'active' => false,
+        ]);
+    }
 }

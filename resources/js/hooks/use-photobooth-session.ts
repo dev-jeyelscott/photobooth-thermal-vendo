@@ -3,6 +3,7 @@ import {
     show,
     store,
 } from '@/actions/App/Http/Controllers/PhotoboothSessionController';
+import { store as redeemVoucherCode } from '@/actions/App/Http/Controllers/VoucherController';
 
 const STORAGE_KEY = 'photobooth.session_token';
 
@@ -70,6 +71,47 @@ export function usePhotoboothSession() {
         return created;
     }, []);
 
+    const redeemVoucher = useCallback(
+        async (
+            code: string,
+        ): Promise<{ ok: true } | { ok: false; message: string }> => {
+            if (!session) {
+                return { ok: false, message: 'No active session.' };
+            }
+
+            const response = await fetch(
+                redeemVoucherCode.url(session.sessionToken),
+                {
+                    method: 'post',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                    },
+                    body: JSON.stringify({ code }),
+                },
+            );
+
+            const body = (await response.json()) as {
+                status?: string;
+                message?: string;
+            };
+
+            if (!response.ok) {
+                return {
+                    ok: false,
+                    message:
+                        body.message ?? 'This voucher could not be redeemed.',
+                };
+            }
+
+            setSession({ ...session, status: body.status ?? session.status });
+
+            return { ok: true };
+        },
+        [session],
+    );
+
     useEffect(() => {
         const token = readStoredToken();
 
@@ -94,5 +136,5 @@ export function usePhotoboothSession() {
             });
     }, []);
 
-    return { session, startSession, isResuming };
+    return { session, startSession, isResuming, redeemVoucher };
 }
