@@ -16,7 +16,7 @@ export default function Kiosk({
 }) {
     const [step, setStep] = useState<KioskStep>('welcome');
     const { isIdle, resetTimer } = useIdleTimer(idleTimeoutSeconds * 1000);
-    const { session, startSession } = usePhotoboothSession();
+    const { session, startSession, isResuming } = usePhotoboothSession();
 
     // Abandoned sessions reset back to the start screen once the customer goes idle.
     const activeStep = isIdle ? 'welcome' : step;
@@ -27,6 +27,10 @@ export default function Kiosk({
     };
 
     const beginStep = async (next: KioskStep) => {
+        if (isResuming) {
+            return;
+        }
+
         if (!session) {
             await startSession();
         }
@@ -60,7 +64,12 @@ export default function Kiosk({
                         <Button
                             type="button"
                             size="lg"
+                            disabled={isResuming}
                             onClick={async () => {
+                                if (isResuming) {
+                                    return;
+                                }
+
                                 if (!session) {
                                     await startSession();
                                 }
@@ -77,6 +86,7 @@ export default function Kiosk({
                                 type="button"
                                 variant="outline"
                                 size="lg"
+                                disabled={isResuming}
                                 onClick={() => beginStep('pay-via-qr')}
                                 className="h-16 gap-3 rounded-xl border-white/20 bg-white/5 text-base text-white hover:bg-white/10 sm:h-20 sm:text-lg"
                             >
@@ -87,6 +97,7 @@ export default function Kiosk({
                                 type="button"
                                 variant="outline"
                                 size="lg"
+                                disabled={isResuming}
                                 onClick={() => beginStep('enter-voucher')}
                                 className="h-16 gap-3 rounded-xl border-white/20 bg-white/5 text-base text-white hover:bg-white/10 sm:h-20 sm:text-lg"
                             >
