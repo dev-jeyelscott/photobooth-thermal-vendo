@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PhotoboothSessionController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +14,10 @@ Route::post('kiosk/sessions', [PhotoboothSessionController::class, 'store'])->na
 Route::get('kiosk/sessions/{sessionToken}', [PhotoboothSessionController::class, 'show'])
     ->whereUuid('sessionToken')
     ->name('kiosk.sessions.show');
+
+Route::post('kiosk/sessions/{sessionToken}/payments', [PaymentController::class, 'store'])
+    ->whereUuid('sessionToken')
+    ->name('kiosk.sessions.payments.store');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
