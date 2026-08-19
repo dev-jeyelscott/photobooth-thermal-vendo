@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\ColorCompositionController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\MayaWebhookController;
@@ -59,7 +60,7 @@ Route::get('gallery/{capturedMedia:public_token}/qr-code', [GalleryController::c
 Route::post('webhooks/maya', [MayaWebhookController::class, 'handle'])->name('webhooks.maya');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 });
 
 require __DIR__.'/settings.php';
