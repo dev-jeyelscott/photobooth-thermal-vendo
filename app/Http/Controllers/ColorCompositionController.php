@@ -35,6 +35,7 @@ class ColorCompositionController extends Controller
         return response()->json([
             'status' => $session->fresh()->status->value,
             'colorPath' => $capturedMedia->color_path,
+            'bwPath' => $capturedMedia->bw_path,
         ]);
     }
 }

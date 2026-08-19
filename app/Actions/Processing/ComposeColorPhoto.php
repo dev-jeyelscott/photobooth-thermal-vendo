@@ -17,8 +17,9 @@ class ComposeColorPhoto
 
     /**
      * Compose the session's confirmed captured photos into the final color
-     * print, advancing the session to Processing and persisting the result
-     * path to captured_media.color_path.
+     * print and a grayscale, thermal-print-optimized derivative of the same
+     * composition, advancing the session to Processing and persisting the
+     * result paths to captured_media.color_path and captured_media.bw_path.
      *
      * Returns null when the session is expired, has no template selected,
      * is not in a state that can reach Processing, or too few photos were
@@ -54,12 +55,19 @@ class ComposeColorPhoto
         }
 
         $composite = $this->colorComposition->compose($template, $photos, $session->stickerDesign);
+        $blackAndWhite = $this->colorComposition->toBlackAndWhite($composite);
 
-        $path = 'captures/'.$session->session_token.'-color.jpg';
+        $colorPath = 'captures/'.$session->session_token.'-color.jpg';
+        $bwPath = 'captures/'.$session->session_token.'-bw.jpg';
 
         Storage::disk('public')->put(
-            $path,
+            $colorPath,
             (string) $composite->encode(new JpegEncoder(quality: self::JPEG_QUALITY)),
+        );
+
+        Storage::disk('public')->put(
+            $bwPath,
+            (string) $blackAndWhite->encode(new JpegEncoder(quality: self::JPEG_QUALITY)),
         );
 
         while ($session->status !== PhotoboothSessionStatus::Processing) {
@@ -68,7 +76,7 @@ class ComposeColorPhoto
 
         return $session->capturedMedia()->updateOrCreate(
             ['photobooth_session_id' => $session->id],
-            ['color_path' => $path],
+            ['color_path' => $colorPath, 'bw_path' => $bwPath],
         );
     }
 }

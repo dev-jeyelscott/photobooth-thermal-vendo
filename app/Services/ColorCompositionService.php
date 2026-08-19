@@ -26,6 +26,13 @@ class ColorCompositionService
 
     private const STICKER_MARGIN_RATIO = 0.03;
 
+    /**
+     * Contrast boost applied to the grayscale derivative so thermal printers,
+     * which have a narrower tonal range than digital displays, retain
+     * visible separation between light and dark areas.
+     */
+    private const THERMAL_CONTRAST_LEVEL = 20;
+
     public function __construct(private readonly ImageManager $imageManager) {}
 
     /**
@@ -60,6 +67,17 @@ class ColorCompositionService
         }
 
         return $canvas;
+    }
+
+    /**
+     * Derive a grayscale, contrast-boosted version of an already-composed
+     * image for thermal printing, without recomposing the layout.
+     */
+    public function toBlackAndWhite(ImageInterface $composite): ImageInterface
+    {
+        return (clone $composite)
+            ->grayscale()
+            ->contrast(self::THERMAL_CONTRAST_LEVEL);
     }
 
     private function overlaySticker(ImageInterface $canvas, StickerDesign $sticker, int $canvasWidth): void
