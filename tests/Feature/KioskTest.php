@@ -136,3 +136,22 @@ test('a kiosk error state blocks progression by replacing the active step instea
     expect($kiosk)->toContain('showKioskError')
         ->and($kiosk)->toContain('!showKioskError &&');
 });
+
+test('the template, sticker, and preview steps surface the shared error state for an expired session or network interruption', function () {
+    $kiosk = file_get_contents(resource_path('js/pages/kiosk.tsx'));
+    $templateStep = file_get_contents(resource_path('js/components/template-selection-step.tsx'));
+    $stickerStep = file_get_contents(resource_path('js/components/sticker-selection-step.tsx'));
+    $previewStep = file_get_contents(resource_path('js/components/preview-step.tsx'));
+
+    expect($kiosk)->toContain('<TemplateSelectionStep')
+        ->and($kiosk)->toContain('<StickerSelectionStep')
+        ->and($kiosk)->toContain('<PreviewStep')
+        ->and(substr_count($kiosk, 'onExpired={() =>'))->toBeGreaterThanOrEqual(3);
+
+    foreach ([$templateStep, $stickerStep, $previewStep] as $step) {
+        expect($step)->toContain('KioskErrorState')
+            ->and($step)->toContain('result.expired')
+            ->and($step)->toContain('onExpired')
+            ->and($step)->toContain('kind="network-interruption"');
+    }
+});

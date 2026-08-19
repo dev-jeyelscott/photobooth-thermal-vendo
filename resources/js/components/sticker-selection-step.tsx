@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
+import { KioskErrorState } from '@/components/kiosk-error-state';
 import { Button } from '@/components/ui/button';
 import type { StickerDesignOption } from '@/hooks/use-photobooth-session';
+import { NETWORK_ERROR_MESSAGE } from '@/hooks/use-photobooth-session';
 
 const PREVIEW_SIZE = 480;
+
+type SelectStickerResult =
+    | { ok: true }
+    | { ok: false; message: string; expired: boolean };
 
 /**
  * Lets the customer browse enabled sticker designs and preview one overlaid on
@@ -16,14 +22,16 @@ export function StickerSelectionStep({
     templatePreviewPath,
     onContinue,
     onActivity,
+    onExpired,
+    onBackToStart,
 }: {
     fetchStickers: () => Promise<StickerDesignOption[]>;
-    selectSticker: (
-        stickerDesignId: number,
-    ) => Promise<{ ok: true } | { ok: false; message: string }>;
+    selectSticker: (stickerDesignId: number) => Promise<SelectStickerResult>;
     templatePreviewPath: string | null;
     onContinue: (sticker: StickerDesignOption) => void;
     onActivity: () => void;
+    onExpired: () => void;
+    onBackToStart: () => void;
 }) {
     const [stickers, setStickers] = useState<StickerDesignOption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -31,6 +39,7 @@ export function StickerSelectionStep({
         useState<StickerDesignOption | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [networkError, setNetworkError] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     useEffect(() => {
@@ -134,12 +143,25 @@ export function StickerSelectionStep({
         onActivity();
         setIsSaving(true);
         setError(null);
+        setNetworkError(false);
 
         const result = await selectSticker(sticker.id);
 
         setIsSaving(false);
 
         if (!result.ok) {
+            if (result.expired) {
+                onExpired();
+
+                return;
+            }
+
+            if (result.message === NETWORK_ERROR_MESSAGE) {
+                setNetworkError(true);
+
+                return;
+            }
+
             setError(result.message);
 
             return;
@@ -147,6 +169,16 @@ export function StickerSelectionStep({
 
         setSelectedSticker(sticker);
     };
+
+    if (networkError) {
+        return (
+            <KioskErrorState
+                kind="network-interruption"
+                onRetry={() => setNetworkError(false)}
+                onBackToStart={onBackToStart}
+            />
+        );
+    }
 
     return (
         <div

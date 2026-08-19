@@ -521,6 +521,10 @@ export default function Kiosk({
                                     setStep('capture');
                                     resetTimer();
                                 }}
+                                onExpired={() =>
+                                    raiseKioskError('expired-session')
+                                }
+                                onBackToStart={startOver}
                             />
                         )}
 
@@ -596,6 +600,10 @@ export default function Kiosk({
                                     setStep('preview');
                                     resetTimer();
                                 }}
+                                onExpired={() =>
+                                    raiseKioskError('expired-session')
+                                }
+                                onBackToStart={startOver}
                             />
                         )}
 
@@ -620,6 +628,10 @@ export default function Kiosk({
                                     resetTimer();
                                     void finalizeSession();
                                 }}
+                                onExpired={() =>
+                                    raiseKioskError('expired-session')
+                                }
+                                onBackToStart={startOver}
                             />
                         )}
 

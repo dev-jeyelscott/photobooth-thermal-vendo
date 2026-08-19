@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
+import { KioskErrorState } from '@/components/kiosk-error-state';
 import { Button } from '@/components/ui/button';
 import type {
     PhotoTemplateOption,
     StickerDesignOption,
 } from '@/hooks/use-photobooth-session';
+import { NETWORK_ERROR_MESSAGE } from '@/hooks/use-photobooth-session';
+
+type ConfirmPreviewResult =
+    | { ok: true }
+    | { ok: false; message: string; expired: boolean };
 
 const CANVAS_SCALE = 4;
 const STICKER_SIZE_RATIO = 0.22;
@@ -63,21 +69,24 @@ export function PreviewStep({
     onRetakePhotos,
     onChangeSticker,
     onActivity,
+    onExpired,
+    onBackToStart,
 }: {
     capturedPhotos: string[];
     template: PhotoTemplateOption;
     sticker: StickerDesignOption | null;
-    confirmPreview: () => Promise<
-        { ok: true } | { ok: false; message: string }
-    >;
+    confirmPreview: () => Promise<ConfirmPreviewResult>;
     onConfirmed: () => void;
     onRetakePhotos: () => void;
     onChangeSticker: () => void;
     onActivity: () => void;
+    onExpired: () => void;
+    onBackToStart: () => void;
 }) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [isConfirming, setIsConfirming] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [networkError, setNetworkError] = useState(false);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -156,12 +165,25 @@ export function PreviewStep({
         onActivity();
         setIsConfirming(true);
         setError(null);
+        setNetworkError(false);
 
         const result = await confirmPreview();
 
         setIsConfirming(false);
 
         if (!result.ok) {
+            if (result.expired) {
+                onExpired();
+
+                return;
+            }
+
+            if (result.message === NETWORK_ERROR_MESSAGE) {
+                setNetworkError(true);
+
+                return;
+            }
+
             setError(result.message);
 
             return;
@@ -169,6 +191,16 @@ export function PreviewStep({
 
         onConfirmed();
     };
+
+    if (networkError) {
+        return (
+            <KioskErrorState
+                kind="network-interruption"
+                onRetry={() => setNetworkError(false)}
+                onBackToStart={onBackToStart}
+            />
+        );
+    }
 
     return (
         <div
