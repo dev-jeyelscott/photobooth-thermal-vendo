@@ -4,6 +4,7 @@ use App\Http\Controllers\MayaWebhookController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PhotoboothSessionController;
 use App\Http\Controllers\PhotoTemplateController;
+use App\Http\Controllers\StickerDesignController;
 use App\Http\Controllers\VoucherController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +34,12 @@ Route::get('templates', [PhotoTemplateController::class, 'index'])->name('templa
 Route::post('kiosk/sessions/{sessionToken}/template', [PhotoTemplateController::class, 'store'])
     ->whereUuid('sessionToken')
     ->name('kiosk.sessions.template.store');
+
+Route::get('stickers', [StickerDesignController::class, 'index'])->name('stickers.index');
+
+Route::post('kiosk/sessions/{sessionToken}/sticker', [StickerDesignController::class, 'store'])
+    ->whereUuid('sessionToken')
+    ->name('kiosk.sessions.sticker.store');
 
 Route::post('webhooks/maya', [MayaWebhookController::class, 'handle'])->name('webhooks.maya');
 

@@ -7,6 +7,10 @@ import {
     index as listTemplates,
     store as selectTemplateId,
 } from '@/actions/App/Http/Controllers/PhotoTemplateController';
+import {
+    index as listStickers,
+    store as selectStickerId,
+} from '@/actions/App/Http/Controllers/StickerDesignController';
 import { store as redeemVoucherCode } from '@/actions/App/Http/Controllers/VoucherController';
 
 const STORAGE_KEY = 'photobooth.session_token';
@@ -26,6 +30,13 @@ export type PhotoTemplateOption = {
     layoutConfig: Record<string, unknown> | null;
     printWidthMm: number;
     printHeightMm: number;
+};
+
+export type StickerDesignOption = {
+    id: number;
+    name: string;
+    assetPath: string;
+    thumbnailPath: string | null;
 };
 
 const readStoredToken = (): string | null => {
@@ -181,6 +192,61 @@ export function usePhotoboothSession() {
         [session],
     );
 
+    const fetchStickers = useCallback(async (): Promise<
+        StickerDesignOption[]
+    > => {
+        const response = await fetch(listStickers.url(), {
+            headers: { Accept: 'application/json' },
+        });
+
+        const body = (await response.json()) as {
+            stickers: StickerDesignOption[];
+        };
+
+        return body.stickers;
+    }, []);
+
+    const selectSticker = useCallback(
+        async (
+            stickerDesignId: number,
+        ): Promise<{ ok: true } | { ok: false; message: string }> => {
+            if (!session) {
+                return { ok: false, message: 'No active session.' };
+            }
+
+            const response = await fetch(
+                selectStickerId.url(session.sessionToken),
+                {
+                    method: 'post',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                    },
+                    body: JSON.stringify({ stickerDesignId }),
+                },
+            );
+
+            const body = (await response.json()) as {
+                status?: string;
+                message?: string;
+            };
+
+            if (!response.ok) {
+                return {
+                    ok: false,
+                    message:
+                        body.message ?? 'This sticker could not be selected.',
+                };
+            }
+
+            setSession({ ...session, status: body.status ?? session.status });
+
+            return { ok: true };
+        },
+        [session],
+    );
+
     useEffect(() => {
         const token = readStoredToken();
 
@@ -212,5 +278,7 @@ export function usePhotoboothSession() {
         redeemVoucher,
         fetchTemplates,
         selectTemplate,
+        fetchStickers,
+        selectSticker,
     };
 }

@@ -2,10 +2,12 @@ import { Head } from '@inertiajs/react';
 import { QrCode, Ticket } from 'lucide-react';
 import { useState } from 'react';
 import { CaptureStep } from '@/components/capture-step';
+import { StickerSelectionStep } from '@/components/sticker-selection-step';
 import { TemplateSelectionStep } from '@/components/template-selection-step';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useIdleTimer } from '@/hooks/use-idle-timer';
+import type { PhotoTemplateOption } from '@/hooks/use-photobooth-session';
 import { usePhotoboothSession } from '@/hooks/use-photobooth-session';
 
 type KioskStep =
@@ -14,7 +16,8 @@ type KioskStep =
     | 'enter-voucher'
     | 'select-template'
     | 'capture'
-    | 'captured';
+    | 'captured'
+    | 'select-sticker';
 
 const DEFAULT_IDLE_TIMEOUT_SECONDS = 60;
 const DEFAULT_CAPTURE_SHOT_COUNT = 3;
@@ -34,6 +37,8 @@ export default function Kiosk({
     const [voucherError, setVoucherError] = useState<string | null>(null);
     const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
     const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
+    const [selectedTemplate, setSelectedTemplate] =
+        useState<PhotoTemplateOption | null>(null);
     const { isIdle, resetTimer } = useIdleTimer(idleTimeoutSeconds * 1000);
     const {
         session,
@@ -42,6 +47,8 @@ export default function Kiosk({
         redeemVoucher,
         fetchTemplates,
         selectTemplate,
+        fetchStickers,
+        selectSticker,
     } = usePhotoboothSession();
 
     // Abandoned sessions reset back to the start screen once the customer goes idle.
@@ -52,6 +59,7 @@ export default function Kiosk({
         setVoucherCode('');
         setVoucherError(null);
         setCapturedPhotos([]);
+        setSelectedTemplate(null);
         resetTimer();
     };
 
@@ -256,7 +264,8 @@ export default function Kiosk({
                         fetchTemplates={fetchTemplates}
                         selectTemplate={selectTemplate}
                         onActivity={resetTimer}
-                        onSelected={() => {
+                        onSelected={(template) => {
+                            setSelectedTemplate(template);
                             setStep('capture');
                             resetTimer();
                         }}
@@ -298,15 +307,39 @@ export default function Kiosk({
                                 />
                             ))}
                         </div>
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            size="lg"
-                            onClick={startOver}
-                        >
-                            Back to Start
-                        </Button>
+                        <div className="flex gap-3">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="lg"
+                                onClick={startOver}
+                            >
+                                Back to Start
+                            </Button>
+                            <Button
+                                type="button"
+                                size="lg"
+                                onClick={() => {
+                                    setStep('select-sticker');
+                                    resetTimer();
+                                }}
+                            >
+                                Choose a Sticker
+                            </Button>
+                        </div>
                     </div>
+                )}
+
+                {activeStep === 'select-sticker' && (
+                    <StickerSelectionStep
+                        fetchStickers={fetchStickers}
+                        selectSticker={selectSticker}
+                        templatePreviewPath={
+                            selectedTemplate?.thumbnailPath ?? null
+                        }
+                        onActivity={resetTimer}
+                        onContinue={startOver}
+                    />
                 )}
 
                 {isIdle && (

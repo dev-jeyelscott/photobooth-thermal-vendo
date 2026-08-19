@@ -15,7 +15,7 @@ export function TemplateSelectionStep({
     selectTemplate: (
         photoTemplateId: number,
     ) => Promise<{ ok: true } | { ok: false; message: string }>;
-    onSelected: () => void;
+    onSelected: (template: PhotoTemplateOption) => void;
     onActivity: () => void;
 }) {
     const [templates, setTemplates] = useState<PhotoTemplateOption[]>([]);
@@ -43,16 +43,16 @@ export function TemplateSelectionStep({
         };
     }, [fetchTemplates]);
 
-    const choose = async (templateId: number) => {
+    const choose = async (template: PhotoTemplateOption) => {
         if (selectingId !== null) {
             return;
         }
 
         onActivity();
-        setSelectingId(templateId);
+        setSelectingId(template.id);
         setError(null);
 
-        const result = await selectTemplate(templateId);
+        const result = await selectTemplate(template.id);
 
         setSelectingId(null);
 
@@ -62,7 +62,7 @@ export function TemplateSelectionStep({
             return;
         }
 
-        onSelected();
+        onSelected(template);
     };
 
     return (
@@ -98,7 +98,7 @@ export function TemplateSelectionStep({
                             type="button"
                             data-testid={`kiosk-template-${template.id}`}
                             disabled={selectingId !== null}
-                            onClick={() => choose(template.id)}
+                            onClick={() => choose(template)}
                             className="flex flex-col items-center gap-2 rounded-xl border border-white/20 bg-white/5 p-3 text-center transition hover:bg-white/10 disabled:pointer-events-none disabled:opacity-50"
                         >
                             {template.thumbnailPath ? (
