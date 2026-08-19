@@ -1,0 +1,114 @@
+<?php
+
+use App\Enums\PhotoboothSessionStatus;
+use App\Models\CapturedMedia;
+use App\Models\PhotoboothSession;
+use App\Models\PhotoTemplate;
+use App\Models\StickerDesign;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Intervention\Image\ImageManager;
+
+function imagecreatetruecolorPng(): string
+{
+    $image = imagecreatetruecolor(200, 200);
+    imagefill($image, 0, 0, imagecolorallocate($image, 200, 50, 50));
+    ob_start();
+    imagepng($image);
+    imagedestroy($image);
+
+    return ob_get_clean();
+}
+
+test('composing the final color photo advances the session and persists the color path', function () {
+    Storage::fake('public');
+
+    $sticker = StickerDesign::factory()->create(['asset_path' => 'stickers/party-hat.png']);
+    Storage::disk('public')->put($sticker->asset_path, imagecreatetruecolorPng());
+
+    $template = PhotoTemplate::factory()->create([
+        'photo_slots' => 2,
+        'layout_config' => [
+            'slots' => [
+                ['slot' => 1, 'x' => 0, 'y' => 0, 'width' => 50, 'height' => 50],
+                ['slot' => 2, 'x' => 50, 'y' => 0, 'width' => 50, 'height' => 50],
+            ],
+        ],
+        'print_width_mm' => 100,
+        'print_height_mm' => 50,
+    ]);
+
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Customizing,
+        'photo_template_id' => $template->id,
+        'sticker_design_id' => $sticker->id,
+    ]);
+
+    $photo = 'data:image/png;base64,'.base64_encode(imagecreatetruecolorPng());
+
+    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photos' => [$photo, $photo],
+    ]);
+
+    $response->assertOk();
+    $response->assertJson(['status' => PhotoboothSessionStatus::Processing->value]);
+
+    $session->refresh();
+    expect($session->status)->toBe(PhotoboothSessionStatus::Processing);
+
+    $capturedMedia = CapturedMedia::where('photobooth_session_id', $session->id)->first();
+
+    expect($capturedMedia)->not->toBeNull()
+        ->and($capturedMedia->color_path)->not->toBeNull();
+
+    Storage::disk('public')->assertExists($capturedMedia->color_path);
+
+    $composite = app(ImageManager::class)->decode(Storage::disk('public')->get($capturedMedia->color_path));
+
+    expect($composite->width())->toBeGreaterThan(0)
+        ->and($composite->height())->toBeGreaterThan(0);
+});
+
+test('composing the final color photo without enough confirmed photos is rejected', function () {
+    Storage::fake('public');
+
+    $template = PhotoTemplate::factory()->create(['photo_slots' => 2]);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Customizing,
+        'photo_template_id' => $template->id,
+    ]);
+
+    $photo = 'data:image/png;base64,'.base64_encode(imagecreatetruecolorPng());
+
+    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photos' => [$photo],
+    ]);
+
+    $response->assertStatus(422);
+
+    expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Customizing);
+    expect(CapturedMedia::where('photobooth_session_id', $session->id)->exists())->toBeFalse();
+});
+
+test('composing the final color photo before a template has been chosen is rejected', function () {
+    Storage::fake('public');
+
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Paid,
+        'photo_template_id' => null,
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photos' => ['data:image/png;base64,'.base64_encode(imagecreatetruecolorPng())],
+    ]);
+
+    $response->assertStatus(422);
+});
+
+test('composing the final color photo for an unknown session returns not found', function () {
+    $response = $this->postJson(route('kiosk.sessions.color-output.store', (string) Str::uuid()), [
+        'photos' => ['data:image/png;base64,'.base64_encode(imagecreatetruecolorPng())],
+    ]);
+
+    $response->assertNotFound();
+});

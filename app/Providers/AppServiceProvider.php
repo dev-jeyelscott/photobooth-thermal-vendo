@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
+use Intervention\Image\ImageManager;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -15,7 +18,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ImageManager::class, fn (): ImageManager => new ImageManager(
+            config('image.driver') === 'imagick' ? new ImagickDriver : new GdDriver,
+        ));
     }
 
     /**
