@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ColorCompositionController;
+use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\MayaWebhookController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PhotoboothSessionController;
@@ -50,6 +51,8 @@ Route::post('kiosk/sessions/{sessionToken}/preview', [PreviewController::class, 
 Route::post('kiosk/sessions/{sessionToken}/color-output', [ColorCompositionController::class, 'store'])
     ->whereUuid('sessionToken')
     ->name('kiosk.sessions.color-output.store');
+
+Route::get('gallery/{capturedMedia:public_token}', [GalleryController::class, 'show'])->name('gallery.show');
 
 Route::post('webhooks/maya', [MayaWebhookController::class, 'handle'])->name('webhooks.maya');
 
