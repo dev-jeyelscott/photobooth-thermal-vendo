@@ -17,7 +17,17 @@ class GalleryController extends Controller
      */
     public function show(CapturedMedia $capturedMedia): Response
     {
+        if ($capturedMedia->isExpired()) {
+            return Inertia::render('gallery', [
+                'expired' => true,
+                'colorUrl' => null,
+                'bwUrl' => null,
+                'gifUrl' => null,
+            ]);
+        }
+
         return Inertia::render('gallery', [
+            'expired' => false,
             'colorUrl' => $capturedMedia->color_path ? Storage::disk('public')->url($capturedMedia->color_path) : null,
             'bwUrl' => $capturedMedia->bw_path ? Storage::disk('public')->url($capturedMedia->bw_path) : null,
             'gifUrl' => $capturedMedia->gif_path ? Storage::disk('public')->url($capturedMedia->gif_path) : null,

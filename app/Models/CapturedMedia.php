@@ -61,6 +61,14 @@ class CapturedMedia extends Model
     }
 
     /**
+     * Determine whether this media is past its expiration timestamp.
+     */
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    /**
      * @return BelongsTo<PhotoboothSession, $this>
      */
     public function photoboothSession(): BelongsTo

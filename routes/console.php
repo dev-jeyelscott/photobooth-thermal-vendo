@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('photobooth:expire-sessions')->everyMinute();
+Schedule::command('media:prune-expired')->hourly();

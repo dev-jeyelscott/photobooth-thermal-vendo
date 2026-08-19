@@ -11,11 +11,35 @@ export default function Gallery({
     colorUrl,
     bwUrl,
     gifUrl,
+    expired,
 }: {
     colorUrl: string | null;
     bwUrl: string | null;
     gifUrl: string | null;
+    expired?: boolean;
 }) {
+    if (expired) {
+        return (
+            <>
+                <Head title="Gallery Expired" />
+                <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] px-4 py-8 text-white">
+                    <div className="mx-auto max-w-md text-center">
+                        <h1 className="text-2xl font-semibold">
+                            This gallery has expired
+                        </h1>
+                        <p
+                            data-testid="gallery-expired"
+                            className="mt-2 text-sm text-neutral-400"
+                        >
+                            These photos are no longer available for
+                            download.
+                        </p>
+                    </div>
+                </div>
+            </>
+        );
+    }
+
     const assets: GalleryAsset[] = [
         colorUrl
             ? { label: 'Color Photo', url: colorUrl, filename: 'photo-color.jpg' }

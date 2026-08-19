@@ -62,4 +62,17 @@ return [
 
     'gif_frame_duration_seconds' => env('PHOTOBOOTH_GIF_FRAME_DURATION_SECONDS', 0.5),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Gallery Media Expiration
+    |--------------------------------------------------------------------------
+    |
+    | Number of hours a customer gallery and its underlying captured media
+    | remain available after being generated before they are eligible for
+    | cleanup.
+    |
+    */
+
+    'gallery_expiration_hours' => env('PHOTOBOOTH_GALLERY_EXPIRATION_HOURS', 168),
+
 ];

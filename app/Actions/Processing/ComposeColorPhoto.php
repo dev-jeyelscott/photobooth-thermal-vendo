@@ -85,7 +85,12 @@ class ComposeColorPhoto
 
         return $session->capturedMedia()->updateOrCreate(
             ['photobooth_session_id' => $session->id],
-            ['color_path' => $colorPath, 'bw_path' => $bwPath, 'gif_path' => $gifPath],
+            [
+                'color_path' => $colorPath,
+                'bw_path' => $bwPath,
+                'gif_path' => $gifPath,
+                'expires_at' => now()->addHours((int) config('photobooth.gallery_expiration_hours')),
+            ],
         );
     }
 }
