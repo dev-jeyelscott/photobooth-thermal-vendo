@@ -7,6 +7,7 @@ import {
     index as listTemplates,
     store as selectTemplateId,
 } from '@/actions/App/Http/Controllers/PhotoTemplateController';
+import { store as confirmSessionPreview } from '@/actions/App/Http/Controllers/PreviewController';
 import {
     index as listStickers,
     store as selectStickerId,
@@ -247,6 +248,41 @@ export function usePhotoboothSession() {
         [session],
     );
 
+    const confirmPreview = useCallback(async (): Promise<
+        { ok: true } | { ok: false; message: string }
+    > => {
+        if (!session) {
+            return { ok: false, message: 'No active session.' };
+        }
+
+        const response = await fetch(
+            confirmSessionPreview.url(session.sessionToken),
+            {
+                method: 'post',
+                headers: {
+                    Accept: 'application/json',
+                    'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                },
+            },
+        );
+
+        const body = (await response.json()) as {
+            status?: string;
+            message?: string;
+        };
+
+        if (!response.ok) {
+            return {
+                ok: false,
+                message: body.message ?? 'This preview could not be confirmed.',
+            };
+        }
+
+        setSession({ ...session, status: body.status ?? session.status });
+
+        return { ok: true };
+    }, [session]);
+
     useEffect(() => {
         const token = readStoredToken();
 
@@ -280,5 +316,6 @@ export function usePhotoboothSession() {
         selectTemplate,
         fetchStickers,
         selectSticker,
+        confirmPreview,
     };
 }

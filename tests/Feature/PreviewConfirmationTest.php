@@ -1,0 +1,87 @@
+<?php
+
+use App\Enums\PhotoboothSessionStatus;
+use App\Models\PhotoboothSession;
+use App\Models\PhotoTemplate;
+use App\Models\StickerDesign;
+use Illuminate\Support\Str;
+
+test('confirming the preview advances a template-selected session to processing', function () {
+    $template = PhotoTemplate::factory()->create();
+    $sticker = StickerDesign::factory()->create();
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::TemplateSelected,
+        'photo_template_id' => $template->id,
+        'sticker_design_id' => $sticker->id,
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.preview.store', $session->session_token));
+
+    $response->assertOk();
+    $response->assertJson(['status' => PhotoboothSessionStatus::Processing->value]);
+
+    expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Processing);
+});
+
+test('confirming the preview advances a customizing session to processing', function () {
+    $template = PhotoTemplate::factory()->create();
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Customizing,
+        'photo_template_id' => $template->id,
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.preview.store', $session->session_token));
+
+    $response->assertOk();
+    $response->assertJson(['status' => PhotoboothSessionStatus::Processing->value]);
+
+    expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Processing);
+});
+
+test('confirming the preview before a template has been chosen is rejected', function () {
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Paid,
+        'photo_template_id' => null,
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.preview.store', $session->session_token));
+
+    $response->assertStatus(422);
+
+    expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Paid);
+});
+
+test('confirming the preview on a session already past processing is rejected', function () {
+    $template = PhotoTemplate::factory()->create();
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Printing,
+        'photo_template_id' => $template->id,
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.preview.store', $session->session_token));
+
+    $response->assertStatus(422);
+
+    expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Printing);
+});
+
+test('confirming the preview on an expired session is rejected', function () {
+    $template = PhotoTemplate::factory()->create();
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::TemplateSelected,
+        'photo_template_id' => $template->id,
+        'expires_at' => now()->subMinute(),
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.preview.store', $session->session_token));
+
+    $response->assertStatus(422);
+
+    expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Expired);
+});
+
+test('confirming the preview for an unknown session returns not found', function () {
+    $response = $this->postJson(route('kiosk.sessions.preview.store', (string) Str::uuid()));
+
+    $response->assertNotFound();
+});

@@ -2,12 +2,16 @@ import { Head } from '@inertiajs/react';
 import { QrCode, Ticket } from 'lucide-react';
 import { useState } from 'react';
 import { CaptureStep } from '@/components/capture-step';
+import { PreviewStep } from '@/components/preview-step';
 import { StickerSelectionStep } from '@/components/sticker-selection-step';
 import { TemplateSelectionStep } from '@/components/template-selection-step';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useIdleTimer } from '@/hooks/use-idle-timer';
-import type { PhotoTemplateOption } from '@/hooks/use-photobooth-session';
+import type {
+    PhotoTemplateOption,
+    StickerDesignOption,
+} from '@/hooks/use-photobooth-session';
 import { usePhotoboothSession } from '@/hooks/use-photobooth-session';
 
 type KioskStep =
@@ -17,7 +21,9 @@ type KioskStep =
     | 'select-template'
     | 'capture'
     | 'captured'
-    | 'select-sticker';
+    | 'select-sticker'
+    | 'preview'
+    | 'processing';
 
 const DEFAULT_IDLE_TIMEOUT_SECONDS = 60;
 const DEFAULT_CAPTURE_SHOT_COUNT = 3;
@@ -39,6 +45,8 @@ export default function Kiosk({
     const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
     const [selectedTemplate, setSelectedTemplate] =
         useState<PhotoTemplateOption | null>(null);
+    const [selectedSticker, setSelectedSticker] =
+        useState<StickerDesignOption | null>(null);
     const { isIdle, resetTimer } = useIdleTimer(idleTimeoutSeconds * 1000);
     const {
         session,
@@ -49,6 +57,7 @@ export default function Kiosk({
         selectTemplate,
         fetchStickers,
         selectSticker,
+        confirmPreview,
     } = usePhotoboothSession();
 
     // Abandoned sessions reset back to the start screen once the customer goes idle.
@@ -60,6 +69,7 @@ export default function Kiosk({
         setVoucherError(null);
         setCapturedPhotos([]);
         setSelectedTemplate(null);
+        setSelectedSticker(null);
         resetTimer();
     };
 
@@ -338,8 +348,58 @@ export default function Kiosk({
                             selectedTemplate?.thumbnailPath ?? null
                         }
                         onActivity={resetTimer}
-                        onContinue={startOver}
+                        onContinue={(sticker) => {
+                            setSelectedSticker(sticker);
+                            setStep('preview');
+                            resetTimer();
+                        }}
                     />
+                )}
+
+                {activeStep === 'preview' && selectedTemplate && (
+                    <PreviewStep
+                        capturedPhotos={capturedPhotos}
+                        template={selectedTemplate}
+                        sticker={selectedSticker}
+                        confirmPreview={confirmPreview}
+                        onActivity={resetTimer}
+                        onRetakePhotos={() => {
+                            setCapturedPhotos([]);
+                            setStep('capture');
+                            resetTimer();
+                        }}
+                        onChangeSticker={() => {
+                            setStep('select-sticker');
+                            resetTimer();
+                        }}
+                        onConfirmed={() => {
+                            setStep('processing');
+                            resetTimer();
+                        }}
+                    />
+                )}
+
+                {activeStep === 'processing' && (
+                    <div
+                        data-testid="kiosk-processing"
+                        className="flex w-full max-w-2xl flex-col items-center gap-4 text-center sm:gap-6"
+                    >
+                        <h2 className="text-2xl font-semibold sm:text-3xl">
+                            Processing Your Photos
+                        </h2>
+                        <p className="text-sm text-neutral-300 sm:text-base">
+                            Your final print is being prepared. This screen
+                            will reset automatically if left idle.
+                        </p>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="lg"
+                            onClick={startOver}
+                        >
+                            Back to Start
+                        </Button>
+                    </div>
                 )}
 
                 {isIdle && (

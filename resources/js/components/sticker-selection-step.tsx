@@ -22,7 +22,7 @@ export function StickerSelectionStep({
         stickerDesignId: number,
     ) => Promise<{ ok: true } | { ok: false; message: string }>;
     templatePreviewPath: string | null;
-    onContinue: () => void;
+    onContinue: (sticker: StickerDesignOption) => void;
     onActivity: () => void;
 }) {
     const [stickers, setStickers] = useState<StickerDesignOption[]>([]);
@@ -216,8 +216,12 @@ export function StickerSelectionStep({
                 size="lg"
                 disabled={!selectedSticker || isSaving}
                 onClick={() => {
+                    if (!selectedSticker) {
+                        return;
+                    }
+
                     onActivity();
-                    onContinue();
+                    onContinue(selectedSticker);
                 }}
             >
                 Continue
