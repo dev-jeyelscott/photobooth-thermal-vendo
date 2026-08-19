@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -26,7 +27,12 @@ const ERROR_MESSAGES: Record<CameraErrorReason, string> = {
  * When more than one camera is available, a selector lets the customer pick
  * which one to use for the rest of the session.
  */
-export function CameraPreview() {
+export function CameraPreview({
+    videoRef: externalVideoRef,
+}: {
+    /** Exposes the underlying <video> element to callers that need to capture frames from it. */
+    videoRef?: RefObject<HTMLVideoElement | null>;
+} = {}) {
     const {
         stream,
         error,
@@ -36,7 +42,8 @@ export function CameraPreview() {
         stop,
         selectDevice,
     } = useCamera();
-    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const internalVideoRef = useRef<HTMLVideoElement | null>(null);
+    const videoRef = externalVideoRef ?? internalVideoRef;
 
     useEffect(() => {
         void start();
@@ -51,7 +58,7 @@ export function CameraPreview() {
         if (videoRef.current) {
             videoRef.current.srcObject = stream;
         }
-    }, [stream]);
+    }, [stream, videoRef]);
 
     if (error) {
         return (

@@ -10,6 +10,8 @@ Route::inertia('/', 'welcome')->name('home');
 
 Route::inertia('kiosk', 'kiosk', [
     'idleTimeoutSeconds' => config('photobooth.kiosk_idle_timeout_seconds'),
+    'captureShotCount' => config('photobooth.capture_shot_count'),
+    'captureRetakeLimit' => config('photobooth.capture_retake_limit'),
 ])->name('kiosk');
 
 Route::post('kiosk/sessions', [PhotoboothSessionController::class, 'store'])->name('kiosk.sessions.store');

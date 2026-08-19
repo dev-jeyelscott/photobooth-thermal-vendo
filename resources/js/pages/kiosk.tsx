@@ -1,24 +1,33 @@
 import { Head } from '@inertiajs/react';
 import { QrCode, Ticket } from 'lucide-react';
 import { useState } from 'react';
+import { CaptureStep } from '@/components/capture-step';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useIdleTimer } from '@/hooks/use-idle-timer';
 import { usePhotoboothSession } from '@/hooks/use-photobooth-session';
 
-type KioskStep = 'welcome' | 'pay-via-qr' | 'enter-voucher';
+type KioskStep =
+    'welcome' | 'pay-via-qr' | 'enter-voucher' | 'capture' | 'captured';
 
 const DEFAULT_IDLE_TIMEOUT_SECONDS = 60;
+const DEFAULT_CAPTURE_SHOT_COUNT = 3;
+const DEFAULT_CAPTURE_RETAKE_LIMIT = 2;
 
 export default function Kiosk({
     idleTimeoutSeconds = DEFAULT_IDLE_TIMEOUT_SECONDS,
+    captureShotCount = DEFAULT_CAPTURE_SHOT_COUNT,
+    captureRetakeLimit = DEFAULT_CAPTURE_RETAKE_LIMIT,
 }: {
     idleTimeoutSeconds?: number;
+    captureShotCount?: number;
+    captureRetakeLimit?: number;
 }) {
     const [step, setStep] = useState<KioskStep>('welcome');
     const [voucherCode, setVoucherCode] = useState('');
     const [voucherError, setVoucherError] = useState<string | null>(null);
     const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
+    const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
     const { isIdle, resetTimer } = useIdleTimer(idleTimeoutSeconds * 1000);
     const { session, startSession, isResuming, redeemVoucher } =
         usePhotoboothSession();
@@ -30,6 +39,7 @@ export default function Kiosk({
         setStep('welcome');
         setVoucherCode('');
         setVoucherError(null);
+        setCapturedPhotos([]);
         resetTimer();
     };
 
@@ -53,6 +63,7 @@ export default function Kiosk({
             return;
         }
 
+        setStep('capture');
         resetTimer();
     };
 
@@ -217,6 +228,52 @@ export default function Kiosk({
                                 Redeem Voucher
                             </Button>
                         </form>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="lg"
+                            onClick={startOver}
+                        >
+                            Back to Start
+                        </Button>
+                    </div>
+                )}
+
+                {activeStep === 'capture' && (
+                    <CaptureStep
+                        shotCount={captureShotCount}
+                        retakeLimit={captureRetakeLimit}
+                        onActivity={resetTimer}
+                        onComplete={(photos) => {
+                            setCapturedPhotos(photos);
+                            setStep('captured');
+                            resetTimer();
+                        }}
+                    />
+                )}
+
+                {activeStep === 'captured' && (
+                    <div
+                        data-testid="kiosk-captured"
+                        className="flex w-full max-w-2xl flex-col items-center gap-4 text-center sm:gap-6"
+                    >
+                        <h2 className="text-2xl font-semibold sm:text-3xl">
+                            All Shots Captured
+                        </h2>
+                        <p className="text-sm text-neutral-300 sm:text-base">
+                            Great shots! Choose a sticker and preview your
+                            photos next.
+                        </p>
+                        <div className="grid w-full grid-cols-3 gap-2">
+                            {capturedPhotos.map((photo, index) => (
+                                <img
+                                    key={index}
+                                    src={photo}
+                                    alt={`Captured shot ${index + 1}`}
+                                    className="aspect-video w-full rounded-lg object-cover"
+                                />
+                            ))}
+                        </div>
                         <Button
                             type="button"
                             variant="secondary"

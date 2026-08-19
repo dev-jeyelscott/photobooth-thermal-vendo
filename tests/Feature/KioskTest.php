@@ -7,6 +7,8 @@ test('the kiosk start screen renders with its primary actions', function () {
     $response->assertInertia(fn ($page) => $page
         ->component('kiosk')
         ->has('idleTimeoutSeconds')
+        ->has('captureShotCount')
+        ->has('captureRetakeLimit')
     );
 });
 
