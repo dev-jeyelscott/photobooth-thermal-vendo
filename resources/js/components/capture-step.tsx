@@ -18,11 +18,13 @@ export function CaptureStep({
     retakeLimit,
     onComplete,
     onActivity,
+    onExit,
 }: {
     shotCount: number;
     retakeLimit: number;
     onComplete: (photos: string[]) => void;
     onActivity: () => void;
+    onExit?: () => void;
 }) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -147,7 +149,7 @@ export function CaptureStep({
             </h2>
 
             <div className="relative w-full">
-                <CameraPreview videoRef={videoRef} />
+                <CameraPreview videoRef={videoRef} onBackToStart={onExit} />
 
                 {phase === 'countdown' && (
                     <div

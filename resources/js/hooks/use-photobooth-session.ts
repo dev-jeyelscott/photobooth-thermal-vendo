@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { store as composeColorOutput } from '@/actions/App/Http/Controllers/ColorCompositionController';
+import { store as createPaymentCheckout } from '@/actions/App/Http/Controllers/PaymentController';
 import {
     show,
     store,
@@ -17,12 +18,20 @@ import { store as redeemVoucherCode } from '@/actions/App/Http/Controllers/Vouch
 
 const STORAGE_KEY = 'photobooth.session_token';
 
+/** Returned as the failure message whenever a kiosk request never reaches the server. */
+export const NETWORK_ERROR_MESSAGE =
+    'We lost connection to the server. Please check the network and try again.';
+
 export type PhotoboothSession = {
     sessionToken: string;
     status: string;
     startedAt: string;
     expiresAt: string;
+    paymentStatus: string | null;
+    printJobStatus: string | null;
 };
+
+type ActionFailure = { ok: false; message: string; expired: boolean };
 
 export type PhotoTemplateOption = {
     id: number;
@@ -99,42 +108,45 @@ export function usePhotoboothSession() {
     }, []);
 
     const redeemVoucher = useCallback(
-        async (
-            code: string,
-        ): Promise<{ ok: true } | { ok: false; message: string }> => {
+        async (code: string): Promise<{ ok: true } | ActionFailure> => {
             if (!session) {
-                return { ok: false, message: 'No active session.' };
+                return { ok: false, message: 'No active session.', expired: false };
             }
 
-            const response = await fetch(
-                redeemVoucherCode.url(session.sessionToken),
-                {
-                    method: 'post',
-                    headers: {
-                        Accept: 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-XSRF-TOKEN': readXsrfToken() ?? '',
+            try {
+                const response = await fetch(
+                    redeemVoucherCode.url(session.sessionToken),
+                    {
+                        method: 'post',
+                        headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                        },
+                        body: JSON.stringify({ code }),
                     },
-                    body: JSON.stringify({ code }),
-                },
-            );
+                );
 
-            const body = (await response.json()) as {
-                status?: string;
-                message?: string;
-            };
-
-            if (!response.ok) {
-                return {
-                    ok: false,
-                    message:
-                        body.message ?? 'This voucher could not be redeemed.',
+                const body = (await response.json()) as {
+                    status?: string;
+                    message?: string;
                 };
+
+                if (!response.ok) {
+                    return {
+                        ok: false,
+                        message:
+                            body.message ?? 'This voucher could not be redeemed.',
+                        expired: body.status === 'expired',
+                    };
+                }
+
+                setSession({ ...session, status: body.status ?? session.status });
+
+                return { ok: true };
+            } catch {
+                return { ok: false, message: NETWORK_ERROR_MESSAGE, expired: false };
             }
-
-            setSession({ ...session, status: body.status ?? session.status });
-
-            return { ok: true };
         },
         [session],
     );
@@ -156,40 +168,45 @@ export function usePhotoboothSession() {
     const selectTemplate = useCallback(
         async (
             photoTemplateId: number,
-        ): Promise<{ ok: true } | { ok: false; message: string }> => {
+        ): Promise<{ ok: true } | ActionFailure> => {
             if (!session) {
-                return { ok: false, message: 'No active session.' };
+                return { ok: false, message: 'No active session.', expired: false };
             }
 
-            const response = await fetch(
-                selectTemplateId.url(session.sessionToken),
-                {
-                    method: 'post',
-                    headers: {
-                        Accept: 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-XSRF-TOKEN': readXsrfToken() ?? '',
+            try {
+                const response = await fetch(
+                    selectTemplateId.url(session.sessionToken),
+                    {
+                        method: 'post',
+                        headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                        },
+                        body: JSON.stringify({ photoTemplateId }),
                     },
-                    body: JSON.stringify({ photoTemplateId }),
-                },
-            );
+                );
 
-            const body = (await response.json()) as {
-                status?: string;
-                message?: string;
-            };
-
-            if (!response.ok) {
-                return {
-                    ok: false,
-                    message:
-                        body.message ?? 'This template could not be selected.',
+                const body = (await response.json()) as {
+                    status?: string;
+                    message?: string;
                 };
+
+                if (!response.ok) {
+                    return {
+                        ok: false,
+                        message:
+                            body.message ?? 'This template could not be selected.',
+                        expired: body.status === 'expired',
+                    };
+                }
+
+                setSession({ ...session, status: body.status ?? session.status });
+
+                return { ok: true };
+            } catch {
+                return { ok: false, message: NETWORK_ERROR_MESSAGE, expired: false };
             }
-
-            setSession({ ...session, status: body.status ?? session.status });
-
-            return { ok: true };
         },
         [session],
     );
@@ -211,21 +228,65 @@ export function usePhotoboothSession() {
     const selectSticker = useCallback(
         async (
             stickerDesignId: number,
-        ): Promise<{ ok: true } | { ok: false; message: string }> => {
+        ): Promise<{ ok: true } | ActionFailure> => {
             if (!session) {
-                return { ok: false, message: 'No active session.' };
+                return { ok: false, message: 'No active session.', expired: false };
             }
 
+            try {
+                const response = await fetch(
+                    selectStickerId.url(session.sessionToken),
+                    {
+                        method: 'post',
+                        headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                        },
+                        body: JSON.stringify({ stickerDesignId }),
+                    },
+                );
+
+                const body = (await response.json()) as {
+                    status?: string;
+                    message?: string;
+                };
+
+                if (!response.ok) {
+                    return {
+                        ok: false,
+                        message:
+                            body.message ?? 'This sticker could not be selected.',
+                        expired: body.status === 'expired',
+                    };
+                }
+
+                setSession({ ...session, status: body.status ?? session.status });
+
+                return { ok: true };
+            } catch {
+                return { ok: false, message: NETWORK_ERROR_MESSAGE, expired: false };
+            }
+        },
+        [session],
+    );
+
+    const confirmPreview = useCallback(async (): Promise<
+        { ok: true } | ActionFailure
+    > => {
+        if (!session) {
+            return { ok: false, message: 'No active session.', expired: false };
+        }
+
+        try {
             const response = await fetch(
-                selectStickerId.url(session.sessionToken),
+                confirmSessionPreview.url(session.sessionToken),
                 {
                     method: 'post',
                     headers: {
                         Accept: 'application/json',
-                        'Content-Type': 'application/json',
                         'X-XSRF-TOKEN': readXsrfToken() ?? '',
                     },
-                    body: JSON.stringify({ stickerDesignId }),
                 },
             );
 
@@ -237,96 +298,132 @@ export function usePhotoboothSession() {
             if (!response.ok) {
                 return {
                     ok: false,
-                    message:
-                        body.message ?? 'This sticker could not be selected.',
+                    message: body.message ?? 'This preview could not be confirmed.',
+                    expired: body.status === 'expired',
                 };
             }
 
             setSession({ ...session, status: body.status ?? session.status });
 
             return { ok: true };
-        },
-        [session],
-    );
-
-    const confirmPreview = useCallback(async (): Promise<
-        { ok: true } | { ok: false; message: string }
-    > => {
-        if (!session) {
-            return { ok: false, message: 'No active session.' };
+        } catch {
+            return { ok: false, message: NETWORK_ERROR_MESSAGE, expired: false };
         }
-
-        const response = await fetch(
-            confirmSessionPreview.url(session.sessionToken),
-            {
-                method: 'post',
-                headers: {
-                    Accept: 'application/json',
-                    'X-XSRF-TOKEN': readXsrfToken() ?? '',
-                },
-            },
-        );
-
-        const body = (await response.json()) as {
-            status?: string;
-            message?: string;
-        };
-
-        if (!response.ok) {
-            return {
-                ok: false,
-                message: body.message ?? 'This preview could not be confirmed.',
-            };
-        }
-
-        setSession({ ...session, status: body.status ?? session.status });
-
-        return { ok: true };
     }, [session]);
 
     const composeFinalOutput = useCallback(
         async (
             photos: string[],
         ): Promise<
-            { ok: true; galleryToken: string } | { ok: false; message: string }
+            { ok: true; galleryToken: string } | ActionFailure
         > => {
             if (!session) {
-                return { ok: false, message: 'No active session.' };
+                return { ok: false, message: 'No active session.', expired: false };
             }
 
-            const response = await fetch(
-                composeColorOutput.url(session.sessionToken),
-                {
-                    method: 'post',
-                    headers: {
-                        Accept: 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-XSRF-TOKEN': readXsrfToken() ?? '',
+            try {
+                const response = await fetch(
+                    composeColorOutput.url(session.sessionToken),
+                    {
+                        method: 'post',
+                        headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                        },
+                        body: JSON.stringify({ photos }),
                     },
-                    body: JSON.stringify({ photos }),
-                },
-            );
+                );
 
-            const body = (await response.json()) as {
-                status?: string;
-                galleryToken?: string;
-                message?: string;
-            };
-
-            if (!response.ok || !body.galleryToken) {
-                return {
-                    ok: false,
-                    message:
-                        body.message ?? 'This session could not be processed.',
+                const body = (await response.json()) as {
+                    status?: string;
+                    galleryToken?: string;
+                    message?: string;
                 };
+
+                if (!response.ok || !body.galleryToken) {
+                    return {
+                        ok: false,
+                        message:
+                            body.message ?? 'This session could not be processed.',
+                        expired: body.status === 'expired',
+                    };
+                }
+
+                setSession({ ...session, status: body.status ?? session.status });
+
+                return { ok: true, galleryToken: body.galleryToken };
+            } catch {
+                return { ok: false, message: NETWORK_ERROR_MESSAGE, expired: false };
             }
-
-            setSession({ ...session, status: body.status ?? session.status });
-
-            return { ok: true, galleryToken: body.galleryToken };
         },
         [session],
     );
+
+    const createPayment = useCallback(async (): Promise<
+        { ok: true; checkoutUrl: string } | ActionFailure
+    > => {
+        if (!session) {
+            return { ok: false, message: 'No active session.', expired: false };
+        }
+
+        try {
+            const response = await fetch(createPaymentCheckout.url(session.sessionToken), {
+                method: 'post',
+                headers: {
+                    Accept: 'application/json',
+                    'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                },
+            });
+
+            const body = (await response.json()) as {
+                checkoutUrl?: string;
+                message?: string;
+            };
+
+            if (!response.ok || !body.checkoutUrl) {
+                return {
+                    ok: false,
+                    message: body.message ?? 'This payment could not be started.',
+                    expired: false,
+                };
+            }
+
+            return { ok: true, checkoutUrl: body.checkoutUrl };
+        } catch {
+            return { ok: false, message: NETWORK_ERROR_MESSAGE, expired: false };
+        }
+    }, [session]);
+
+    const refreshSession = useCallback(async (): Promise<
+        PhotoboothSession | null
+    > => {
+        if (!session) {
+            return null;
+        }
+
+        try {
+            const response = await fetch(show.url(session.sessionToken), {
+                headers: { Accept: 'application/json' },
+            });
+
+            if (!response.ok) {
+                if (response.status === 410) {
+                    setSession({ ...session, status: 'expired' });
+                }
+
+                return null;
+            }
+
+            const refreshed = (await response.json()) as PhotoboothSession;
+
+            setSession(refreshed);
+
+            return refreshed;
+        } catch {
+            return null;
+        }
+    }, [session]);
 
     useEffect(() => {
         const token = readStoredToken();
@@ -363,5 +460,7 @@ export function usePhotoboothSession() {
         selectSticker,
         confirmPreview,
         composeFinalOutput,
+        createPayment,
+        refreshSession,
     };
 }

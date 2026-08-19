@@ -1,5 +1,9 @@
 <?php
 
+use App\Enums\PhotoboothSessionStatus;
+use App\Models\PhotoboothSession;
+use App\Models\Voucher;
+
 test('the kiosk start screen renders with its primary actions', function () {
     $response = $this->get(route('kiosk'));
 
@@ -38,4 +42,97 @@ test('the idle timer responds to both touch and mouse activity', function () {
         ->and($idleTimer)->toContain("'keydown'")
         ->and($idleTimer)->toContain("'wheel'")
         ->and($idleTimer)->not->toContain('ontouchstart');
+});
+
+test('an invalid voucher redemption returns a customer-safe, sanitized error without mutating the session', function () {
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+
+    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        'code' => 'DOES-NOT-EXIST',
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJson([
+        'message' => 'This voucher code is invalid or can no longer be used.',
+        'status' => PhotoboothSessionStatus::New->value,
+    ]);
+
+    expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::New);
+});
+
+test('redeeming a valid voucher against an expired session reports the expired status instead of unlocking it', function () {
+    $voucher = Voucher::factory()->create(['usage_limit' => 1, 'usage_count' => 0]);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::New,
+        'expires_at' => now()->subMinute(),
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        'code' => $voucher->code,
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJson(['status' => PhotoboothSessionStatus::Expired->value]);
+
+    expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Expired)
+        ->and($voucher->fresh()->usage_count)->toBe(0);
+});
+
+test('resuming an expired session is sanitized and reports no active session', function () {
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::TemplateSelected,
+        'expires_at' => now()->subMinute(),
+    ]);
+
+    $response = $this->getJson(route('kiosk.sessions.show', $session->session_token));
+
+    $response->assertStatus(410);
+    $response->assertExactJson(['message' => 'Session is no longer active.']);
+
+    expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Expired);
+});
+
+test('an active session exposes payment and print job status alongside the session status', function () {
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+
+    $response = $this->getJson(route('kiosk.sessions.show', $session->session_token));
+
+    $response->assertOk();
+    $response->assertJsonStructure(['sessionToken', 'status', 'startedAt', 'expiresAt', 'paymentStatus', 'printJobStatus']);
+    $response->assertJson(['paymentStatus' => null, 'printJobStatus' => null]);
+});
+
+test('the kiosk wires a shared error-state component for every required failure scenario', function () {
+    $kiosk = file_get_contents(resource_path('js/pages/kiosk.tsx'));
+    $errorState = file_get_contents(resource_path('js/components/kiosk-error-state.tsx'));
+
+    expect($kiosk)->toContain('KioskErrorState')
+        ->and($kiosk)->toContain("raiseKioskError('expired-session')")
+        ->and($kiosk)->toContain("raiseKioskError('invalid-voucher'")
+        ->and($kiosk)->toContain("raiseKioskError('payment-failed'")
+        ->and($kiosk)->toContain("raiseKioskError('payment-timeout'")
+        ->and($kiosk)->toContain("raiseKioskError('processing-failure'")
+        ->and($kiosk)->toContain('kind="print-failure"')
+        ->and($kiosk)->toContain("raiseKioskError('network-interruption'");
+
+    foreach ([
+        'no-camera-permission',
+        'camera-unavailable',
+        'payment-timeout',
+        'payment-failed',
+        'invalid-voucher',
+        'processing-failure',
+        'print-failure',
+        'network-interruption',
+        'expired-session',
+    ] as $kind) {
+        expect($errorState)->toContain("'{$kind}'");
+    }
+});
+
+test('a kiosk error state blocks progression by replacing the active step instead of layering over it', function () {
+    $kiosk = file_get_contents(resource_path('js/pages/kiosk.tsx'));
+
+    expect($kiosk)->toContain('showKioskError')
+        ->and($kiosk)->toContain('!showKioskError &&');
 });

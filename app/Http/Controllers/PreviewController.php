@@ -22,7 +22,10 @@ class PreviewController extends Controller
         $confirmed = $confirmSessionPreview->handle($session);
 
         if (! $confirmed) {
-            return response()->json(['message' => 'This preview could not be confirmed for the current session.'], 422);
+            return response()->json([
+                'message' => 'This preview could not be confirmed for the current session.',
+                'status' => $session->fresh()->status->value,
+            ], 422);
         }
 
         return response()->json([

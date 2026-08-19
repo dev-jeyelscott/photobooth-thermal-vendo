@@ -52,6 +52,8 @@ class PhotoboothSessionController extends Controller
             'status' => $session->status->value,
             'startedAt' => $session->started_at,
             'expiresAt' => $session->expires_at,
+            'paymentStatus' => $session->payment?->status->value,
+            'printJobStatus' => $session->printJob?->status->value,
         ];
     }
 }

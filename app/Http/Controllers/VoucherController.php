@@ -27,7 +27,10 @@ class VoucherController extends Controller
         $voucher = $redeemVoucher->handle($session, $validated['code']);
 
         if ($voucher === null) {
-            return response()->json(['message' => 'This voucher code is invalid or can no longer be used.'], 422);
+            return response()->json([
+                'message' => 'This voucher code is invalid or can no longer be used.',
+                'status' => $session->fresh()->status->value,
+            ], 422);
         }
 
         return response()->json([

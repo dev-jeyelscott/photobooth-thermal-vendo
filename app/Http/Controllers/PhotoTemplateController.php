@@ -49,7 +49,10 @@ class PhotoTemplateController extends Controller
         $selected = $selectPhotoTemplate->handle($session, $validated['photoTemplateId']);
 
         if (! $selected) {
-            return response()->json(['message' => 'This template could not be selected for the current session.'], 422);
+            return response()->json([
+                'message' => 'This template could not be selected for the current session.',
+                'status' => $session->fresh()->status->value,
+            ], 422);
         }
 
         return response()->json([

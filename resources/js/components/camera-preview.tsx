@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
-import { Button } from '@/components/ui/button';
+import type { KioskErrorKind } from '@/components/kiosk-error-state';
+import { KioskErrorState } from '@/components/kiosk-error-state';
 import {
     Select,
     SelectContent,
@@ -11,15 +12,10 @@ import {
 import type { CameraErrorReason } from '@/hooks/use-camera';
 import { useCamera } from '@/hooks/use-camera';
 
-const ERROR_MESSAGES: Record<CameraErrorReason, string> = {
-    'permission-denied':
-        'Camera access was denied. Please allow camera access and try again.',
-    'not-found': 'No camera was found on this device.',
-    'in-use': 'The camera is currently in use by another application.',
-    disconnected:
-        'The camera was disconnected. Please reconnect a camera and try again.',
-    unknown: 'The camera could not be started. Please try again.',
-};
+const cameraErrorKind = (reason: CameraErrorReason): KioskErrorKind =>
+    reason === 'permission-denied'
+        ? 'no-camera-permission'
+        : 'camera-unavailable';
 
 /**
  * Live camera preview backed by useCamera. Starts the stream on mount and
@@ -29,9 +25,11 @@ const ERROR_MESSAGES: Record<CameraErrorReason, string> = {
  */
 export function CameraPreview({
     videoRef: externalVideoRef,
+    onBackToStart,
 }: {
     /** Exposes the underlying <video> element to callers that need to capture frames from it. */
     videoRef?: RefObject<HTMLVideoElement | null>;
+    onBackToStart?: () => void;
 } = {}) {
     const {
         stream,
@@ -62,21 +60,11 @@ export function CameraPreview({
 
     if (error) {
         return (
-            <div
-                data-testid="camera-preview-error"
-                className="flex flex-col items-center gap-3 text-center"
-            >
-                <p role="alert" className="text-sm text-red-400">
-                    {ERROR_MESSAGES[error]}
-                </p>
-                <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => start()}
-                >
-                    Retry
-                </Button>
-            </div>
+            <KioskErrorState
+                kind={cameraErrorKind(error)}
+                onRetry={() => start()}
+                onBackToStart={onBackToStart ?? (() => start())}
+            />
         );
     }
 

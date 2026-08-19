@@ -12,11 +12,16 @@ class RedeemVoucher
     /**
      * Redeem the voucher matching the given code for the given photobooth session.
      *
-     * Returns null when the voucher does not exist, is inactive, expired, or exhausted,
-     * in which case neither the voucher nor the session is mutated.
+     * Returns null when the session is expired, or the voucher does not exist, is
+     * inactive, expired, or exhausted, in which case neither the voucher nor the
+     * session is mutated.
      */
     public function handle(PhotoboothSession $session, string $code): ?Voucher
     {
+        if ($session->expireIfPast()) {
+            return null;
+        }
+
         return DB::transaction(function () use ($session, $code) {
             $voucher = Voucher::where('code', $code)->lockForUpdate()->first();
 

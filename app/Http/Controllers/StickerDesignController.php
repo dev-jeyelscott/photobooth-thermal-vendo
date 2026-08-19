@@ -46,7 +46,10 @@ class StickerDesignController extends Controller
         $selected = $selectStickerDesign->handle($session, $validated['stickerDesignId']);
 
         if (! $selected) {
-            return response()->json(['message' => 'This sticker could not be selected for the current session.'], 422);
+            return response()->json([
+                'message' => 'This sticker could not be selected for the current session.',
+                'status' => $session->fresh()->status->value,
+            ], 422);
         }
 
         return response()->json([

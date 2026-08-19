@@ -30,6 +30,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Payment Timeout
+    |--------------------------------------------------------------------------
+    |
+    | Number of seconds the kiosk waits for a Maya QR payment to complete
+    | before surfacing a payment-timeout error to the customer.
+    |
+    */
+
+    'payment_timeout_seconds' => env('PHOTOBOOTH_PAYMENT_TIMEOUT_SECONDS', 120),
+
+    /*
+    |--------------------------------------------------------------------------
     | Capture Shot Count
     |--------------------------------------------------------------------------
     |
