@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\SessionMonitorController;
+use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\StickerController;
 use App\Http\Controllers\Admin\TemplateController;
 use App\Http\Controllers\Admin\VoucherController;
@@ -17,4 +18,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::patch('vouchers/{voucher}/toggle', [VoucherController::class, 'toggle'])->name('vouchers.toggle');
 
     Route::get('sessions', [SessionMonitorController::class, 'index'])->name('sessions.index');
+
+    Route::get('settings', [SettingController::class, 'edit'])->name('settings.edit');
+    Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
 });

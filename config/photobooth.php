@@ -133,4 +133,79 @@ return [
 
     'receipt_include_session_info' => env('PHOTOBOOTH_RECEIPT_INCLUDE_SESSION_INFO', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Session Price
+    |--------------------------------------------------------------------------
+    |
+    | The default price, in PHP, charged for a single photobooth session
+    | when no ApplicationSetting override has been configured by an admin.
+    |
+    */
+
+    'session_price' => env('PHOTOBOOTH_SESSION_PRICE', 20.00),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Retake Limit
+    |--------------------------------------------------------------------------
+    |
+    | Default number of retakes a customer may take per shot, used when no
+    | ApplicationSetting override has been configured by an admin.
+    |
+    */
+
+    'retake_limit' => env('PHOTOBOOTH_RETAKE_LIMIT', 2),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Timeout
+    |--------------------------------------------------------------------------
+    |
+    | Default number of seconds a photobooth session remains valid before it
+    | is automatically expired, used when no ApplicationSetting override has
+    | been configured by an admin.
+    |
+    */
+
+    'session_timeout_seconds' => env('PHOTOBOOTH_SESSION_TIMEOUT_SECONDS', 900),
+
+    /*
+    |--------------------------------------------------------------------------
+    | GIF Frame Duration (Milliseconds)
+    |--------------------------------------------------------------------------
+    |
+    | Default number of milliseconds each captured photo is displayed for in
+    | the animated GIF, used when no ApplicationSetting override has been
+    | configured by an admin.
+    |
+    */
+
+    'gif_frame_duration_ms' => env('PHOTOBOOTH_GIF_FRAME_DURATION_MS', 500),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Printer
+    |--------------------------------------------------------------------------
+    |
+    | The default thermal printer used when no ApplicationSetting override
+    | has been configured by an admin.
+    |
+    */
+
+    'default_printer' => env('PHOTOBOOTH_DEFAULT_PRINTER', 'local_mock'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Booth Display Name
+    |--------------------------------------------------------------------------
+    |
+    | The default name shown on the kiosk and receipts to identify this
+    | photobooth, used when no ApplicationSetting override has been
+    | configured by an admin.
+    |
+    */
+
+    'booth_display_name' => env('PHOTOBOOTH_BOOTH_DISPLAY_NAME', 'Photobooth'),
+
 ];
