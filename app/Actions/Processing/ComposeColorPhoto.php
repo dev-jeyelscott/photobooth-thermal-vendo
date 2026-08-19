@@ -6,6 +6,7 @@ use App\Enums\PhotoboothSessionStatus;
 use App\Models\CapturedMedia;
 use App\Models\PhotoboothSession;
 use App\Services\ColorCompositionService;
+use App\Services\GifCompositionService;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Encoders\JpegEncoder;
 
@@ -13,13 +14,17 @@ class ComposeColorPhoto
 {
     private const JPEG_QUALITY = 92;
 
-    public function __construct(private readonly ColorCompositionService $colorComposition) {}
+    public function __construct(
+        private readonly ColorCompositionService $colorComposition,
+        private readonly GifCompositionService $gifComposition,
+    ) {}
 
     /**
      * Compose the session's confirmed captured photos into the final color
-     * print and a grayscale, thermal-print-optimized derivative of the same
-     * composition, advancing the session to Processing and persisting the
-     * result paths to captured_media.color_path and captured_media.bw_path.
+     * print, a grayscale thermal-print-optimized derivative, and an animated
+     * GIF for digital delivery, advancing the session to Processing and
+     * persisting the result paths to captured_media.color_path,
+     * captured_media.bw_path, and captured_media.gif_path.
      *
      * Returns null when the session is expired, has no template selected,
      * is not in a state that can reach Processing, or too few photos were
@@ -56,9 +61,11 @@ class ComposeColorPhoto
 
         $composite = $this->colorComposition->compose($template, $photos, $session->stickerDesign);
         $blackAndWhite = $this->colorComposition->toBlackAndWhite($composite);
+        $gif = $this->gifComposition->compose($photos, (float) config('photobooth.gif_frame_duration_seconds'));
 
         $colorPath = 'captures/'.$session->session_token.'-color.jpg';
         $bwPath = 'captures/'.$session->session_token.'-bw.jpg';
+        $gifPath = 'captures/'.$session->session_token.'-animation.gif';
 
         Storage::disk('public')->put(
             $colorPath,
@@ -70,13 +77,15 @@ class ComposeColorPhoto
             (string) $blackAndWhite->encode(new JpegEncoder(quality: self::JPEG_QUALITY)),
         );
 
+        Storage::disk('public')->put($gifPath, (string) $gif);
+
         while ($session->status !== PhotoboothSessionStatus::Processing) {
             $session->transitionTo($session->status->next());
         }
 
         return $session->capturedMedia()->updateOrCreate(
             ['photobooth_session_id' => $session->id],
-            ['color_path' => $colorPath, 'bw_path' => $bwPath],
+            ['color_path' => $colorPath, 'bw_path' => $bwPath, 'gif_path' => $gifPath],
         );
     }
 }

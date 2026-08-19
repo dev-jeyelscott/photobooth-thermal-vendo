@@ -36,6 +36,7 @@ class ColorCompositionController extends Controller
             'status' => $session->fresh()->status->value,
             'colorPath' => $capturedMedia->color_path,
             'bwPath' => $capturedMedia->bw_path,
+            'gifPath' => $capturedMedia->gif_path,
         ]);
     }
 }

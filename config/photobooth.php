@@ -50,4 +50,16 @@ return [
 
     'capture_retake_limit' => env('PHOTOBOOTH_CAPTURE_RETAKE_LIMIT', 2),
 
+    /*
+    |--------------------------------------------------------------------------
+    | GIF Frame Duration
+    |--------------------------------------------------------------------------
+    |
+    | Number of seconds each captured photo is displayed for in the animated
+    | GIF generated for digital delivery.
+    |
+    */
+
+    'gif_frame_duration_seconds' => env('PHOTOBOOTH_GIF_FRAME_DURATION_SECONDS', 0.5),
+
 ];
