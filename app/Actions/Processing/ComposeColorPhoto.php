@@ -2,6 +2,7 @@
 
 namespace App\Actions\Processing;
 
+use App\Actions\Printing\CreatePrintJob;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\CapturedMedia;
 use App\Models\PhotoboothSession;
@@ -17,6 +18,7 @@ class ComposeColorPhoto
     public function __construct(
         private readonly ColorCompositionService $colorComposition,
         private readonly GifCompositionService $gifComposition,
+        private readonly CreatePrintJob $createPrintJob,
     ) {}
 
     /**
@@ -83,7 +85,7 @@ class ComposeColorPhoto
             $session->transitionTo($session->status->next());
         }
 
-        return $session->capturedMedia()->updateOrCreate(
+        $capturedMedia = $session->capturedMedia()->updateOrCreate(
             ['photobooth_session_id' => $session->id],
             [
                 'color_path' => $colorPath,
@@ -92,5 +94,11 @@ class ComposeColorPhoto
                 'expires_at' => now()->addHours((int) config('photobooth.gallery_expiration_hours')),
             ],
         );
+
+        if (! $session->printJob()->exists()) {
+            $this->createPrintJob->handle($session, $bwPath);
+        }
+
+        return $capturedMedia;
     }
 }

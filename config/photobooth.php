@@ -1,5 +1,7 @@
 <?php
 
+use App\Services\Printing\LocalMockPrinterDriver;
+
 return [
 
     /*
@@ -74,5 +76,23 @@ return [
     */
 
     'gallery_expiration_hours' => env('PHOTOBOOTH_GALLERY_EXPIRATION_HOURS', 168),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Printer Driver
+    |--------------------------------------------------------------------------
+    |
+    | The printer driver used to dispatch print jobs to a thermal printer.
+    | Keys map to fully-qualified App\Services\Printing driver classes,
+    | allowing a future network or print-bridge driver to be substituted
+    | without changing application code.
+    |
+    */
+
+    'default_printer_driver' => env('PHOTOBOOTH_DEFAULT_PRINTER_DRIVER', 'local_mock'),
+
+    'printer_drivers' => [
+        'local_mock' => LocalMockPrinterDriver::class,
+    ],
 
 ];
