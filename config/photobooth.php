@@ -95,4 +95,42 @@ return [
         'local_mock' => LocalMockPrinterDriver::class,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Receipt Print Width
+    |--------------------------------------------------------------------------
+    |
+    | Target width, in pixels, that rendered receipt output is scaled to
+    | before thresholding. Common thermal printer widths are 384px (58mm
+    | paper) and 576px (80mm paper).
+    |
+    */
+
+    'receipt_printer_width_px' => env('PHOTOBOOTH_RECEIPT_PRINTER_WIDTH_PX', 384),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Receipt Threshold
+    |--------------------------------------------------------------------------
+    |
+    | Luminance value (0-255) above which a pixel is rendered pure white and
+    | below which it is rendered pure black, matching the binary tonal range
+    | thermal printer heads can reproduce.
+    |
+    */
+
+    'receipt_threshold' => env('PHOTOBOOTH_RECEIPT_THRESHOLD', 128),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Receipt Include Session Info
+    |--------------------------------------------------------------------------
+    |
+    | Whether the rendered receipt output appends a footer with the session
+    | reference and date, giving the customer a printed lookup reference.
+    |
+    */
+
+    'receipt_include_session_info' => env('PHOTOBOOTH_RECEIPT_INCLUDE_SESSION_INFO', true),
+
 ];
