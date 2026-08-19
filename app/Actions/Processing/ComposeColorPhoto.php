@@ -96,7 +96,7 @@ class ComposeColorPhoto
         );
 
         if (! $session->printJob()->exists()) {
-            $this->createPrintJob->handle($session, $bwPath);
+            $this->createPrintJob->handle($session);
         }
 
         return $capturedMedia;

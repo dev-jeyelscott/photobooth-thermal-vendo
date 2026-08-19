@@ -2,9 +2,11 @@
 
 use App\Enums\PhotoboothSessionStatus;
 use App\Enums\PrintJobStatus;
+use App\Jobs\ProcessPrintJob;
 use App\Models\PhotoboothSession;
 use App\Models\PhotoTemplate;
 use App\Models\PrintJob;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 function printJobFixturePng(int $red): string
@@ -20,6 +22,7 @@ function printJobFixturePng(int $red): string
 
 test('composing the final output creates a pending print job for the session', function () {
     Storage::fake('public');
+    Queue::fake();
 
     $template = PhotoTemplate::factory()->create([
         'photo_slots' => 2,
@@ -54,4 +57,6 @@ test('composing the final output creates a pending print job for the session', f
     expect($printJob)->not->toBeNull()
         ->and($printJob->status)->toBe(PrintJobStatus::Pending)
         ->and($printJob->photobooth_session_id)->toBe($session->id);
+
+    Queue::assertPushed(ProcessPrintJob::class, fn (ProcessPrintJob $job): bool => $job->printJob->is($printJob));
 });
