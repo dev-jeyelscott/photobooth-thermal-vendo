@@ -37,6 +37,7 @@ class ColorCompositionController extends Controller
             'colorPath' => $capturedMedia->color_path,
             'bwPath' => $capturedMedia->bw_path,
             'gifPath' => $capturedMedia->gif_path,
+            'galleryToken' => $capturedMedia->public_token,
         ]);
     }
 }

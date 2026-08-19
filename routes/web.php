@@ -54,6 +54,8 @@ Route::post('kiosk/sessions/{sessionToken}/color-output', [ColorCompositionContr
 
 Route::get('gallery/{capturedMedia:public_token}', [GalleryController::class, 'show'])->name('gallery.show');
 
+Route::get('gallery/{capturedMedia:public_token}/qr-code', [GalleryController::class, 'qrCode'])->name('gallery.qr-code');
+
 Route::post('webhooks/maya', [MayaWebhookController::class, 'handle'])->name('webhooks.maya');
 
 Route::middleware(['auth', 'verified'])->group(function () {

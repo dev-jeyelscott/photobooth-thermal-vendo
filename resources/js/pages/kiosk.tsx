@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { QrCode, Ticket } from 'lucide-react';
 import { useState } from 'react';
+import { qrCode as galleryQrCode } from '@/actions/App/Http/Controllers/GalleryController';
 import { CaptureStep } from '@/components/capture-step';
 import { PreviewStep } from '@/components/preview-step';
 import { StickerSelectionStep } from '@/components/sticker-selection-step';
@@ -23,7 +24,8 @@ type KioskStep =
     | 'captured'
     | 'select-sticker'
     | 'preview'
-    | 'processing';
+    | 'processing'
+    | 'complete';
 
 const DEFAULT_IDLE_TIMEOUT_SECONDS = 60;
 const DEFAULT_CAPTURE_SHOT_COUNT = 3;
@@ -47,6 +49,8 @@ export default function Kiosk({
         useState<PhotoTemplateOption | null>(null);
     const [selectedSticker, setSelectedSticker] =
         useState<StickerDesignOption | null>(null);
+    const [galleryToken, setGalleryToken] = useState<string | null>(null);
+    const [processingError, setProcessingError] = useState<string | null>(null);
     const { isIdle, resetTimer } = useIdleTimer(idleTimeoutSeconds * 1000);
     const {
         session,
@@ -58,6 +62,7 @@ export default function Kiosk({
         fetchStickers,
         selectSticker,
         confirmPreview,
+        composeFinalOutput,
     } = usePhotoboothSession();
 
     // Abandoned sessions reset back to the start screen once the customer goes idle.
@@ -70,6 +75,24 @@ export default function Kiosk({
         setCapturedPhotos([]);
         setSelectedTemplate(null);
         setSelectedSticker(null);
+        setGalleryToken(null);
+        setProcessingError(null);
+        resetTimer();
+    };
+
+    const finalizeSession = async () => {
+        setProcessingError(null);
+
+        const result = await composeFinalOutput(capturedPhotos);
+
+        if (!result.ok) {
+            setProcessingError(result.message);
+
+            return;
+        }
+
+        setGalleryToken(result.galleryToken);
+        setStep('complete');
         resetTimer();
     };
 
@@ -375,6 +398,7 @@ export default function Kiosk({
                         onConfirmed={() => {
                             setStep('processing');
                             resetTimer();
+                            void finalizeSession();
                         }}
                     />
                 )}
@@ -388,9 +412,18 @@ export default function Kiosk({
                             Processing Your Photos
                         </h2>
                         <p className="text-sm text-neutral-300 sm:text-base">
-                            Your final print is being prepared. This screen
-                            will reset automatically if left idle.
+                            Your final print is being prepared. This screen will
+                            reset automatically if left idle.
                         </p>
+                        {processingError && (
+                            <p
+                                role="alert"
+                                data-testid="kiosk-processing-error"
+                                className="text-sm text-red-400"
+                            >
+                                {processingError}
+                            </p>
+                        )}
                         <Button
                             type="button"
                             variant="secondary"
@@ -398,6 +431,30 @@ export default function Kiosk({
                             onClick={startOver}
                         >
                             Back to Start
+                        </Button>
+                    </div>
+                )}
+
+                {activeStep === 'complete' && galleryToken && (
+                    <div
+                        data-testid="kiosk-complete"
+                        className="flex w-full max-w-md flex-col items-center gap-4 text-center sm:gap-6"
+                    >
+                        <h2 className="text-2xl font-semibold sm:text-3xl">
+                            All Done!
+                        </h2>
+                        <p className="text-sm text-neutral-300 sm:text-base">
+                            Scan the QR code with your phone to open your photo
+                            gallery on another device.
+                        </p>
+                        <img
+                            data-testid="kiosk-gallery-qr-code"
+                            src={galleryQrCode.url(galleryToken)}
+                            alt="QR code linking to your photo gallery"
+                            className="h-64 w-64 rounded-xl bg-white p-4 shadow-lg"
+                        />
+                        <Button type="button" size="lg" onClick={startOver}>
+                            Start a New Session
                         </Button>
                     </div>
                 )}

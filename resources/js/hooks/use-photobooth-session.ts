@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { store as composeColorOutput } from '@/actions/App/Http/Controllers/ColorCompositionController';
 import {
     show,
     store,
@@ -283,6 +284,50 @@ export function usePhotoboothSession() {
         return { ok: true };
     }, [session]);
 
+    const composeFinalOutput = useCallback(
+        async (
+            photos: string[],
+        ): Promise<
+            { ok: true; galleryToken: string } | { ok: false; message: string }
+        > => {
+            if (!session) {
+                return { ok: false, message: 'No active session.' };
+            }
+
+            const response = await fetch(
+                composeColorOutput.url(session.sessionToken),
+                {
+                    method: 'post',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                    },
+                    body: JSON.stringify({ photos }),
+                },
+            );
+
+            const body = (await response.json()) as {
+                status?: string;
+                galleryToken?: string;
+                message?: string;
+            };
+
+            if (!response.ok || !body.galleryToken) {
+                return {
+                    ok: false,
+                    message:
+                        body.message ?? 'This session could not be processed.',
+                };
+            }
+
+            setSession({ ...session, status: body.status ?? session.status });
+
+            return { ok: true, galleryToken: body.galleryToken };
+        },
+        [session],
+    );
+
     useEffect(() => {
         const token = readStoredToken();
 
@@ -317,5 +362,6 @@ export function usePhotoboothSession() {
         fetchStickers,
         selectSticker,
         confirmPreview,
+        composeFinalOutput,
     };
 }
