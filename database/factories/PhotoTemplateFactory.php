@@ -17,11 +17,24 @@ class PhotoTemplateFactory extends Factory
      */
     public function definition(): array
     {
+        $photoSlots = fake()->numberBetween(1, 4);
+
         return [
             'name' => fake()->sentence(2).' template',
             'layout_path' => 'templates/'.fake()->uuid().'.png',
             'thumbnail_path' => 'templates/thumbnails/'.fake()->uuid().'.png',
-            'photo_slots' => fake()->numberBetween(1, 4),
+            'photo_slots' => $photoSlots,
+            'layout_config' => [
+                'slots' => collect(range(1, $photoSlots))->map(fn (int $slot) => [
+                    'slot' => $slot,
+                    'x' => 0,
+                    'y' => ($slot - 1) * 100,
+                    'width' => 100,
+                    'height' => 100,
+                ])->all(),
+            ],
+            'print_width_mm' => 100,
+            'print_height_mm' => 150,
             'active' => true,
         ];
     }

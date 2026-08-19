@@ -3,6 +3,10 @@ import {
     show,
     store,
 } from '@/actions/App/Http/Controllers/PhotoboothSessionController';
+import {
+    index as listTemplates,
+    store as selectTemplateId,
+} from '@/actions/App/Http/Controllers/PhotoTemplateController';
 import { store as redeemVoucherCode } from '@/actions/App/Http/Controllers/VoucherController';
 
 const STORAGE_KEY = 'photobooth.session_token';
@@ -12,6 +16,16 @@ export type PhotoboothSession = {
     status: string;
     startedAt: string;
     expiresAt: string;
+};
+
+export type PhotoTemplateOption = {
+    id: number;
+    name: string;
+    thumbnailPath: string | null;
+    photoSlots: number;
+    layoutConfig: Record<string, unknown> | null;
+    printWidthMm: number;
+    printHeightMm: number;
 };
 
 const readStoredToken = (): string | null => {
@@ -112,6 +126,61 @@ export function usePhotoboothSession() {
         [session],
     );
 
+    const fetchTemplates = useCallback(async (): Promise<
+        PhotoTemplateOption[]
+    > => {
+        const response = await fetch(listTemplates.url(), {
+            headers: { Accept: 'application/json' },
+        });
+
+        const body = (await response.json()) as {
+            templates: PhotoTemplateOption[];
+        };
+
+        return body.templates;
+    }, []);
+
+    const selectTemplate = useCallback(
+        async (
+            photoTemplateId: number,
+        ): Promise<{ ok: true } | { ok: false; message: string }> => {
+            if (!session) {
+                return { ok: false, message: 'No active session.' };
+            }
+
+            const response = await fetch(
+                selectTemplateId.url(session.sessionToken),
+                {
+                    method: 'post',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                    },
+                    body: JSON.stringify({ photoTemplateId }),
+                },
+            );
+
+            const body = (await response.json()) as {
+                status?: string;
+                message?: string;
+            };
+
+            if (!response.ok) {
+                return {
+                    ok: false,
+                    message:
+                        body.message ?? 'This template could not be selected.',
+                };
+            }
+
+            setSession({ ...session, status: body.status ?? session.status });
+
+            return { ok: true };
+        },
+        [session],
+    );
+
     useEffect(() => {
         const token = readStoredToken();
 
@@ -136,5 +205,12 @@ export function usePhotoboothSession() {
             });
     }, []);
 
-    return { session, startSession, isResuming, redeemVoucher };
+    return {
+        session,
+        startSession,
+        isResuming,
+        redeemVoucher,
+        fetchTemplates,
+        selectTemplate,
+    };
 }

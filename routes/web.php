@@ -3,6 +3,7 @@
 use App\Http\Controllers\MayaWebhookController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PhotoboothSessionController;
+use App\Http\Controllers\PhotoTemplateController;
 use App\Http\Controllers\VoucherController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,12 @@ Route::post('kiosk/sessions/{sessionToken}/payments', [PaymentController::class,
 Route::post('kiosk/sessions/{sessionToken}/voucher', [VoucherController::class, 'store'])
     ->whereUuid('sessionToken')
     ->name('kiosk.sessions.voucher.store');
+
+Route::get('templates', [PhotoTemplateController::class, 'index'])->name('templates.index');
+
+Route::post('kiosk/sessions/{sessionToken}/template', [PhotoTemplateController::class, 'store'])
+    ->whereUuid('sessionToken')
+    ->name('kiosk.sessions.template.store');
 
 Route::post('webhooks/maya', [MayaWebhookController::class, 'handle'])->name('webhooks.maya');
 

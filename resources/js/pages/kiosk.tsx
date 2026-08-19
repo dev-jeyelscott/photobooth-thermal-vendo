@@ -2,13 +2,19 @@ import { Head } from '@inertiajs/react';
 import { QrCode, Ticket } from 'lucide-react';
 import { useState } from 'react';
 import { CaptureStep } from '@/components/capture-step';
+import { TemplateSelectionStep } from '@/components/template-selection-step';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useIdleTimer } from '@/hooks/use-idle-timer';
 import { usePhotoboothSession } from '@/hooks/use-photobooth-session';
 
 type KioskStep =
-    'welcome' | 'pay-via-qr' | 'enter-voucher' | 'capture' | 'captured';
+    | 'welcome'
+    | 'pay-via-qr'
+    | 'enter-voucher'
+    | 'select-template'
+    | 'capture'
+    | 'captured';
 
 const DEFAULT_IDLE_TIMEOUT_SECONDS = 60;
 const DEFAULT_CAPTURE_SHOT_COUNT = 3;
@@ -29,8 +35,14 @@ export default function Kiosk({
     const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
     const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
     const { isIdle, resetTimer } = useIdleTimer(idleTimeoutSeconds * 1000);
-    const { session, startSession, isResuming, redeemVoucher } =
-        usePhotoboothSession();
+    const {
+        session,
+        startSession,
+        isResuming,
+        redeemVoucher,
+        fetchTemplates,
+        selectTemplate,
+    } = usePhotoboothSession();
 
     // Abandoned sessions reset back to the start screen once the customer goes idle.
     const activeStep = isIdle ? 'welcome' : step;
@@ -63,7 +75,7 @@ export default function Kiosk({
             return;
         }
 
-        setStep('capture');
+        setStep('select-template');
         resetTimer();
     };
 
@@ -237,6 +249,18 @@ export default function Kiosk({
                             Back to Start
                         </Button>
                     </div>
+                )}
+
+                {activeStep === 'select-template' && (
+                    <TemplateSelectionStep
+                        fetchTemplates={fetchTemplates}
+                        selectTemplate={selectTemplate}
+                        onActivity={resetTimer}
+                        onSelected={() => {
+                            setStep('capture');
+                            resetTimer();
+                        }}
+                    />
                 )}
 
                 {activeStep === 'capture' && (
