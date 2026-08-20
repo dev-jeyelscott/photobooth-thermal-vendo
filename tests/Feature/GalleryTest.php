@@ -32,3 +32,41 @@ test('an unknown gallery token returns not found', function () {
 
     $response->assertNotFound();
 });
+
+test('an expired gallery token returns the expired state without serving media', function () {
+    Storage::fake('public');
+
+    $capturedMedia = CapturedMedia::factory()->create([
+        'expires_at' => now()->subDay(),
+    ]);
+
+    $response = $this->get(route('gallery.show', $capturedMedia->public_token));
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('gallery')
+        ->where('expired', true)
+        ->where('colorUrl', null)
+        ->where('bwUrl', null)
+        ->where('gifUrl', null)
+    );
+});
+
+test('gallery tokens are cryptographically random and do not leak sequential ids', function () {
+    $mediaItems = CapturedMedia::factory()->count(5)->create();
+
+    $tokens = $mediaItems->pluck('public_token');
+
+    expect($tokens->unique())->toHaveCount(5);
+
+    foreach ($tokens as $token) {
+        expect($token)->toHaveLength(32);
+        expect($token)->not->toMatch('/^\d+$/');
+    }
+
+    foreach ($mediaItems as $capturedMedia) {
+        expect($capturedMedia->public_token)->not->toBe((string) $capturedMedia->id);
+        expect($capturedMedia->public_token)->not->toBe((string) $capturedMedia->photobooth_session_id);
+        expect($capturedMedia->public_token)->not->toStartWith((string) $capturedMedia->id);
+    }
+});
