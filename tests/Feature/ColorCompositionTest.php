@@ -112,3 +112,37 @@ test('composing the final color photo for an unknown session returns not found',
 
     $response->assertNotFound();
 });
+
+test('composing the final color photo with a non-image payload is rejected', function () {
+    $template = PhotoTemplate::factory()->create(['photo_slots' => 1]);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Customizing,
+        'photo_template_id' => $template->id,
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photos' => ['not-an-image-payload'],
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors(['photos.0']);
+});
+
+test('composing the final color photo with an oversized photo is rejected', function () {
+    config(['photobooth.captured_photo_max_kilobytes' => 0]);
+
+    $template = PhotoTemplate::factory()->create(['photo_slots' => 1]);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Customizing,
+        'photo_template_id' => $template->id,
+    ]);
+
+    $photo = 'data:image/png;base64,'.base64_encode(imagecreatetruecolorPng());
+
+    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photos' => [$photo],
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors(['photos.0']);
+});

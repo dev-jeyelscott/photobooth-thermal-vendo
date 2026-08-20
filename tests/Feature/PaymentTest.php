@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PaymentStatus;
+use App\Enums\PhotoboothSessionStatus;
 use App\Models\ApplicationSetting;
 use App\Models\Payment;
 use App\Models\PhotoboothSession;
@@ -71,6 +72,26 @@ test('a new payment request is allowed once the prior payment has failed', funct
 
     $response->assertCreated();
     expect(Payment::count())->toBe(2);
+});
+
+test('a payment request for an already paid session is rejected without creating a payment', function () {
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Paid]);
+
+    $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+
+    $response->assertStatus(409);
+    expect(Payment::count())->toBe(0)
+        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Paid);
+});
+
+test('a payment request for a completed session is rejected without creating a payment', function () {
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Completed]);
+
+    $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+
+    $response->assertStatus(409);
+    expect(Payment::count())->toBe(0)
+        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Completed);
 });
 
 test('no maya secret key appears in the checkout response', function () {

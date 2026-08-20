@@ -220,4 +220,31 @@ return [
 
     'booth_display_name' => env('PHOTOBOOTH_BOOTH_DISPLAY_NAME', 'Photobooth'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Rate Limits
+    |--------------------------------------------------------------------------
+    |
+    | Per-minute request thresholds, keyed by client IP, applied via the
+    | `throttle` middleware to public-facing endpoints prone to abuse.
+    |
+    */
+
+    'rate_limits' => [
+        'payment_attempts_per_minute' => env('PHOTOBOOTH_PAYMENT_RATE_LIMIT_PER_MINUTE', 10),
+        'voucher_attempts_per_minute' => env('PHOTOBOOTH_VOUCHER_RATE_LIMIT_PER_MINUTE', 10),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Captured Photo Max Size
+    |--------------------------------------------------------------------------
+    |
+    | Maximum size, in kilobytes, allowed for each base64-encoded photo
+    | submitted when composing a session's final color output.
+    |
+    */
+
+    'captured_photo_max_kilobytes' => env('PHOTOBOOTH_CAPTURED_PHOTO_MAX_KILOBYTES', 8192),
+
 ];

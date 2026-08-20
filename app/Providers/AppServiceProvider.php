@@ -5,8 +5,11 @@ namespace App\Providers;
 use App\Services\Printing\LocalMockPrinterDriver;
 use App\Services\Printing\PrinterDriver;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
@@ -60,5 +63,21 @@ class AppServiceProvider extends ServiceProvider
                 ->uncompromised()
             : null,
         );
+
+        $this->configureRateLimiting();
+    }
+
+    /**
+     * Configure named rate limiters for public-facing photobooth endpoints.
+     */
+    protected function configureRateLimiting(): void
+    {
+        RateLimiter::for('payment-creation', fn (Request $request): Limit => Limit::perMinute(
+            (int) config('photobooth.rate_limits.payment_attempts_per_minute'),
+        )->by($request->ip()));
+
+        RateLimiter::for('voucher-redemption', fn (Request $request): Limit => Limit::perMinute(
+            (int) config('photobooth.rate_limits.voucher_attempts_per_minute'),
+        )->by($request->ip()));
     }
 }

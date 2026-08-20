@@ -65,6 +65,17 @@ test('an exhausted voucher is rejected without mutating usage_count or the sessi
         ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::New);
 });
 
+test('a voucher code with an invalid format is rejected', function () {
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+
+    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        'code' => '<script>alert(1)</script>',
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors(['code']);
+});
+
 test('an unknown voucher code is rejected', function () {
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 

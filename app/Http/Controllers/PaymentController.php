@@ -4,11 +4,24 @@ namespace App\Http\Controllers;
 
 use App\Actions\Payments\CreateMayaCheckout;
 use App\Enums\PaymentStatus;
+use App\Enums\PhotoboothSessionStatus;
 use App\Models\PhotoboothSession;
 use Illuminate\Http\JsonResponse;
 
 class PaymentController extends Controller
 {
+    /**
+     * Session statuses eligible for creating a new payment. A payment cannot
+     * be created once the session has already been paid for or progressed
+     * beyond the checkout step.
+     *
+     * @var list<PhotoboothSessionStatus>
+     */
+    private const PAYABLE_STATUSES = [
+        PhotoboothSessionStatus::New,
+        PhotoboothSessionStatus::PaymentPending,
+    ];
+
     /**
      * Create a Maya checkout session for the given photobooth session.
      */
@@ -18,6 +31,10 @@ class PaymentController extends Controller
 
         if (! $session) {
             return response()->json(['message' => 'Session not found.'], 404);
+        }
+
+        if ($session->expireIfPast() || ! in_array($session->status, self::PAYABLE_STATUSES, true)) {
+            return response()->json(['message' => 'A payment cannot be created for the current session state.'], 409);
         }
 
         $hasActivePayment = $session->payment()

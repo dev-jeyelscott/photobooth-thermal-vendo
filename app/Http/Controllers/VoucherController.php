@@ -3,16 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Vouchers\RedeemVoucher;
+use App\Http\Requests\RedeemVoucherRequest;
 use App\Models\PhotoboothSession;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class VoucherController extends Controller
 {
     /**
      * Redeem a voucher code to unlock the given photobooth session.
      */
-    public function store(string $sessionToken, Request $request, RedeemVoucher $redeemVoucher): JsonResponse
+    public function store(string $sessionToken, RedeemVoucherRequest $request, RedeemVoucher $redeemVoucher): JsonResponse
     {
         $session = PhotoboothSession::where('session_token', $sessionToken)->first();
 
@@ -20,11 +20,7 @@ class VoucherController extends Controller
             return response()->json(['message' => 'Session not found.'], 404);
         }
 
-        $validated = $request->validate([
-            'code' => ['required', 'string'],
-        ]);
-
-        $voucher = $redeemVoucher->handle($session, $validated['code']);
+        $voucher = $redeemVoucher->handle($session, $request->validated('code'));
 
         if ($voucher === null) {
             return response()->json([

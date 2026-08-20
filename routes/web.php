@@ -28,10 +28,12 @@ Route::get('kiosk/sessions/{sessionToken}', [PhotoboothSessionController::class,
 
 Route::post('kiosk/sessions/{sessionToken}/payments', [PaymentController::class, 'store'])
     ->whereUuid('sessionToken')
+    ->middleware('throttle:payment-creation')
     ->name('kiosk.sessions.payments.store');
 
 Route::post('kiosk/sessions/{sessionToken}/voucher', [VoucherController::class, 'store'])
     ->whereUuid('sessionToken')
+    ->middleware('throttle:voucher-redemption')
     ->name('kiosk.sessions.voucher.store');
 
 Route::get('templates', [PhotoTemplateController::class, 'index'])->name('templates.index');

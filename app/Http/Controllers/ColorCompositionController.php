@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Processing\ComposeColorPhoto;
+use App\Http\Requests\ComposeColorPhotoRequest;
 use App\Models\PhotoboothSession;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -15,7 +15,7 @@ class ColorCompositionController extends Controller
      * Compose the session's confirmed captured photos into the final color
      * output once the customer confirms the preview.
      */
-    public function store(string $sessionToken, Request $request, ComposeColorPhoto $composeColorPhoto): JsonResponse
+    public function store(string $sessionToken, ComposeColorPhotoRequest $request, ComposeColorPhoto $composeColorPhoto): JsonResponse
     {
         $session = PhotoboothSession::where('session_token', $sessionToken)->first();
 
@@ -23,10 +23,7 @@ class ColorCompositionController extends Controller
             return response()->json(['message' => 'Session not found.'], 404);
         }
 
-        $validated = $request->validate([
-            'photos' => ['required', 'array', 'min:1'],
-            'photos.*' => ['required', 'string'],
-        ]);
+        $validated = $request->validated();
 
         try {
             $capturedMedia = $composeColorPhoto->handle($session, $validated['photos']);
