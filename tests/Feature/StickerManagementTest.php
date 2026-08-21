@@ -52,6 +52,53 @@ test('admin can create a sticker with asset and thumbnail', function () {
     Storage::disk('public')->assertExists($sticker->thumbnail_path);
 });
 
+test('admin can create a sticker with valid placement data', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post(route('admin.stickers.store'), [
+        'name' => 'Placed Sticker',
+        'asset' => UploadedFile::fake()->image('asset.png'),
+        'active' => '1',
+        'placement' => json_encode(['size_ratio' => 0.2, 'margin_ratio' => 0.05]),
+    ]);
+
+    $response->assertRedirect(route('admin.stickers.index'));
+
+    $sticker = StickerDesign::sole();
+    expect($sticker->placement)->toBe(['size_ratio' => 0.2, 'margin_ratio' => 0.05]);
+});
+
+test('sticker placement JSON that decodes to a scalar is rejected', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post(route('admin.stickers.store'), [
+        'name' => 'Bad Placement',
+        'asset' => UploadedFile::fake()->image('asset.png'),
+        'active' => '1',
+        'placement' => json_encode(true),
+    ]);
+
+    $response->assertSessionHasErrors('placement');
+    expect(StickerDesign::count())->toBe(0);
+});
+
+test('sticker placement JSON with non-numeric ratios is rejected', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post(route('admin.stickers.store'), [
+        'name' => 'Bad Ratio',
+        'asset' => UploadedFile::fake()->image('asset.png'),
+        'active' => '1',
+        'placement' => json_encode(['size_ratio' => 'huge']),
+    ]);
+
+    $response->assertSessionHasErrors('placement');
+    expect(StickerDesign::count())->toBe(0);
+});
+
 test('admin can edit a sticker and replace its asset', function () {
     Storage::fake('public');
     $user = User::factory()->create();
