@@ -29,6 +29,17 @@ const listVideoInputDevices = async (): Promise<MediaDeviceInfo[]> => {
     return allDevices.filter((device) => device.kind === 'videoinput');
 };
 
+const buildVideoConstraints = (deviceId?: string): MediaTrackConstraints => ({
+    ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: 'user' } }),
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    aspectRatio: { ideal: 16 / 9 },
+});
+
+const buildRelaxedVideoConstraints = (
+    deviceId?: string,
+): MediaTrackConstraints | boolean => (deviceId ? { deviceId } : true);
+
 /**
  * Wraps navigator.mediaDevices.getUserMedia for a live camera preview,
  * exposing the active stream and any permission/device error, while
@@ -72,9 +83,24 @@ export function useCamera() {
         setError(null);
 
         try {
-            const mediaStream = await navigator.mediaDevices.getUserMedia({
-                video: deviceId ? { deviceId: { exact: deviceId } } : true,
-            });
+            let mediaStream: MediaStream;
+
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: buildVideoConstraints(deviceId),
+                });
+            } catch (constraintError) {
+                if (
+                    !(constraintError instanceof DOMException) ||
+                    constraintError.name !== 'OverconstrainedError'
+                ) {
+                    throw constraintError;
+                }
+
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: buildRelaxedVideoConstraints(deviceId),
+                });
+            }
 
             streamRef.current = mediaStream;
             setStream(mediaStream);
