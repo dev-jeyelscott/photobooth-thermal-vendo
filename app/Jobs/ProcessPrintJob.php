@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\PhotoboothSessionStatus;
 use App\Enums\PrintJobStatus;
 use App\Models\PrintJob;
 use App\Services\Printing\PrinterDriver;
@@ -11,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -40,10 +42,14 @@ class ProcessPrintJob implements ShouldQueue
 
             $printerDriver->send($this->printJob, $receiptPath);
 
-            $this->printJob->update([
-                'status' => PrintJobStatus::Printed,
-                'completed_at' => now(),
-            ]);
+            DB::transaction(function (): void {
+                $this->printJob->update([
+                    'status' => PrintJobStatus::Printed,
+                    'completed_at' => now(),
+                ]);
+
+                $this->printJob->photoboothSession->transitionTo(PhotoboothSessionStatus::Completed);
+            });
         } catch (Throwable $exception) {
             $this->printJob->update([
                 'status' => PrintJobStatus::Failed,

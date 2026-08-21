@@ -5,6 +5,7 @@ use App\Models\CapturedMedia;
 use App\Models\PhotoboothSession;
 use App\Models\PhotoTemplate;
 use App\Models\StickerDesign;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
@@ -22,6 +23,7 @@ function imagecreatetruecolorPng(): string
 
 test('composing the final color photo advances the session and persists the color path', function () {
     Storage::fake('public');
+    Queue::fake();
 
     $sticker = StickerDesign::factory()->create(['asset_path' => 'stickers/party-hat.png']);
     Storage::disk('public')->put($sticker->asset_path, imagecreatetruecolorPng());
@@ -51,10 +53,10 @@ test('composing the final color photo advances the session and persists the colo
     ]);
 
     $response->assertOk();
-    $response->assertJson(['status' => PhotoboothSessionStatus::Processing->value]);
+    $response->assertJson(['status' => PhotoboothSessionStatus::Printing->value]);
 
     $session->refresh();
-    expect($session->status)->toBe(PhotoboothSessionStatus::Processing);
+    expect($session->status)->toBe(PhotoboothSessionStatus::Printing);
 
     $capturedMedia = CapturedMedia::where('photobooth_session_id', $session->id)->first();
 

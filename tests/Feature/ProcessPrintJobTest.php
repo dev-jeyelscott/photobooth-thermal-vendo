@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PhotoboothSessionStatus;
 use App\Enums\PrintJobStatus;
 use App\Jobs\ProcessPrintJob;
 use App\Models\CapturedMedia;
@@ -24,7 +25,9 @@ function processPrintJobFixturePng(): string
 
 function makePrintableSession(): PrintJob
 {
-    $session = PhotoboothSession::factory()->create();
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Printing,
+    ]);
 
     CapturedMedia::factory()->create([
         'photobooth_session_id' => $session->id,
@@ -47,7 +50,25 @@ test('a successful print run transitions pending through printing to printed', f
     expect($printJob->status)->toBe(PrintJobStatus::Printed)
         ->and($printJob->attempt_count)->toBe(1)
         ->and($printJob->completed_at)->not->toBeNull()
-        ->and($printJob->last_error)->toBeNull();
+        ->and($printJob->last_error)->toBeNull()
+        ->and($printJob->photoboothSession->fresh()->status)->toBe(PhotoboothSessionStatus::Completed);
+});
+
+test('a failure completing the session leaves the print job and session state unchanged', function () {
+    Storage::fake('public');
+    $printJob = makePrintableSession();
+
+    $session = $printJob->photoboothSession;
+    $session->update(['status' => PhotoboothSessionStatus::Completed]);
+
+    (new ProcessPrintJob($printJob))->handle(app(PrinterDriver::class), app(ReceiptRenderer::class));
+
+    $printJob->refresh();
+
+    expect($printJob->status)->toBe(PrintJobStatus::Failed)
+        ->and($printJob->completed_at)->toBeNull()
+        ->and($printJob->last_error)->not->toBeNull()
+        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Completed);
 });
 
 test('a failing printer driver records the error and marks the job failed without throwing', function () {
