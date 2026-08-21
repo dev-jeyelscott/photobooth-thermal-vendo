@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\ColorCompositionController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\MayaWebhookController;
@@ -61,10 +60,6 @@ Route::get('gallery/{capturedMedia:public_token}', [GalleryController::class, 's
 Route::get('gallery/{capturedMedia:public_token}/qr-code', [GalleryController::class, 'qrCode'])->name('gallery.qr-code');
 
 Route::post('webhooks/maya', [MayaWebhookController::class, 'handle'])->name('webhooks.maya');
-
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
-});
 
 require __DIR__.'/settings.php';
 require __DIR__.'/admin.php';

@@ -1,9 +1,8 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, setLayoutProps } from '@inertiajs/react';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import AppLayout from '@/layouts/app-layout';
 import { index as sessionsIndex } from '@/routes/admin/sessions';
 
 type Payment = {
@@ -51,10 +50,12 @@ export default function SessionsIndex({
     filters: Filters;
     statuses: string[];
 }) {
+    setLayoutProps({
+        breadcrumbs: [{ title: 'Sessions', href: sessionsIndex() }],
+    });
+
     return (
-        <AppLayout
-            breadcrumbs={[{ title: 'Sessions', href: sessionsIndex() }]}
-        >
+        <>
             <Head title="Sessions" />
 
             <div className="flex flex-col gap-6 p-4">
@@ -150,7 +151,8 @@ export default function SessionsIndex({
                                         {session.payment ? (
                                             <div className="flex flex-col">
                                                 <span>
-                                                    {session.payment.method} &middot;{' '}
+                                                    {session.payment.method}{' '}
+                                                    &middot;{' '}
                                                     {session.payment.status}
                                                 </span>
                                                 <span className="text-muted-foreground">
@@ -221,6 +223,6 @@ export default function SessionsIndex({
                     </div>
                 </div>
             </div>
-        </AppLayout>
+        </>
     );
 }

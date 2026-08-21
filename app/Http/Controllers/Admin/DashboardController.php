@@ -23,7 +23,7 @@ class DashboardController extends Controller
         $today = [Carbon::now()->startOfDay(), Carbon::now()->endOfDay()];
         $month = [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()];
 
-        return Inertia::render('dashboard', [
+        return Inertia::render('admin/dashboard', [
             'summary' => [
                 'today' => $this->completedSessionStats($today),
                 'thisMonth' => $this->completedSessionStats($month),

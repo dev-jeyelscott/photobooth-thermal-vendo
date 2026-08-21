@@ -1,11 +1,10 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, setLayoutProps } from '@inertiajs/react';
 import SettingController from '@/actions/App/Http/Controllers/Admin/SettingController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
 import { edit } from '@/routes/admin/settings';
 
 type Settings = {
@@ -19,8 +18,12 @@ type Settings = {
 };
 
 export default function SettingsEdit({ settings }: { settings: Settings }) {
+    setLayoutProps({
+        breadcrumbs: [{ title: 'Settings', href: edit() }],
+    });
+
     return (
-        <AppLayout breadcrumbs={[{ title: 'Settings', href: edit() }]}>
+        <>
             <Head title="System settings" />
 
             <div className="flex flex-col gap-6 p-4">
@@ -159,6 +162,6 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                     )}
                 </Form>
             </div>
-        </AppLayout>
+        </>
     );
 }

@@ -1,5 +1,14 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import {
+    BookOpen,
+    FolderGit2,
+    Images,
+    LayoutGrid,
+    Monitor,
+    Settings,
+    Sticker,
+    Ticket,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -13,14 +22,49 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
+import { dashboard } from '@/routes/admin';
+import { index as sessionsIndex } from '@/routes/admin/sessions';
+import { edit as settingsEdit } from '@/routes/admin/settings';
+import { index as stickersIndex } from '@/routes/admin/stickers';
+import { index as templatesIndex } from '@/routes/admin/templates';
+import { index as vouchersIndex } from '@/routes/admin/vouchers';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+export const adminNavigationItems: NavItem[] = [
     {
         title: 'Dashboard',
         href: dashboard(),
         icon: LayoutGrid,
+    },
+    {
+        title: 'Templates',
+        href: templatesIndex(),
+        icon: Images,
+        matches: 'prefix',
+    },
+    {
+        title: 'Stickers',
+        href: stickersIndex(),
+        icon: Sticker,
+        matches: 'prefix',
+    },
+    {
+        title: 'Vouchers',
+        href: vouchersIndex(),
+        icon: Ticket,
+        matches: 'prefix',
+    },
+    {
+        title: 'Sessions',
+        href: sessionsIndex(),
+        icon: Monitor,
+        matches: 'prefix',
+    },
+    {
+        title: 'System settings',
+        href: settingsEdit(),
+        icon: Settings,
+        matches: 'prefix',
     },
 ];
 
@@ -53,7 +97,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={adminNavigationItems} />
             </SidebarContent>
 
             <SidebarFooter>

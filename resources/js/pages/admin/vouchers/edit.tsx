@@ -1,7 +1,6 @@
-import { Head } from '@inertiajs/react';
+import { Head, setLayoutProps } from '@inertiajs/react';
 import VoucherController from '@/actions/App/Http/Controllers/Admin/VoucherController';
 import Heading from '@/components/heading';
-import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/admin/vouchers';
 import VoucherForm from './voucher-form';
 
@@ -15,16 +14,18 @@ type Voucher = {
 };
 
 export default function VouchersEdit({ voucher }: { voucher: Voucher }) {
+    setLayoutProps({
+        breadcrumbs: [
+            { title: 'Vouchers', href: index() },
+            {
+                title: voucher.code,
+                href: VoucherController.edit(voucher.id).url,
+            },
+        ],
+    });
+
     return (
-        <AppLayout
-            breadcrumbs={[
-                { title: 'Vouchers', href: index() },
-                {
-                    title: voucher.code,
-                    href: VoucherController.edit(voucher.id).url,
-                },
-            ]}
-        >
+        <>
             <Head title={`Edit ${voucher.code}`} />
 
             <div className="flex flex-col gap-6 p-4">
@@ -38,6 +39,6 @@ export default function VouchersEdit({ voucher }: { voucher: Voucher }) {
                     voucher={voucher}
                 />
             </div>
-        </AppLayout>
+        </>
     );
 }

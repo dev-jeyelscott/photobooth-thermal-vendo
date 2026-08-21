@@ -1,4 +1,4 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, setLayoutProps } from '@inertiajs/react';
 import StickerController from '@/actions/App/Http/Controllers/Admin/StickerController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import AppLayout from '@/layouts/app-layout';
 import { create, index as stickersIndex } from '@/routes/admin/stickers';
 
 type Sticker = {
@@ -24,10 +23,12 @@ type Sticker = {
 };
 
 export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
+    setLayoutProps({
+        breadcrumbs: [{ title: 'Stickers', href: stickersIndex() }],
+    });
+
     return (
-        <AppLayout
-            breadcrumbs={[{ title: 'Stickers', href: stickersIndex() }]}
-        >
+        <>
             <Head title="Stickers" />
 
             <div className="flex flex-col gap-6 p-4">
@@ -68,9 +69,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                                 </span>
                                 <Badge
                                     variant={
-                                        sticker.active
-                                            ? 'default'
-                                            : 'secondary'
+                                        sticker.active ? 'default' : 'secondary'
                                     }
                                 >
                                     {sticker.active ? 'Active' : 'Inactive'}
@@ -119,10 +118,9 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                                             Delete "{sticker.name}"?
                                         </DialogTitle>
                                         <DialogDescription>
-                                            This cannot be undone. Stickers
-                                            that are still referenced by
-                                            photobooth sessions cannot be
-                                            deleted.
+                                            This cannot be undone. Stickers that
+                                            are still referenced by photobooth
+                                            sessions cannot be deleted.
                                         </DialogDescription>
 
                                         <Form
@@ -168,6 +166,6 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                     ))}
                 </div>
             </div>
-        </AppLayout>
+        </>
     );
 }

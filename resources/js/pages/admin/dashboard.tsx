@@ -6,7 +6,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { dashboard } from '@/routes';
+import { dashboard } from '@/routes/admin';
 
 type SessionStats = {
     count: number;

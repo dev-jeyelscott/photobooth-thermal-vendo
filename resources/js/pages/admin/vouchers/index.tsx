@@ -1,9 +1,8 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, setLayoutProps } from '@inertiajs/react';
 import VoucherController from '@/actions/App/Http/Controllers/Admin/VoucherController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import AppLayout from '@/layouts/app-layout';
 import { create, index as vouchersIndex } from '@/routes/admin/vouchers';
 
 type Voucher = {
@@ -16,8 +15,12 @@ type Voucher = {
 };
 
 export default function VouchersIndex({ vouchers }: { vouchers: Voucher[] }) {
+    setLayoutProps({
+        breadcrumbs: [{ title: 'Vouchers', href: vouchersIndex() }],
+    });
+
     return (
-        <AppLayout breadcrumbs={[{ title: 'Vouchers', href: vouchersIndex() }]}>
+        <>
             <Head title="Vouchers" />
 
             <div className="flex flex-col gap-6 p-4">
@@ -134,6 +137,6 @@ export default function VouchersIndex({ vouchers }: { vouchers: Voucher[] }) {
                     </table>
                 </div>
             </div>
-        </AppLayout>
+        </>
     );
 }

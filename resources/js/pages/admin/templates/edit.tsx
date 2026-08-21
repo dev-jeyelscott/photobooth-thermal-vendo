@@ -1,7 +1,6 @@
-import { Head } from '@inertiajs/react';
+import { Head, setLayoutProps } from '@inertiajs/react';
 import TemplateController from '@/actions/App/Http/Controllers/Admin/TemplateController';
 import Heading from '@/components/heading';
-import AppLayout from '@/layouts/app-layout';
 import { index } from '@/routes/admin/templates';
 import TemplateForm from './template-form';
 
@@ -17,16 +16,18 @@ type Template = {
 };
 
 export default function TemplatesEdit({ template }: { template: Template }) {
+    setLayoutProps({
+        breadcrumbs: [
+            { title: 'Templates', href: index() },
+            {
+                title: template.name,
+                href: TemplateController.edit(template.id).url,
+            },
+        ],
+    });
+
     return (
-        <AppLayout
-            breadcrumbs={[
-                { title: 'Templates', href: index() },
-                {
-                    title: template.name,
-                    href: TemplateController.edit(template.id).url,
-                },
-            ]}
-        >
+        <>
             <Head title={`Edit ${template.name}`} />
 
             <div className="flex flex-col gap-6 p-4">
@@ -40,6 +41,6 @@ export default function TemplatesEdit({ template }: { template: Template }) {
                     template={template}
                 />
             </div>
-        </AppLayout>
+        </>
     );
 }

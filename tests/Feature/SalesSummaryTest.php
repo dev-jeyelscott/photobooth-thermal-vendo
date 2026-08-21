@@ -8,7 +8,7 @@ use App\Models\PrintJob;
 use App\Models\User;
 
 test('dashboard requires authentication', function () {
-    $this->get(route('dashboard'))->assertRedirect(route('login'));
+    $this->get(route('admin.dashboard'))->assertRedirect(route('login'));
 });
 
 test('dashboard shows sales summary computed from real session, payment, and print job data', function () {
@@ -34,11 +34,11 @@ test('dashboard shows sales summary computed from real session, payment, and pri
 
     PrintJob::factory()->for(PhotoboothSession::factory(), 'photoboothSession')->failed()->create();
 
-    $response = $this->actingAs($user)->get(route('dashboard'));
+    $response = $this->actingAs($user)->get(route('admin.dashboard'));
 
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page
-        ->component('dashboard')
+        ->component('admin/dashboard')
         ->where('summary.today.count', 2)
         ->where('summary.today.salesTotal', '100.00')
         ->where('summary.thisMonth.count', 3)

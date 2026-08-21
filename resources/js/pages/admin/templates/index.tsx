@@ -1,4 +1,4 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, setLayoutProps } from '@inertiajs/react';
 import TemplateController from '@/actions/App/Http/Controllers/Admin/TemplateController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import AppLayout from '@/layouts/app-layout';
 import { create, index as templatesIndex } from '@/routes/admin/templates';
 
 type Template = {
@@ -31,10 +30,12 @@ export default function TemplatesIndex({
 }: {
     templates: Template[];
 }) {
+    setLayoutProps({
+        breadcrumbs: [{ title: 'Templates', href: templatesIndex() }],
+    });
+
     return (
-        <AppLayout
-            breadcrumbs={[{ title: 'Templates', href: templatesIndex() }]}
-        >
+        <>
             <Head title="Templates" />
 
             <div className="flex flex-col gap-6 p-4">
@@ -208,6 +209,6 @@ export default function TemplatesIndex({
                     </table>
                 </div>
             </div>
-        </AppLayout>
+        </>
     );
 }
