@@ -8,6 +8,7 @@ use App\Models\PhotoboothSession;
 use App\Models\Voucher;
 use App\Services\Settings;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class RedeemVoucher
 {
@@ -15,8 +16,9 @@ class RedeemVoucher
      * Redeem the voucher matching the given code for the given photobooth session.
      *
      * Returns null when the session is expired, or the voucher does not exist, is
-     * inactive, expired, or exhausted, in which case neither the voucher nor the
-     * session is mutated.
+     * inactive, not yet valid, expired, or exhausted, in which case neither the
+     * voucher nor the session is mutated. The submitted code is matched case- and
+     * whitespace-insensitively without altering the stored code.
      */
     public function handle(PhotoboothSession $session, string $code): ?Voucher
     {
@@ -24,14 +26,20 @@ class RedeemVoucher
             return null;
         }
 
-        return DB::transaction(function () use ($session, $code) {
-            $voucher = Voucher::where('code', $code)->lockForUpdate()->first();
+        $normalizedCode = Str::of($code)->trim()->upper()->value();
+
+        return DB::transaction(function () use ($session, $normalizedCode) {
+            $voucher = Voucher::whereRaw('upper(code) = ?', [$normalizedCode])->lockForUpdate()->first();
 
             if ($voucher === null) {
                 return null;
             }
 
             if (! $voucher->active) {
+                return null;
+            }
+
+            if ($voucher->valid_from !== null && $voucher->valid_from->isFuture()) {
                 return null;
             }
 

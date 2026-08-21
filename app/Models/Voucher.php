@@ -13,13 +13,14 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string $code
  * @property bool $active
+ * @property Carbon|null $valid_from
  * @property Carbon|null $expires_at
  * @property int $usage_limit
  * @property int $usage_count
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['code', 'active', 'expires_at', 'usage_limit', 'usage_count'])]
+#[Fillable(['code', 'active', 'valid_from', 'expires_at', 'usage_limit', 'usage_count'])]
 class Voucher extends Model
 {
     /** @use HasFactory<VoucherFactory> */
@@ -34,6 +35,7 @@ class Voucher extends Model
     {
         return [
             'active' => 'boolean',
+            'valid_from' => 'datetime',
             'expires_at' => 'datetime',
             'usage_limit' => 'integer',
             'usage_count' => 'integer',

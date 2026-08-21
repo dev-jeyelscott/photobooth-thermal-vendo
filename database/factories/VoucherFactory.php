@@ -20,6 +20,7 @@ class VoucherFactory extends Factory
         return [
             'code' => strtoupper(fake()->unique()->bothify('VCH-????-####')),
             'active' => true,
+            'valid_from' => null,
             'expires_at' => now()->addMonth(),
             'usage_limit' => 1,
             'usage_count' => 0,

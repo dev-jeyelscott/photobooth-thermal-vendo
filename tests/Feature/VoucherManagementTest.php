@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\PhotoboothSessionStatus;
+use App\Models\PhotoboothSession;
 use App\Models\User;
 use App\Models\Voucher;
 
@@ -102,4 +104,61 @@ test('admin can toggle a voucher active flag', function () {
 
     $response->assertRedirect(route('admin.vouchers.index'));
     expect($voucher->fresh()->active)->toBeFalse();
+});
+
+test('redeeming a voucher before its valid_from date is rejected without mutating the voucher or session', function () {
+    $voucher = Voucher::factory()->create([
+        'valid_from' => now()->addDay(),
+        'usage_limit' => 1,
+        'usage_count' => 0,
+    ]);
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+
+    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        'code' => $voucher->code,
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJson([
+        'message' => 'This voucher code is invalid or can no longer be used.',
+        'status' => PhotoboothSessionStatus::New->value,
+    ]);
+
+    expect($voucher->fresh()->usage_count)->toBe(0)
+        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::New);
+});
+
+test('redeeming a voucher after its valid_from date succeeds', function () {
+    $voucher = Voucher::factory()->create([
+        'valid_from' => now()->subDay(),
+        'usage_limit' => 1,
+        'usage_count' => 0,
+    ]);
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+
+    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        'code' => $voucher->code,
+    ]);
+
+    $response->assertOk();
+    $response->assertJson(['status' => PhotoboothSessionStatus::Paid->value]);
+
+    expect($voucher->fresh()->usage_count)->toBe(1)
+        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Paid);
+});
+
+test('redeeming a voucher matches the code case- and whitespace-insensitively without altering the stored code', function () {
+    $voucher = Voucher::factory()->create(['code' => 'PROMO-CODE', 'usage_limit' => 1, 'usage_count' => 0]);
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+
+    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        'code' => '  promo-code  ',
+    ]);
+
+    $response->assertOk();
+    $response->assertJson(['status' => PhotoboothSessionStatus::Paid->value]);
+
+    expect($voucher->fresh())
+        ->code->toBe('PROMO-CODE')
+        ->usage_count->toBe(1);
 });
