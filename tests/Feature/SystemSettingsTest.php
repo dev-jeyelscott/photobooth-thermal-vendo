@@ -14,6 +14,7 @@ test('settings accessor falls back to config defaults when no row exists', funct
         ->and(Settings::get('currency'))->toBe(config('photobooth.currency'))
         ->and(Settings::get('countdown_seconds'))->toBe(config('photobooth.countdown_seconds'))
         ->and(Settings::get('capture_shot_count'))->toBe(config('photobooth.capture_shot_count'))
+        ->and(Settings::get('capture_countdown_seconds'))->toBe(config('photobooth.capture_countdown_seconds'))
         ->and(Settings::get('retake_limit'))->toBe(config('photobooth.retake_limit'))
         ->and(Settings::get('kiosk_idle_timeout_seconds'))->toBe(config('photobooth.kiosk_idle_timeout_seconds'))
         ->and(Settings::get('gallery_expiration_hours'))->toBe(config('photobooth.gallery_expiration_hours'))
@@ -36,6 +37,7 @@ test('admin sees effective settings falling back to config defaults', function (
         ->where('settings.currency', config('photobooth.currency'))
         ->where('settings.countdown_seconds', config('photobooth.countdown_seconds'))
         ->where('settings.capture_shot_count', config('photobooth.capture_shot_count'))
+        ->where('settings.capture_countdown_seconds', config('photobooth.capture_countdown_seconds'))
         ->where('settings.retake_limit', config('photobooth.retake_limit'))
         ->where('settings.kiosk_idle_timeout_seconds', config('photobooth.kiosk_idle_timeout_seconds'))
         ->where('settings.receipt_header', config('photobooth.receipt_header'))
@@ -54,6 +56,7 @@ test('admin can update system settings and they persist as application setting r
         'currency' => 'USD',
         'countdown_seconds' => 5,
         'capture_shot_count' => 4,
+        'capture_countdown_seconds' => 6,
         'retake_limit' => 3,
         'kiosk_idle_timeout_seconds' => 90,
         'session_timeout_seconds' => 600,
@@ -73,6 +76,7 @@ test('admin can update system settings and they persist as application setting r
         ->and(ApplicationSetting::where('key', 'currency')->value('value'))->toBe('USD')
         ->and(ApplicationSetting::where('key', 'countdown_seconds')->value('value'))->toBe('5')
         ->and(ApplicationSetting::where('key', 'capture_shot_count')->value('value'))->toBe('4')
+        ->and(ApplicationSetting::where('key', 'capture_countdown_seconds')->value('value'))->toBe('6')
         ->and(ApplicationSetting::where('key', 'retake_limit')->value('value'))->toBe('3')
         ->and(ApplicationSetting::where('key', 'kiosk_idle_timeout_seconds')->value('value'))->toBe('90')
         ->and(ApplicationSetting::where('key', 'receipt_header')->value('value'))->toBe('Welcome!')
@@ -85,6 +89,7 @@ test('admin can update system settings and they persist as application setting r
         ->and(Settings::get('currency'))->toBe('USD')
         ->and(Settings::get('countdown_seconds'))->toBe(5)
         ->and(Settings::get('capture_shot_count'))->toBe(4)
+        ->and(Settings::get('capture_countdown_seconds'))->toBe(6)
         ->and(Settings::get('retake_limit'))->toBe(3)
         ->and(Settings::get('kiosk_idle_timeout_seconds'))->toBe(90)
         ->and(Settings::get('default_printer'))->toBe('network_printer')
@@ -103,6 +108,7 @@ test('admin cannot save a negative or zero session price', function () {
         'currency' => 'PHP',
         'countdown_seconds' => 3,
         'capture_shot_count' => 3,
+        'capture_countdown_seconds' => 3,
         'retake_limit' => 3,
         'kiosk_idle_timeout_seconds' => 60,
         'session_timeout_seconds' => 600,
@@ -125,6 +131,7 @@ test('admin cannot enable maintenance mode without a message', function () {
         'currency' => 'PHP',
         'countdown_seconds' => 3,
         'capture_shot_count' => 3,
+        'capture_countdown_seconds' => 3,
         'retake_limit' => 3,
         'kiosk_idle_timeout_seconds' => 60,
         'session_timeout_seconds' => 600,

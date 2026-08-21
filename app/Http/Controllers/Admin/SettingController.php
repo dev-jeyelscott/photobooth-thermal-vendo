@@ -23,6 +23,7 @@ class SettingController extends Controller
         'currency',
         'countdown_seconds',
         'capture_shot_count',
+        'capture_countdown_seconds',
         'retake_limit',
         'kiosk_idle_timeout_seconds',
         'session_timeout_seconds',

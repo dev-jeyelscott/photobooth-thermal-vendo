@@ -13,6 +13,7 @@ type Settings = {
     currency: string;
     countdown_seconds: number;
     capture_shot_count: number;
+    capture_countdown_seconds: number;
     retake_limit: number;
     kiosk_idle_timeout_seconds: number;
     session_timeout_seconds: number;
@@ -111,6 +112,28 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                 />
                                 <InputError
                                     message={errors.capture_shot_count}
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="capture_countdown_seconds">
+                                    Capture countdown (seconds)
+                                </Label>
+                                <Input
+                                    id="capture_countdown_seconds"
+                                    name="capture_countdown_seconds"
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    required
+                                    defaultValue={
+                                        settings.capture_countdown_seconds
+                                    }
+                                />
+                                <InputError
+                                    message={
+                                        errors.capture_countdown_seconds
+                                    }
                                 />
                             </div>
 

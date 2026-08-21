@@ -27,6 +27,7 @@ class UpdateSettingsRequest extends FormRequest
             'currency' => ['required', 'string', 'size:3'],
             'countdown_seconds' => ['required', 'integer', 'min:1', 'max:10'],
             'capture_shot_count' => ['required', 'integer', 'min:1', 'max:10'],
+            'capture_countdown_seconds' => ['required', 'integer', 'min:1', 'max:10'],
             'retake_limit' => ['required', 'integer', 'min:1'],
             'kiosk_idle_timeout_seconds' => ['required', 'integer', 'min:1'],
             'session_timeout_seconds' => ['required', 'integer', 'min:1'],
