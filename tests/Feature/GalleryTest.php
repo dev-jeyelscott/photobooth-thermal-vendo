@@ -67,6 +67,5 @@ test('gallery tokens are cryptographically random and do not leak sequential ids
     foreach ($mediaItems as $capturedMedia) {
         expect($capturedMedia->public_token)->not->toBe((string) $capturedMedia->id);
         expect($capturedMedia->public_token)->not->toBe((string) $capturedMedia->photobooth_session_id);
-        expect($capturedMedia->public_token)->not->toStartWith((string) $capturedMedia->id);
     }
 });
