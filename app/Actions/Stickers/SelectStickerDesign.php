@@ -34,7 +34,10 @@ class SelectStickerDesign
             return false;
         }
 
-        $session->update(['sticker_design_id' => $sticker->id]);
+        $session->update([
+            'sticker_design_id' => $sticker->id,
+            'sticker_snapshot' => ['asset_path' => $sticker->asset_path],
+        ]);
 
         return true;
     }

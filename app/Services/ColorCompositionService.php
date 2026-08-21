@@ -2,8 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\PhotoTemplate;
-use App\Models\StickerDesign;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Interfaces\ImageInterface;
@@ -36,16 +34,18 @@ class ColorCompositionService
     public function __construct(private readonly ImageManager $imageManager) {}
 
     /**
-     * Compose the confirmed captured photos onto the template's layout_config
-     * slots and overlay the selected sticker, producing a single print-ready
-     * color image.
+     * Compose the confirmed captured photos onto the template snapshot's
+     * layout_config slots and overlay the selected sticker snapshot,
+     * producing a single print-ready color image.
      *
+     * @param  array{layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}  $template  Snapshot of the rendering-critical template configuration.
      * @param  list<string>  $photos  Raw image sources (data URIs, base64, or binary), in shot order.
+     * @param  array{asset_path: string}|null  $sticker  Snapshot of the selected sticker's rendering-critical configuration.
      */
-    public function compose(PhotoTemplate $template, array $photos, ?StickerDesign $sticker): ImageInterface
+    public function compose(array $template, array $photos, ?array $sticker): ImageInterface
     {
-        $canvasWidth = $this->millimetersToPixels($template->print_width_mm);
-        $canvasHeight = $this->millimetersToPixels($template->print_height_mm);
+        $canvasWidth = $this->millimetersToPixels($template['print_width_mm']);
+        $canvasHeight = $this->millimetersToPixels($template['print_height_mm']);
 
         $canvas = $this->imageManager->createImage($canvasWidth, $canvasHeight)->fill('#ffffff');
 
@@ -63,7 +63,7 @@ class ColorCompositionService
         }
 
         if ($sticker !== null) {
-            $this->overlaySticker($canvas, $sticker, $canvasWidth);
+            $this->overlaySticker($canvas, $sticker['asset_path'], $canvasWidth);
         }
 
         return $canvas;
@@ -80,9 +80,9 @@ class ColorCompositionService
             ->contrast(self::THERMAL_CONTRAST_LEVEL);
     }
 
-    private function overlaySticker(ImageInterface $canvas, StickerDesign $sticker, int $canvasWidth): void
+    private function overlaySticker(ImageInterface $canvas, string $assetPath, int $canvasWidth): void
     {
-        $stickerImage = $this->imageManager->decode(Storage::disk('public')->get($sticker->asset_path));
+        $stickerImage = $this->imageManager->decode(Storage::disk('public')->get($assetPath));
 
         $stickerSize = (int) round($canvasWidth * self::STICKER_SIZE_RATIO);
         $margin = (int) round($canvasWidth * self::STICKER_MARGIN_RATIO);
@@ -97,11 +97,12 @@ class ColorCompositionService
     }
 
     /**
+     * @param  array{layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}  $template
      * @return list<array{x: int, y: int, width: int, height: int}>
      */
-    private function layoutSlots(PhotoTemplate $template): array
+    private function layoutSlots(array $template): array
     {
-        $slots = $template->layout_config['slots'] ?? null;
+        $slots = $template['layout_config']['slots'] ?? null;
 
         if (! is_array($slots)) {
             return [];
@@ -111,7 +112,7 @@ class ColorCompositionService
             ->filter(fn ($slot) => is_array($slot)
                 && isset($slot['x'], $slot['y'], $slot['width'], $slot['height']))
             ->sortBy(fn (array $slot) => $slot['slot'] ?? 0)
-            ->take($template->photo_slots)
+            ->take($template['photo_slots'])
             ->map(fn (array $slot): array => [
                 'x' => (int) $slot['x'],
                 'y' => (int) $slot['y'],

@@ -48,6 +48,40 @@ test('selecting a sticker on a session with a template attaches it without chang
         ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::TemplateSelected);
 });
 
+test('selecting a sticker snapshots its rendering configuration onto the session', function () {
+    $sticker = StickerDesign::factory()->create(['asset_path' => 'stickers/party-hat.png']);
+    $template = PhotoTemplate::factory()->create();
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::TemplateSelected,
+        'photo_template_id' => $template->id,
+        'sticker_design_id' => null,
+    ]);
+
+    $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+        'stickerDesignId' => $sticker->id,
+    ])->assertOk();
+
+    expect($session->fresh()->sticker_snapshot)->toBe(['asset_path' => 'stickers/party-hat.png']);
+});
+
+test('editing the sticker after selection does not alter the session\'s stored snapshot', function () {
+    $sticker = StickerDesign::factory()->create(['asset_path' => 'stickers/party-hat.png']);
+    $template = PhotoTemplate::factory()->create();
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::TemplateSelected,
+        'photo_template_id' => $template->id,
+        'sticker_design_id' => null,
+    ]);
+
+    $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+        'stickerDesignId' => $sticker->id,
+    ])->assertOk();
+
+    $sticker->update(['asset_path' => 'stickers/updated.png']);
+
+    expect($session->fresh()->sticker_snapshot)->toBe(['asset_path' => 'stickers/party-hat.png']);
+});
+
 test('the customer can change their sticker selection before finalizing', function () {
     $firstSticker = StickerDesign::factory()->create();
     $secondSticker = StickerDesign::factory()->create();

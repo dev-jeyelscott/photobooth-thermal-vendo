@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $template_print_width_mm
  * @property int|null $template_print_height_mm
  * @property int|null $template_photo_slots
+ * @property array<string, mixed>|null $sticker_snapshot
  * @property Carbon|null $started_at
  * @property Carbon|null $expires_at
  * @property Carbon|null $created_at
@@ -48,6 +49,7 @@ use Illuminate\Support\Carbon;
     'template_print_width_mm',
     'template_print_height_mm',
     'template_photo_slots',
+    'sticker_snapshot',
     'started_at',
     'expires_at',
 ])]
@@ -71,6 +73,7 @@ class PhotoboothSession extends Model
             'template_print_width_mm' => 'integer',
             'template_print_height_mm' => 'integer',
             'template_photo_slots' => 'integer',
+            'sticker_snapshot' => 'array',
             'started_at' => 'datetime',
             'expires_at' => 'datetime',
         ];

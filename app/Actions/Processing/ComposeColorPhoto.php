@@ -56,13 +56,13 @@ class ComposeColorPhoto
             return null;
         }
 
-        $template = $session->photoTemplate;
+        $templateSnapshot = $this->templateSnapshot($session);
 
-        if (count($photos) < $template->photo_slots) {
+        if (count($photos) < $templateSnapshot['photo_slots']) {
             return null;
         }
 
-        $composite = $this->colorComposition->compose($template, $photos, $session->stickerDesign);
+        $composite = $this->colorComposition->compose($templateSnapshot, $photos, $this->stickerSnapshot($session));
         $blackAndWhite = $this->colorComposition->toBlackAndWhite($composite);
         $gif = $this->gifComposition->compose($photos, (float) config('photobooth.gif_frame_duration_seconds'));
 
@@ -103,5 +103,59 @@ class ComposeColorPhoto
 
             return $capturedMedia;
         });
+    }
+
+    /**
+     * Resolve the rendering-critical template configuration from the
+     * session's snapshot, taken at template-selection time, so later edits
+     * to the PhotoTemplate do not affect an in-flight or completed session.
+     * Falls back to the live relation only if the session predates
+     * snapshotting.
+     *
+     * @return array{layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}
+     */
+    private function templateSnapshot(PhotoboothSession $session): array
+    {
+        if ($session->template_photo_slots !== null
+            && $session->template_print_width_mm !== null
+            && $session->template_print_height_mm !== null) {
+            return [
+                'layout_config' => $session->template_layout_config,
+                'photo_slots' => $session->template_photo_slots,
+                'print_width_mm' => $session->template_print_width_mm,
+                'print_height_mm' => $session->template_print_height_mm,
+            ];
+        }
+
+        $template = $session->photoTemplate;
+
+        return [
+            'layout_config' => $template->layout_config,
+            'photo_slots' => $template->photo_slots,
+            'print_width_mm' => $template->print_width_mm,
+            'print_height_mm' => $template->print_height_mm,
+        ];
+    }
+
+    /**
+     * Resolve the rendering-critical sticker configuration from the
+     * session's snapshot, taken at sticker-selection time, so a later edit
+     * to the StickerDesign's asset does not affect an in-flight or
+     * completed session. Falls back to the live relation only if the
+     * session predates snapshotting.
+     *
+     * @return array{asset_path: string}|null
+     */
+    private function stickerSnapshot(PhotoboothSession $session): ?array
+    {
+        if ($session->sticker_snapshot !== null) {
+            return ['asset_path' => (string) $session->sticker_snapshot['asset_path']];
+        }
+
+        if ($session->sticker_design_id === null) {
+            return null;
+        }
+
+        return ['asset_path' => $session->stickerDesign->asset_path];
     }
 }
