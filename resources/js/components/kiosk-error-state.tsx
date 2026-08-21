@@ -83,7 +83,8 @@ export function KioskErrorState({
     /** Overrides the default message, e.g. with a specific customer-safe server message. */
     message?: string;
     onRetry?: () => void;
-    onBackToStart: () => void;
+    /** Only offered when recovering in place isn't possible; omit to keep the customer on this step. */
+    onBackToStart?: () => void;
 }) {
     const config = ERROR_CONFIG[kind];
 
@@ -102,14 +103,16 @@ export function KioskErrorState({
                         {config.retryLabel}
                     </Button>
                 )}
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="lg"
-                    onClick={onBackToStart}
-                >
-                    Back to Start
-                </Button>
+                {onBackToStart && (
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="lg"
+                        onClick={onBackToStart}
+                    >
+                        Back to Start
+                    </Button>
+                )}
             </div>
         </div>
     );

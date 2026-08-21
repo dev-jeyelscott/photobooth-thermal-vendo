@@ -59,11 +59,16 @@ export function CameraPreview({
     }, [stream, videoRef]);
 
     if (error) {
+        // 'disconnected' is only set once the active camera drops with no
+        // fallback device available (see useCamera's devicechange handler),
+        // making it the sole unrecoverable case that should offer a full exit.
+        const isUnrecoverable = error === 'disconnected';
+
         return (
             <KioskErrorState
                 kind={cameraErrorKind(error)}
                 onRetry={() => start()}
-                onBackToStart={onBackToStart ?? (() => start())}
+                onBackToStart={isUnrecoverable ? onBackToStart : undefined}
             />
         );
     }
