@@ -1,7 +1,7 @@
 # CI Baseline
 
 Recorded state of the project's existing test, static-analysis, lint, and build tooling as of
-2026-08-21, verified against `main` at commit `0077e3d77a3e2e5ade822b89827075ecc9ac3430`. This is a
+2026-08-21, verified against `main` at commit `869d298f60d637c6a7b22a2f4496593f12c31bb5`. This is a
 verification-only snapshot: no application or test code was modified to produce it.
 
 ## Summary
@@ -26,7 +26,7 @@ introduced by this verification pass.
 `php artisan test --compact`
 
 ```
-{"tool":"pest","result":"passed","tests":167,"passed":167,"assertions":837,"duration_ms":36530}
+{"tool":"pest","result":"passed","tests":167,"passed":167,"assertions":837,"duration_ms":36654}
 ```
 
 ### Larastan/PHPStan — Pass
