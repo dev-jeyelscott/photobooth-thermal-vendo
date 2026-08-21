@@ -62,7 +62,9 @@ describe('CaptureStep', () => {
     it('runs the countdown and captures a shot for review', async () => {
         renderCaptureStep();
 
-        expect(screen.getByTestId('kiosk-capture-countdown')).toBeInTheDocument();
+        expect(
+            screen.getByTestId('kiosk-capture-countdown'),
+        ).toBeInTheDocument();
 
         await advanceCountdown();
 
@@ -78,13 +80,13 @@ describe('CaptureStep', () => {
             fireEvent.click(screen.getByRole('button', { name: 'Retake' }));
         });
 
-        expect(screen.getByTestId('kiosk-capture-countdown')).toBeInTheDocument();
+        expect(
+            screen.getByTestId('kiosk-capture-countdown'),
+        ).toBeInTheDocument();
 
         await advanceCountdown();
 
-        expect(
-            screen.getByRole('button', { name: 'Retake' }),
-        ).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Retake' })).toBeDisabled();
     });
 
     it('keeps a shot and calls onComplete once shotCount is reached', async () => {
@@ -96,6 +98,8 @@ describe('CaptureStep', () => {
             fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
         });
 
-        expect(onComplete).toHaveBeenCalledWith(['data:image/jpeg;base64,mock']);
+        expect(onComplete).toHaveBeenCalledWith([
+            'data:image/jpeg;base64,mock',
+        ]);
     });
 });

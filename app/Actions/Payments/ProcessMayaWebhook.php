@@ -60,7 +60,10 @@ class ProcessMayaWebhook
             return false;
         }
 
-        if ($amount === null || bccomp((string) $amount, (string) $payment->amount, 2) !== 0) {
+        if (! is_string($amount)
+            || ! $this->isDecimalAmount($amount)
+            || ! $this->isDecimalAmount($payment->amount)
+            || bccomp($amount, $payment->amount, 2) !== 0) {
             return false;
         }
 
@@ -88,5 +91,15 @@ class ProcessMayaWebhook
 
             return true;
         });
+    }
+
+    /**
+     * Determine whether an amount can be safely compared using BCMath.
+     *
+     * @phpstan-assert-if-true numeric-string $amount
+     */
+    private function isDecimalAmount(string $amount): bool
+    {
+        return preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/D', $amount) === 1;
     }
 }

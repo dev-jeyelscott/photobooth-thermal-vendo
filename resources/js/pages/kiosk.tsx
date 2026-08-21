@@ -67,9 +67,9 @@ export default function Kiosk({
     const [kioskErrorMessage, setKioskErrorMessage] = useState<string | null>(
         null,
     );
-    const [kioskErrorRetry, setKioskErrorRetry] = useState<
-        (() => void) | null
-    >(null);
+    const [kioskErrorRetry, setKioskErrorRetry] = useState<(() => void) | null>(
+        null,
+    );
     const { isIdle, resetTimer } = useIdleTimer(idleTimeoutSeconds * 1000);
     const {
         session,
@@ -339,7 +339,9 @@ export default function Kiosk({
                         kind={kioskError}
                         message={kioskErrorMessage ?? undefined}
                         onRetry={
-                            kioskErrorRetry ? () => kioskErrorRetry() : undefined
+                            kioskErrorRetry
+                                ? () => kioskErrorRetry()
+                                : undefined
                         }
                         onBackToStart={startOver}
                     />
@@ -434,8 +436,8 @@ export default function Kiosk({
                                 </h2>
                                 <p className="text-sm text-neutral-300 sm:text-base">
                                     Scan the QR code to complete your payment.
-                                    This screen will reset automatically if
-                                    left idle.
+                                    This screen will reset automatically if left
+                                    idle.
                                 </p>
                                 {checkoutUrl && (
                                     <a
@@ -470,9 +472,9 @@ export default function Kiosk({
                                     Enter Voucher
                                 </h2>
                                 <p className="text-sm text-neutral-300 sm:text-base">
-                                    Enter your voucher code to redeem a
-                                    session. This screen will reset
-                                    automatically if left idle.
+                                    Enter your voucher code to redeem a session.
+                                    This screen will reset automatically if left
+                                    idle.
                                 </p>
                                 <form
                                     onSubmit={submitVoucher}

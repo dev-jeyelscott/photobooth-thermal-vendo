@@ -7,8 +7,7 @@ import { NETWORK_ERROR_MESSAGE } from '@/hooks/use-photobooth-session';
 const PREVIEW_SIZE = 480;
 
 type SelectStickerResult =
-    | { ok: true }
-    | { ok: false; message: string; expired: boolean };
+    { ok: true } | { ok: false; message: string; expired: boolean };
 
 /**
  * Lets the customer browse enabled sticker designs and preview one overlaid on

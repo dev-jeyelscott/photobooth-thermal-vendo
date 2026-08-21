@@ -30,8 +30,7 @@ const ERROR_CONFIG: Record<
     },
     'payment-timeout': {
         title: 'Payment Timed Out',
-        message:
-            'We did not receive your payment in time. Please try again.',
+        message: 'We did not receive your payment in time. Please try again.',
         retryLabel: 'Retry Payment',
     },
     'payment-failed': {
@@ -93,7 +92,10 @@ export function KioskErrorState({
             data-testid={`kiosk-error-${kind}`}
             className="flex w-full max-w-md flex-col items-center gap-4 text-center sm:gap-6"
         >
-            <AlertError title={config.title} errors={[message ?? config.message]} />
+            <AlertError
+                title={config.title}
+                errors={[message ?? config.message]}
+            />
             <div className="flex gap-3">
                 {config.retryLabel && onRetry && (
                     <Button type="button" size="lg" onClick={onRetry}>

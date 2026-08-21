@@ -28,9 +28,7 @@ describe('StickerSelectionStep', () => {
             />,
         );
 
-        expect(
-            screen.getByRole('button', { name: 'Continue' }),
-        ).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
 
         await user.click(await screen.findByTestId('kiosk-sticker-1'));
 

@@ -8,8 +8,7 @@ import type {
 import { NETWORK_ERROR_MESSAGE } from '@/hooks/use-photobooth-session';
 
 type ConfirmPreviewResult =
-    | { ok: true }
-    | { ok: false; message: string; expired: boolean };
+    { ok: true } | { ok: false; message: string; expired: boolean };
 
 const CANVAS_SCALE = 4;
 const STICKER_SIZE_RATIO = 0.22;
@@ -211,8 +210,8 @@ export function PreviewStep({
                 Review Your Photos
             </h2>
             <p className="text-sm text-neutral-300 sm:text-base">
-                This is a preview of your final print. Confirm to continue,
-                or go back to make changes.
+                This is a preview of your final print. Confirm to continue, or
+                go back to make changes.
             </p>
 
             {error && (

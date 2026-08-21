@@ -185,6 +185,33 @@ test('a webhook with an amount mismatch is rejected without mutating the payment
         ->and($session->status)->toBe(PhotoboothSessionStatus::PaymentPending);
 });
 
+test('a webhook with a malformed amount is rejected without mutating the payment', function () {
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::PaymentPending]);
+    $payment = Payment::factory()->for($session, 'photoboothSession')->create([
+        'status' => PaymentStatus::Pending,
+        'maya_checkout_id' => 'checkout-malformed-amount',
+        'amount' => '150.00',
+    ]);
+
+    $payload = [
+        'id' => 'payment-malformed-amount',
+        'checkoutId' => 'checkout-malformed-amount',
+        'status' => 'PAYMENT_SUCCESS',
+        'amount' => ['value' => 'not-a-decimal', 'currency' => 'PHP'],
+    ];
+
+    $signature = hash_hmac('sha256', json_encode($payload), 'whsec_test_secret');
+
+    $this->postJson(route('webhooks.maya'), $payload, ['Maya-Webhook-Signature' => $signature])
+        ->assertStatus(422);
+
+    $payment->refresh();
+    $session->refresh();
+
+    expect($payment->status)->toBe(PaymentStatus::Pending)
+        ->and($session->status)->toBe(PhotoboothSessionStatus::PaymentPending);
+});
+
 test('a webhook referencing an unknown checkout id is rejected without mutating any records', function () {
     $payload = [
         'id' => 'payment-unknown',

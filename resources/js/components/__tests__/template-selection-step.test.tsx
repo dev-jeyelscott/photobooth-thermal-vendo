@@ -114,6 +114,8 @@ describe('TemplateSelectionStep', () => {
             await screen.findByRole('button', { name: 'Try Again' }),
         );
 
-        expect(await screen.findByTestId('kiosk-template-1')).toBeInTheDocument();
+        expect(
+            await screen.findByTestId('kiosk-template-1'),
+        ).toBeInTheDocument();
     });
 });

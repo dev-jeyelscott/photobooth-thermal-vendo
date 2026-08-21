@@ -1,3 +1,7 @@
-export default function KioskLayout({ children }: { children: React.ReactNode }) {
+export default function KioskLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
     return <>{children}</>;
 }

@@ -70,7 +70,9 @@ const createFetchMock = (routes: Route[]) =>
         );
 
         if (!route) {
-            throw new Error(`Unhandled request: ${method.toUpperCase()} ${pathname}`);
+            throw new Error(
+                `Unhandled request: ${method.toUpperCase()} ${pathname}`,
+            );
         }
 
         const { status, body } = route.handler();
@@ -78,7 +80,10 @@ const createFetchMock = (routes: Route[]) =>
         return jsonResponse(status, body) as unknown as Response;
     });
 
-const paymentStatusState = { status: 'paid' as string, paymentStatus: 'succeeded' as string | null };
+const paymentStatusState = {
+    status: 'paid' as string,
+    paymentStatus: 'succeeded' as string | null,
+};
 
 const baseRoutes: Route[] = [
     {
@@ -99,7 +104,10 @@ const baseRoutes: Route[] = [
     {
         method: 'post',
         pattern: /^\/kiosk\/sessions\/[^/]+\/voucher$/,
-        handler: () => ({ status: 200, body: { status: 'template_selection' } }),
+        handler: () => ({
+            status: 200,
+            body: { status: 'template_selection' },
+        }),
     },
     {
         method: 'post',
@@ -178,7 +186,9 @@ describe('Kiosk', () => {
 
         expect(screen.getByTestId('kiosk-welcome')).toBeInTheDocument();
 
-        await user.click(screen.getByRole('button', { name: 'Click to Start' }));
+        await user.click(
+            screen.getByRole('button', { name: 'Click to Start' }),
+        );
 
         await waitFor(() => {
             expect(global.fetch).toHaveBeenCalledWith(
@@ -196,7 +206,9 @@ describe('Kiosk', () => {
 
         await user.click(screen.getByRole('button', { name: 'Pay via QR' }));
 
-        expect(await screen.findByTestId('kiosk-pay-via-qr')).toBeInTheDocument();
+        expect(
+            await screen.findByTestId('kiosk-pay-via-qr'),
+        ).toBeInTheDocument();
 
         expect(
             await screen.findByTestId('kiosk-payment-checkout-link'),
@@ -221,13 +233,17 @@ describe('Kiosk', () => {
 
         await user.click(screen.getByRole('button', { name: 'Pay via QR' }));
 
-        expect(await screen.findByTestId('kiosk-pay-via-qr')).toBeInTheDocument();
+        expect(
+            await screen.findByTestId('kiosk-pay-via-qr'),
+        ).toBeInTheDocument();
 
         await act(async () => {
             vi.advanceTimersByTime(5000);
         });
 
-        expect(await screen.findByTestId('kiosk-idle-overlay')).toBeInTheDocument();
+        expect(
+            await screen.findByTestId('kiosk-idle-overlay'),
+        ).toBeInTheDocument();
     });
 
     it('runs the full happy-path session through to the QR gallery screen', async () => {
@@ -238,18 +254,26 @@ describe('Kiosk', () => {
         // Phase 2: start flow via voucher redemption.
         await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
         await user.type(screen.getByTestId('kiosk-voucher-input'), 'FREE-2026');
-        await user.click(screen.getByRole('button', { name: 'Redeem Voucher' }));
+        await user.click(
+            screen.getByRole('button', { name: 'Redeem Voucher' }),
+        );
 
         // Phase 5: template selection.
         const templateOption = await screen.findByTestId('kiosk-template-1');
         await user.click(templateOption);
 
         // Phase 4: capture workflow (component under test elsewhere; stubbed here).
-        expect(await screen.findByTestId('kiosk-capture-stub')).toBeInTheDocument();
-        await user.click(screen.getByRole('button', { name: 'complete capture' }));
+        expect(
+            await screen.findByTestId('kiosk-capture-stub'),
+        ).toBeInTheDocument();
+        await user.click(
+            screen.getByRole('button', { name: 'complete capture' }),
+        );
 
         expect(await screen.findByTestId('kiosk-captured')).toBeInTheDocument();
-        await user.click(screen.getByRole('button', { name: 'Choose a Sticker' }));
+        await user.click(
+            screen.getByRole('button', { name: 'Choose a Sticker' }),
+        );
 
         // Phase 5: sticker selection.
         const stickerOption = await screen.findByTestId('kiosk-sticker-1');
@@ -278,19 +302,21 @@ describe('Kiosk', () => {
 
         await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
         await user.type(screen.getByTestId('kiosk-voucher-input'), 'FREE-2026');
-        await user.click(screen.getByRole('button', { name: 'Redeem Voucher' }));
+        await user.click(
+            screen.getByRole('button', { name: 'Redeem Voucher' }),
+        );
 
         await user.click(await screen.findByTestId('kiosk-template-1'));
-        await user.click(await screen.findByRole('button', { name: 'complete capture' }));
+        await user.click(
+            await screen.findByRole('button', { name: 'complete capture' }),
+        );
 
         expect(await screen.findByTestId('kiosk-captured')).toBeInTheDocument();
 
         await user.click(screen.getByRole('button', { name: 'Back to Start' }));
 
         expect(screen.getByTestId('kiosk-welcome')).toBeInTheDocument();
-        expect(
-            screen.queryByTestId('kiosk-captured'),
-        ).not.toBeInTheDocument();
+        expect(screen.queryByTestId('kiosk-captured')).not.toBeInTheDocument();
 
         // Voucher input state was cleared, so restarting the enter-voucher
         // flow starts from a blank field rather than the previous code.

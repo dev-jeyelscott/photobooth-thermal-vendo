@@ -4,8 +4,7 @@ import type { PhotoTemplateOption } from '@/hooks/use-photobooth-session';
 import { NETWORK_ERROR_MESSAGE } from '@/hooks/use-photobooth-session';
 
 type SelectTemplateResult =
-    | { ok: true }
-    | { ok: false; message: string; expired: boolean };
+    { ok: true } | { ok: false; message: string; expired: boolean };
 
 /**
  * Lets the customer browse enabled photo templates and pick one, submitting

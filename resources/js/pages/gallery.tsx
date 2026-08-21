@@ -31,8 +31,7 @@ export default function Gallery({
                             data-testid="gallery-expired"
                             className="mt-2 text-sm text-neutral-400"
                         >
-                            These photos are no longer available for
-                            download.
+                            These photos are no longer available for download.
                         </p>
                     </div>
                 </div>
@@ -42,7 +41,11 @@ export default function Gallery({
 
     const assets: GalleryAsset[] = [
         colorUrl
-            ? { label: 'Color Photo', url: colorUrl, filename: 'photo-color.jpg' }
+            ? {
+                  label: 'Color Photo',
+                  url: colorUrl,
+                  filename: 'photo-color.jpg',
+              }
             : null,
         bwUrl
             ? {
@@ -52,7 +55,11 @@ export default function Gallery({
               }
             : null,
         gifUrl
-            ? { label: 'Animated GIF', url: gifUrl, filename: 'photo-animation.gif' }
+            ? {
+                  label: 'Animated GIF',
+                  url: gifUrl,
+                  filename: 'photo-animation.gif',
+              }
             : null,
     ].filter((asset): asset is GalleryAsset => asset !== null);
 
@@ -62,9 +69,7 @@ export default function Gallery({
             <div className="min-h-screen bg-[#0a0a0a] px-4 py-8 text-white">
                 <div className="mx-auto flex max-w-md flex-col gap-6">
                     <div className="text-center">
-                        <h1 className="text-2xl font-semibold">
-                            Your Photos
-                        </h1>
+                        <h1 className="text-2xl font-semibold">Your Photos</h1>
                         <p className="mt-1 text-sm text-neutral-400">
                             Tap an image to download it.
                         </p>
@@ -93,7 +98,10 @@ export default function Gallery({
                                     className="w-full rounded-lg"
                                 />
                                 <Button asChild size="lg">
-                                    <a href={asset.url} download={asset.filename}>
+                                    <a
+                                        href={asset.url}
+                                        download={asset.filename}
+                                    >
                                         Download
                                     </a>
                                 </Button>
