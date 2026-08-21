@@ -12,11 +12,13 @@ export default function Gallery({
     bwUrl,
     gifUrl,
     expired,
+    expiresAt,
 }: {
     colorUrl: string | null;
     bwUrl: string | null;
     gifUrl: string | null;
     expired?: boolean;
+    expiresAt?: string | null;
 }) {
     if (expired) {
         return (
@@ -73,6 +75,21 @@ export default function Gallery({
                         <p className="mt-1 text-sm text-neutral-400">
                             Tap an image to download it.
                         </p>
+                        {expiresAt && (
+                            <p
+                                data-testid="gallery-expires-at"
+                                className="mt-2 text-xs text-neutral-500"
+                            >
+                                Available until{' '}
+                                {new Date(expiresAt).toLocaleString(
+                                    undefined,
+                                    {
+                                        dateStyle: 'medium',
+                                        timeStyle: 'short',
+                                    },
+                                )}
+                            </p>
+                        )}
                     </div>
 
                     {assets.length === 0 ? (

@@ -8,7 +8,9 @@ use Inertia\Testing\AssertableInertia as Assert;
 test('a valid gallery token renders the color, black and white, and gif assets', function () {
     Storage::fake('public');
 
-    $capturedMedia = CapturedMedia::factory()->create();
+    $capturedMedia = CapturedMedia::factory()->create([
+        'expires_at' => now()->addDay(),
+    ]);
 
     $response = $this->get(route('gallery.show', $capturedMedia->public_token));
 
@@ -18,6 +20,7 @@ test('a valid gallery token renders the color, black and white, and gif assets',
         ->where('colorUrl', Storage::disk('public')->url($capturedMedia->color_path))
         ->where('bwUrl', Storage::disk('public')->url($capturedMedia->bw_path))
         ->where('gifUrl', Storage::disk('public')->url($capturedMedia->gif_path))
+        ->where('expiresAt', $capturedMedia->expires_at->toIso8601String())
         ->missing('id')
         ->missing('photoboothSessionId')
         ->missing('photobooth_session_id')
