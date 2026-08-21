@@ -1,7 +1,7 @@
 # CI Baseline
 
 Recorded state of the project's existing test, static-analysis, lint, and build tooling as of
-2026-08-21, verified against `main` at commit `a4decc89b63ff22c36148992344da626c290a82d`. This is a
+2026-08-21, verified against `main` at commit `367f33655ee0ee649574ad238dbff38d4df7ba16`. This is a
 verification-only snapshot: no application or test code was modified to produce it.
 
 ## Summary
@@ -9,15 +9,15 @@ verification-only snapshot: no application or test code was modified to produce 
 | Check                              | Command                             | Result     |
 | ----------------------------------- | ------------------------------------ | ---------- |
 | Pest test suite                     | `php artisan test --compact`         | ✅ Pass    |
-| Larastan/PHPStan (level 7)          | `vendor/bin/phpstan analyse --no-progress` | ❌ Fail (2 pre-existing errors) |
+| Larastan/PHPStan (level 7)          | `vendor/bin/phpstan analyse --no-progress` | ✅ Pass |
 | Pint (check mode)                   | `vendor/bin/pint --test`             | ✅ Pass    |
 | TypeScript check                    | `npm run types:check`                | ✅ Pass    |
 | ESLint                              | `npm run lint:check`                 | ✅ Pass    |
-| Prettier (check mode)               | `npm run format:check`               | ❌ Fail (12 pre-existing files unformatted) |
+| Prettier (check mode)               | `npm run format:check`               | ✅ Pass    |
 | Production frontend build           | `npm run build`                      | ✅ Pass    |
 
-No failures were introduced by this task; both failures below pre-date this verification pass and
-are documented for later tasks to address separately.
+All checks pass cleanly at this commit. No pre-existing failures were found and no failures were
+introduced by this verification pass.
 
 ## Details
 
@@ -26,19 +26,15 @@ are documented for later tasks to address separately.
 `php artisan test --compact`
 
 ```
-{"tool":"pest","result":"passed","tests":166,"passed":166,"assertions":834,"duration_ms":37936}
+{"tool":"pest","result":"passed","tests":167,"passed":167,"assertions":837,"duration_ms":36034}
 ```
 
-### Larastan/PHPStan — Fail (pre-existing)
+### Larastan/PHPStan — Pass
 
 `vendor/bin/phpstan analyse --no-progress`
 
-2 errors, both in `app/Actions/Payments/ProcessMayaWebhook.php`:
-
 ```
-app/Actions/Payments/ProcessMayaWebhook.php:63
-  Parameter #1 $num1 of function bccomp expects numeric-string, string given. (argument.type)
-  Parameter #2 $num2 of function bccomp expects numeric-string, string given. (argument.type)
+{"tool":"phpstan","result":"passed","errors":0}
 ```
 
 ### Pint (check mode) — Pass
@@ -57,35 +53,21 @@ app/Actions/Payments/ProcessMayaWebhook.php:63
 
 `npm run lint:check` (`eslint .`) completed with no output/errors.
 
-### Prettier (check mode) — Fail (pre-existing)
+### Prettier (check mode) — Pass
 
-`npm run format:check` (`prettier --check resources/`) reports 12 files with formatting issues:
-
-```
-resources/js/components/__tests__/capture-step.test.tsx
-resources/js/components/__tests__/sticker-selection-step.test.tsx
-resources/js/components/__tests__/template-selection-step.test.tsx
-resources/js/components/kiosk-error-state.tsx
-resources/js/components/preview-step.tsx
-resources/js/components/sticker-selection-step.tsx
-resources/js/components/template-selection-step.tsx
-resources/js/hooks/use-photobooth-session.ts
-resources/js/layouts/kiosk-layout.tsx
-resources/js/pages/__tests__/kiosk.test.tsx
-resources/js/pages/gallery.tsx
-resources/js/pages/kiosk.tsx
-```
+`npm run format:check` (`prettier --check resources/`) reports all matched files use Prettier code
+style.
 
 ### Production frontend build — Pass
 
-`npm run build` (`vite build`) completed successfully, producing `public/build/manifest.json` and
-associated assets with no errors.
+`npm run build` (`vite build`) completed successfully in ~5.4s, producing
+`public/build/manifest.json` and associated assets with no errors.
 
-## Pre-existing failures to track separately
+## History
 
-- **PHPStan `argument.type` in `ProcessMayaWebhook.php:63`** — `bccomp()` is called with plain
-  `string` arguments where a `numeric-string` is expected. Needs a fix in a dedicated task, not as
-  part of this baseline verification.
-- **Prettier formatting drift in 12 files** — the files listed above no longer match the project's
-  Prettier configuration. Needs a formatting pass in a dedicated task, not as part of this baseline
-  verification.
+- A prior verification pass at commit `a4decc89b63ff22c36148992344da626c290a82d` found two
+  pre-existing failures: a PHPStan `argument.type` error in
+  `app/Actions/Payments/ProcessMayaWebhook.php` and Prettier formatting drift across 12 frontend
+  files. Both were subsequently resolved in commit `cd31a04` (a dedicated repair task, not this
+  verification task). This snapshot confirms the fixes hold and the full tool chain is currently
+  green.
