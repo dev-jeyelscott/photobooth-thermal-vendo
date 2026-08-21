@@ -32,6 +32,11 @@ export type PhotoboothSession = {
 };
 
 type ActionFailure = { ok: false; message: string; expired: boolean };
+type StartSessionFailure = {
+    ok: false;
+    message: string;
+    maintenance: boolean;
+};
 
 export type PhotoTemplateOption = {
     id: number;
@@ -90,7 +95,9 @@ export function usePhotoboothSession() {
         () => readStoredToken() !== null,
     );
 
-    const startSession = useCallback(async (): Promise<PhotoboothSession> => {
+    const startSession = useCallback(async (): Promise<
+        { ok: true; session: PhotoboothSession } | StartSessionFailure
+    > => {
         const response = await fetch(store.url(), {
             method: 'post',
             headers: {
@@ -99,12 +106,25 @@ export function usePhotoboothSession() {
             },
         });
 
+        if (!response.ok) {
+            const body = (await response.json()) as {
+                message?: string;
+                maintenance?: boolean;
+            };
+
+            return {
+                ok: false,
+                message: body.message ?? 'This session could not be started.',
+                maintenance: body.maintenance ?? false,
+            };
+        }
+
         const created = (await response.json()) as PhotoboothSession;
 
         storeToken(created.sessionToken);
         setSession(created);
 
-        return created;
+        return { ok: true, session: created };
     }, []);
 
     const redeemVoucher = useCallback(

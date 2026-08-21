@@ -9,6 +9,7 @@ use App\Http\Controllers\PhotoTemplateController;
 use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\StickerDesignController;
 use App\Http\Controllers\VoucherController;
+use App\Services\Settings;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
@@ -18,6 +19,8 @@ Route::inertia('kiosk', 'kiosk', [
     'captureShotCount' => config('photobooth.capture_shot_count'),
     'captureRetakeLimit' => config('photobooth.capture_retake_limit'),
     'paymentTimeoutSeconds' => config('photobooth.payment_timeout_seconds'),
+    'maintenanceMode' => fn () => Settings::get('maintenance_mode'),
+    'maintenanceMessage' => fn () => Settings::get('maintenance_message'),
 ])->name('kiosk');
 
 Route::post('kiosk/sessions', [PhotoboothSessionController::class, 'store'])->name('kiosk.sessions.store');

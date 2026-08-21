@@ -45,13 +45,21 @@ export default function Kiosk({
     captureShotCount = DEFAULT_CAPTURE_SHOT_COUNT,
     captureRetakeLimit = DEFAULT_CAPTURE_RETAKE_LIMIT,
     paymentTimeoutSeconds = DEFAULT_PAYMENT_TIMEOUT_SECONDS,
+    maintenanceMode = false,
+    maintenanceMessage = '',
 }: {
     idleTimeoutSeconds?: number;
     captureShotCount?: number;
     captureRetakeLimit?: number;
     paymentTimeoutSeconds?: number;
+    maintenanceMode?: boolean;
+    maintenanceMessage?: string;
 }) {
     const [step, setStep] = useState<KioskStep>('welcome');
+    const [isUnderMaintenance, setIsUnderMaintenance] =
+        useState(maintenanceMode);
+    const [activeMaintenanceMessage, setActiveMaintenanceMessage] =
+        useState(maintenanceMessage);
     const [voucherCode, setVoucherCode] = useState('');
     const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
     const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
@@ -195,12 +203,21 @@ export default function Kiosk({
     };
 
     const beginStep = async (next: KioskStep) => {
-        if (isResuming) {
+        if (isResuming || isUnderMaintenance) {
             return;
         }
 
         if (!session) {
-            await startSession();
+            const result = await startSession();
+
+            if (!result.ok) {
+                if (result.maintenance) {
+                    setIsUnderMaintenance(true);
+                    setActiveMaintenanceMessage(result.message);
+                }
+
+                return;
+            }
         }
 
         clearKioskError();
@@ -367,17 +384,40 @@ export default function Kiosk({
                                     </p>
                                 </div>
 
+                                {isUnderMaintenance && (
+                                    <p
+                                        data-testid="kiosk-maintenance-message"
+                                        className="max-w-md rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200 sm:text-base"
+                                    >
+                                        {activeMaintenanceMessage}
+                                    </p>
+                                )}
+
                                 <Button
                                     type="button"
                                     size="lg"
-                                    disabled={isResuming}
+                                    disabled={isResuming || isUnderMaintenance}
                                     onClick={async () => {
-                                        if (isResuming) {
+                                        if (isResuming || isUnderMaintenance) {
                                             return;
                                         }
 
                                         if (!session) {
-                                            await startSession();
+                                            const result =
+                                                await startSession();
+
+                                            if (!result.ok) {
+                                                if (result.maintenance) {
+                                                    setIsUnderMaintenance(
+                                                        true,
+                                                    );
+                                                    setActiveMaintenanceMessage(
+                                                        result.message,
+                                                    );
+                                                }
+
+                                                return;
+                                            }
                                         }
 
                                         resetTimer();
@@ -392,7 +432,9 @@ export default function Kiosk({
                                         type="button"
                                         variant="outline"
                                         size="lg"
-                                        disabled={isResuming}
+                                        disabled={
+                                            isResuming || isUnderMaintenance
+                                        }
                                         onClick={() => beginStep('pay-via-qr')}
                                         className="h-16 gap-3 rounded-xl border-white/20 bg-white/5 text-base text-white hover:bg-white/10 sm:h-20 sm:text-lg"
                                     >
@@ -406,7 +448,9 @@ export default function Kiosk({
                                         type="button"
                                         variant="outline"
                                         size="lg"
-                                        disabled={isResuming}
+                                        disabled={
+                                            isResuming || isUnderMaintenance
+                                        }
                                         onClick={() =>
                                             beginStep('enter-voucher')
                                         }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\PhotoboothSession;
+use App\Services\Settings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 
@@ -14,6 +15,13 @@ class PhotoboothSessionController extends Controller
      */
     public function store(): JsonResponse
     {
+        if (Settings::get('maintenance_mode')) {
+            return response()->json([
+                'message' => Settings::get('maintenance_message'),
+                'maintenance' => true,
+            ], 503);
+        }
+
         $session = PhotoboothSession::create([
             'session_token' => (string) Str::uuid(),
             'status' => PhotoboothSessionStatus::New,
