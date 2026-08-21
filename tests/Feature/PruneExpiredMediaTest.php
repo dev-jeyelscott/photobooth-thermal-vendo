@@ -122,9 +122,10 @@ test('a failure deleting one record file is logged and does not halt processing 
 
     Log::shouldHaveReceived('error')
         ->once()
-        ->withArgs(function (string $message, array $context) use ($failing) {
+        ->withArgs(function (string $message, array $context) use ($failing, $failingColorPath) {
             return str_contains($message, 'prune')
                 && $context['captured_media_id'] === $failing->id
+                && $context['path'] === $failingColorPath
                 && str_contains($context['error'], 'Simulated storage failure.');
         });
 });

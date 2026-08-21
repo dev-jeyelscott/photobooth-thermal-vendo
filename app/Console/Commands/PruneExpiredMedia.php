@@ -37,10 +37,13 @@ class PruneExpiredMedia extends Command
         $prunedCount = 0;
 
         foreach ($expiredMedia as $capturedMedia) {
+            $currentPath = null;
+
             try {
                 foreach (['color_path', 'bw_path', 'gif_path'] as $attribute) {
                     if ($capturedMedia->{$attribute} !== null) {
-                        Storage::disk('public')->delete($capturedMedia->{$attribute});
+                        $currentPath = $capturedMedia->{$attribute};
+                        Storage::disk('public')->delete($currentPath);
                     }
                 }
 
@@ -54,6 +57,7 @@ class PruneExpiredMedia extends Command
             } catch (Throwable $exception) {
                 Log::error('Failed to prune expired captured media.', [
                     'captured_media_id' => $capturedMedia->id,
+                    'path' => $currentPath,
                     'error' => $exception->getMessage(),
                 ]);
             }
