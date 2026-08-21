@@ -126,7 +126,7 @@ every photobooth session with its payment and print status:
 - Filter by session status, and by a start/end date range, then click
   "Filter".
 - Each row shows the session's status, payment method/status/amount, print
-  job status and attempt count, and when the session started.
+  job status, and when the session started.
 - **Identifying a payment failure**: look for a session whose payment status
   is not "success" (for example "failed"), or check the "Failed payments"
   count on the Dashboard.
