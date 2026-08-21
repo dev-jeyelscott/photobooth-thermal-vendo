@@ -29,6 +29,7 @@ describe('CaptureStep', () => {
         overrides: Partial<{
             shotCount: number;
             retakeLimit: number;
+            countdownSeconds: number;
             onComplete: (photos: string[]) => void;
             onActivity: () => void;
         }> = {},
@@ -40,6 +41,7 @@ describe('CaptureStep', () => {
             <CaptureStep
                 shotCount={overrides.shotCount ?? 2}
                 retakeLimit={overrides.retakeLimit ?? 1}
+                countdownSeconds={overrides.countdownSeconds}
                 onComplete={onComplete}
                 onActivity={onActivity}
             />,
@@ -101,5 +103,17 @@ describe('CaptureStep', () => {
         expect(onComplete).toHaveBeenCalledWith([
             'data:image/jpeg;base64,mock',
         ]);
+    });
+
+    it('uses the configured countdownSeconds instead of the default', async () => {
+        renderCaptureStep({ countdownSeconds: 1 });
+
+        expect(screen.getByText('1')).toBeInTheDocument();
+
+        await act(async () => {
+            vi.advanceTimersByTime(1000);
+        });
+
+        expect(screen.getByTestId('kiosk-capture-review')).toBeInTheDocument();
     });
 });

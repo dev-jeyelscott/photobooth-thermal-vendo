@@ -35,6 +35,7 @@ type KioskStep =
 const DEFAULT_IDLE_TIMEOUT_SECONDS = 60;
 const DEFAULT_CAPTURE_SHOT_COUNT = 3;
 const DEFAULT_CAPTURE_RETAKE_LIMIT = 2;
+const DEFAULT_CAPTURE_COUNTDOWN_SECONDS = 3;
 const DEFAULT_PAYMENT_TIMEOUT_SECONDS = 120;
 const PAYMENT_POLL_INTERVAL_MS = 3000;
 const PRINT_POLL_INTERVAL_MS = 3000;
@@ -44,6 +45,7 @@ export default function Kiosk({
     idleTimeoutSeconds = DEFAULT_IDLE_TIMEOUT_SECONDS,
     captureShotCount = DEFAULT_CAPTURE_SHOT_COUNT,
     captureRetakeLimit = DEFAULT_CAPTURE_RETAKE_LIMIT,
+    captureCountdownSeconds = DEFAULT_CAPTURE_COUNTDOWN_SECONDS,
     paymentTimeoutSeconds = DEFAULT_PAYMENT_TIMEOUT_SECONDS,
     maintenanceMode = false,
     maintenanceMessage = '',
@@ -51,6 +53,7 @@ export default function Kiosk({
     idleTimeoutSeconds?: number;
     captureShotCount?: number;
     captureRetakeLimit?: number;
+    captureCountdownSeconds?: number;
     paymentTimeoutSeconds?: number;
     maintenanceMode?: boolean;
     maintenanceMessage?: string;
@@ -581,6 +584,7 @@ export default function Kiosk({
                                     captureShotCount
                                 }
                                 retakeLimit={captureRetakeLimit}
+                                countdownSeconds={captureCountdownSeconds}
                                 onActivity={resetTimer}
                                 onExit={startOver}
                                 onComplete={(photos) => {

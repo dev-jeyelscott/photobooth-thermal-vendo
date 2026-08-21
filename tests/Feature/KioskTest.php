@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PhotoboothSessionStatus;
+use App\Models\ApplicationSetting;
 use App\Models\PhotoboothSession;
 use App\Models\Voucher;
 
@@ -13,6 +14,21 @@ test('the kiosk start screen renders with its primary actions', function () {
         ->has('idleTimeoutSeconds')
         ->has('captureShotCount')
         ->has('captureRetakeLimit')
+        ->has('captureCountdownSeconds')
+    );
+});
+
+test('the kiosk exposes an admin-configured capture countdown instead of the config default', function () {
+    ApplicationSetting::updateOrCreate(
+        ['key' => 'capture_countdown_seconds'],
+        ['value' => '7']
+    );
+
+    $response = $this->get(route('kiosk'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->where('captureCountdownSeconds', 7)
     );
 });
 

@@ -66,6 +66,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Capture Countdown Seconds
+    |--------------------------------------------------------------------------
+    |
+    | Number of seconds the kiosk counts down before each shot is captured
+    | during the capture step.
+    |
+    */
+
+    'capture_countdown_seconds' => env('PHOTOBOOTH_CAPTURE_COUNTDOWN_SECONDS', 3),
+
+    /*
+    |--------------------------------------------------------------------------
     | GIF Frame Duration
     |--------------------------------------------------------------------------
     |

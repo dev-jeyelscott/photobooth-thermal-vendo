@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CameraPreview } from '@/components/camera-preview';
 import { Button } from '@/components/ui/button';
 
-const COUNTDOWN_SECONDS = 3;
+const DEFAULT_COUNTDOWN_SECONDS = 3;
 const AUTO_ADVANCE_SECONDS = 4;
 
 type CapturePhase = 'countdown' | 'review';
@@ -16,12 +16,14 @@ type CapturePhase = 'countdown' | 'review';
 export function CaptureStep({
     shotCount,
     retakeLimit,
+    countdownSeconds = DEFAULT_COUNTDOWN_SECONDS,
     onComplete,
     onActivity,
     onExit,
 }: {
     shotCount: number;
     retakeLimit: number;
+    countdownSeconds?: number;
     onComplete: (photos: string[]) => void;
     onActivity: () => void;
     onExit?: () => void;
@@ -30,7 +32,7 @@ export function CaptureStep({
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [shots, setShots] = useState<string[]>([]);
     const [phase, setPhase] = useState<CapturePhase>('countdown');
-    const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+    const [countdown, setCountdown] = useState(countdownSeconds);
     const [retakesRemaining, setRetakesRemaining] = useState(retakeLimit);
     const [currentShot, setCurrentShot] = useState<string | null>(null);
     const [autoAdvanceIn, setAutoAdvanceIn] = useState<number | null>(null);
@@ -89,7 +91,7 @@ export function CaptureStep({
                     onComplete(nextShots);
                 } else {
                     setRetakesRemaining(retakeLimit);
-                    setCountdown(COUNTDOWN_SECONDS);
+                    setCountdown(countdownSeconds);
                     setPhase('countdown');
                 }
 
@@ -100,7 +102,7 @@ export function CaptureStep({
         });
 
         onActivity();
-    }, [shotCount, retakeLimit, onComplete, onActivity]);
+    }, [shotCount, retakeLimit, countdownSeconds, onComplete, onActivity]);
 
     const retakeShot = useCallback(() => {
         setRetakesRemaining((remaining) => {
@@ -109,13 +111,13 @@ export function CaptureStep({
             }
 
             setCurrentShot(null);
-            setCountdown(COUNTDOWN_SECONDS);
+            setCountdown(countdownSeconds);
             setPhase('countdown');
             onActivity();
 
             return remaining - 1;
         });
-    }, [onActivity]);
+    }, [countdownSeconds, onActivity]);
 
     // Ticks the auto-advance countdown while reviewing a shot, keeping it once it reaches zero.
     useEffect(() => {

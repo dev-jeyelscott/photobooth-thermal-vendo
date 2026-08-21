@@ -17,7 +17,8 @@ Route::inertia('/', 'welcome')->name('home');
 Route::inertia('kiosk', 'kiosk', [
     'idleTimeoutSeconds' => config('photobooth.kiosk_idle_timeout_seconds'),
     'captureShotCount' => config('photobooth.capture_shot_count'),
-    'captureRetakeLimit' => config('photobooth.capture_retake_limit'),
+    'captureRetakeLimit' => fn () => Settings::get('capture_retake_limit'),
+    'captureCountdownSeconds' => fn () => Settings::get('capture_countdown_seconds'),
     'paymentTimeoutSeconds' => config('photobooth.payment_timeout_seconds'),
     'maintenanceMode' => fn () => Settings::get('maintenance_mode'),
     'maintenanceMessage' => fn () => Settings::get('maintenance_message'),
