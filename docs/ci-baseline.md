@@ -1,7 +1,7 @@
 # CI Baseline
 
 Recorded state of the project's existing test, static-analysis, lint, and build tooling as of
-2026-08-21, verified against `main` at commit `1b014727af27a5b5c70df0b95e28974792add0a7`. This is a
+2026-08-21, verified against `main` at commit `0077e3d77a3e2e5ade822b89827075ecc9ac3430`. This is a
 verification-only snapshot: no application or test code was modified to produce it.
 
 ## Summary
