@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Payments\CreateMayaCheckout;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\PhotoboothSessionStatus;
@@ -8,6 +9,7 @@ use App\Models\Payment;
 use App\Models\PhotoboothSession;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 beforeEach(function () {
     ApplicationSetting::factory()->create([
@@ -151,6 +153,29 @@ test('no maya secret key appears in the checkout response', function () {
 
     $response->assertCreated();
     $response->assertDontSee('sk_super_secret_value');
+});
+
+test('a concurrent duplicate checkout guard tripped mid-transaction leaves no partial payment or session snapshot', function () {
+    Http::fake([
+        '*/checkout/v1/checkouts' => Http::response([
+            'checkoutId' => 'checkout-race',
+            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-race',
+        ], 200),
+    ]);
+
+    $session = PhotoboothSession::factory()->create();
+
+    // Simulates a second concurrent checkout request landing after the
+    // Maya API call has already succeeded but before the local write commits.
+    Payment::factory()->for($session, 'photoboothSession')->create(['status' => PaymentStatus::Pending]);
+
+    expect(fn () => app(CreateMayaCheckout::class)->handle($session))
+        ->toThrow(RuntimeException::class);
+
+    expect(Payment::count())->toBe(1)
+        ->and(Payment::first()->maya_checkout_id)->not->toBe('checkout-race')
+        ->and($session->fresh()->price)->toBeNull()
+        ->and($session->fresh()->payment_method)->toBeNull();
 });
 
 test('a duplicate maya_checkout_id is rejected at the database layer', function () {

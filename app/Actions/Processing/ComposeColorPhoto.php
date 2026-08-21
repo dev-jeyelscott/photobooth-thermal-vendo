@@ -8,6 +8,7 @@ use App\Models\CapturedMedia;
 use App\Models\PhotoboothSession;
 use App\Services\ColorCompositionService;
 use App\Services\GifCompositionService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Encoders\JpegEncoder;
 
@@ -81,24 +82,26 @@ class ComposeColorPhoto
 
         Storage::disk('public')->put($gifPath, (string) $gif);
 
-        while ($session->status !== PhotoboothSessionStatus::Processing) {
-            $session->transitionTo($session->status->next());
-        }
+        return DB::transaction(function () use ($session, $colorPath, $bwPath, $gifPath): CapturedMedia {
+            while ($session->status !== PhotoboothSessionStatus::Processing) {
+                $session->transitionTo($session->status->next());
+            }
 
-        $capturedMedia = $session->capturedMedia()->updateOrCreate(
-            ['photobooth_session_id' => $session->id],
-            [
-                'color_path' => $colorPath,
-                'bw_path' => $bwPath,
-                'gif_path' => $gifPath,
-                'expires_at' => now()->addHours((int) config('photobooth.gallery_expiration_hours')),
-            ],
-        );
+            $capturedMedia = $session->capturedMedia()->updateOrCreate(
+                ['photobooth_session_id' => $session->id],
+                [
+                    'color_path' => $colorPath,
+                    'bw_path' => $bwPath,
+                    'gif_path' => $gifPath,
+                    'expires_at' => now()->addHours((int) config('photobooth.gallery_expiration_hours')),
+                ],
+            );
 
-        if (! $session->printJob()->exists()) {
-            $this->createPrintJob->handle($session);
-        }
+            if (! $session->printJob()->exists()) {
+                $this->createPrintJob->handle($session);
+            }
 
-        return $capturedMedia;
+            return $capturedMedia;
+        });
     }
 }

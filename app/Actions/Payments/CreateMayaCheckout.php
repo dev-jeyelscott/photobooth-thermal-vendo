@@ -8,6 +8,7 @@ use App\Models\ApplicationSetting;
 use App\Models\Payment;
 use App\Models\PhotoboothSession;
 use App\Services\Settings;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -44,20 +45,36 @@ class CreateMayaCheckout
             throw new RuntimeException('Failed to create Maya checkout session.');
         }
 
-        $payment = Payment::create([
-            'photobooth_session_id' => $session->id,
-            'method' => PaymentMethod::Maya,
-            'status' => PaymentStatus::Pending,
-            'maya_checkout_id' => $response->json('checkoutId'),
-            'amount' => $amount,
-        ]);
+        $checkoutId = $response->json('checkoutId');
 
-        $session->update([
-            'price' => $amount,
-            'currency' => 'PHP',
-            'payment_method' => PaymentMethod::Maya,
-            'required_capture_count' => Settings::get('capture_shot_count'),
-        ]);
+        $payment = DB::transaction(function () use ($session, $amount, $checkoutId): Payment {
+            $lockedSession = PhotoboothSession::whereKey($session->id)->lockForUpdate()->first();
+
+            $hasActivePayment = $lockedSession->payment()
+                ->whereNotIn('status', [PaymentStatus::Failed, PaymentStatus::Cancelled])
+                ->exists();
+
+            if ($hasActivePayment) {
+                throw new RuntimeException('A payment is already in progress for this session.');
+            }
+
+            $payment = Payment::create([
+                'photobooth_session_id' => $lockedSession->id,
+                'method' => PaymentMethod::Maya,
+                'status' => PaymentStatus::Pending,
+                'maya_checkout_id' => $checkoutId,
+                'amount' => $amount,
+            ]);
+
+            $lockedSession->update([
+                'price' => $amount,
+                'currency' => 'PHP',
+                'payment_method' => PaymentMethod::Maya,
+                'required_capture_count' => Settings::get('capture_shot_count'),
+            ]);
+
+            return $payment;
+        });
 
         return [
             'payment' => $payment,
