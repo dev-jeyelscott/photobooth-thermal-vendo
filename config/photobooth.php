@@ -261,6 +261,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Captured Frame Max Dimension
+    |--------------------------------------------------------------------------
+    |
+    | Maximum width or height, in pixels, allowed for a stored source frame
+    | uploaded from the capture step. Frames exceeding this on either side
+    | are downscaled (preserving aspect ratio) before being persisted.
+    |
+    */
+
+    'captured_frame_max_dimension_px' => env('PHOTOBOOTH_CAPTURED_FRAME_MAX_DIMENSION_PX', 2400),
+
+    /*
+    |--------------------------------------------------------------------------
     | Currency
     |--------------------------------------------------------------------------
     |

@@ -66,6 +66,9 @@ export default function Kiosk({
     const [voucherCode, setVoucherCode] = useState('');
     const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
     const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
+    const [capturedPhotoPaths, setCapturedPhotoPaths] = useState<
+        (string | null)[]
+    >([]);
     const [selectedTemplate, setSelectedTemplate] =
         useState<PhotoTemplateOption | null>(null);
     const [selectedSticker, setSelectedSticker] =
@@ -92,6 +95,7 @@ export default function Kiosk({
         fetchStickers,
         selectSticker,
         confirmPreview,
+        uploadCaptureShot,
         composeFinalOutput,
         createPayment,
         refreshSession,
@@ -130,6 +134,7 @@ export default function Kiosk({
         setStep('welcome');
         setVoucherCode('');
         setCapturedPhotos([]);
+        setCapturedPhotoPaths([]);
         setSelectedTemplate(null);
         setSelectedSticker(null);
         setGalleryToken(null);
@@ -140,7 +145,10 @@ export default function Kiosk({
     };
 
     const finalizeSession = async () => {
-        const result = await composeFinalOutput(capturedPhotos);
+        const result = await composeFinalOutput(
+            capturedPhotos,
+            capturedPhotoPaths,
+        );
 
         if (!result.ok) {
             if (result.expired) {
@@ -585,10 +593,12 @@ export default function Kiosk({
                                 }
                                 retakeLimit={captureRetakeLimit}
                                 countdownSeconds={captureCountdownSeconds}
+                                uploadShot={uploadCaptureShot}
                                 onActivity={resetTimer}
                                 onExit={startOver}
-                                onComplete={(photos) => {
+                                onComplete={(photos, photoPaths) => {
                                     setCapturedPhotos(photos);
+                                    setCapturedPhotoPaths(photoPaths);
                                     setStep('captured');
                                     resetTimer();
                                 }}

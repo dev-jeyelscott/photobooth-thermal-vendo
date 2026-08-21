@@ -7,6 +7,7 @@ use App\Http\Requests\ComposeColorPhotoRequest;
 use App\Models\PhotoboothSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class ColorCompositionController extends Controller
@@ -25,8 +26,15 @@ class ColorCompositionController extends Controller
 
         $validated = $request->validated();
 
+        $photos = isset($validated['photo_paths'])
+            ? array_map(
+                fn (string $path): string => (string) Storage::disk('public')->get($path),
+                $validated['photo_paths'],
+            )
+            : $validated['photos'];
+
         try {
-            $capturedMedia = $composeColorPhoto->handle($session, $validated['photos']);
+            $capturedMedia = $composeColorPhoto->handle($session, $photos);
         } catch (Throwable $exception) {
             Log::error('Photo processing failed.', [
                 'photobooth_session_id' => $session->id,

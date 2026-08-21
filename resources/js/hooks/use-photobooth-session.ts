@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { store as uploadCaptureShotFile } from '@/actions/App/Http/Controllers/CaptureShotController';
 import { store as composeColorOutput } from '@/actions/App/Http/Controllers/ColorCompositionController';
 import { store as createPaymentCheckout } from '@/actions/App/Http/Controllers/PaymentController';
 import {
@@ -380,9 +381,43 @@ export function usePhotoboothSession() {
         }
     }, [session]);
 
+    const uploadCaptureShot = useCallback(
+        async (dataUrl: string): Promise<string | null> => {
+            if (!session) {
+                return null;
+            }
+
+            try {
+                const shotBlob = await (await fetch(dataUrl)).blob();
+                const formData = new FormData();
+                formData.append('shot', shotBlob, 'shot.jpg');
+
+                const response = await fetch(
+                    uploadCaptureShotFile.url(session.sessionToken),
+                    {
+                        method: 'post',
+                        headers: {
+                            Accept: 'application/json',
+                            'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                        },
+                        body: formData,
+                    },
+                );
+
+                const body = (await response.json()) as { path?: string };
+
+                return response.ok && body.path ? body.path : null;
+            } catch {
+                return null;
+            }
+        },
+        [session],
+    );
+
     const composeFinalOutput = useCallback(
         async (
             photos: string[],
+            photoPaths: (string | null)[] = [],
         ): Promise<{ ok: true; galleryToken: string } | ActionFailure> => {
             if (!session) {
                 return {
@@ -391,6 +426,12 @@ export function usePhotoboothSession() {
                     expired: false,
                 };
             }
+
+            const storedPaths = photoPaths.filter(
+                (path): path is string => path !== null,
+            );
+            const usableStoredPaths =
+                storedPaths.length === photos.length ? storedPaths : null;
 
             try {
                 const response = await fetch(
@@ -402,7 +443,11 @@ export function usePhotoboothSession() {
                             'Content-Type': 'application/json',
                             'X-XSRF-TOKEN': readXsrfToken() ?? '',
                         },
-                        body: JSON.stringify({ photos }),
+                        body: JSON.stringify(
+                            usableStoredPaths
+                                ? { photo_paths: usableStoredPaths }
+                                : { photos },
+                        ),
                     },
                 );
 
@@ -545,6 +590,7 @@ export function usePhotoboothSession() {
         fetchStickers,
         selectSticker,
         confirmPreview,
+        uploadCaptureShot,
         composeFinalOutput,
         createPayment,
         refreshSession,

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CaptureShotController;
 use App\Http\Controllers\ColorCompositionController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\MayaWebhookController;
@@ -54,6 +55,10 @@ Route::post('kiosk/sessions/{sessionToken}/sticker', [StickerDesignController::c
 Route::post('kiosk/sessions/{sessionToken}/preview', [PreviewController::class, 'store'])
     ->whereUuid('sessionToken')
     ->name('kiosk.sessions.preview.store');
+
+Route::post('kiosk/sessions/{sessionToken}/shots', [CaptureShotController::class, 'store'])
+    ->whereUuid('sessionToken')
+    ->name('kiosk.sessions.shots.store');
 
 Route::post('kiosk/sessions/{sessionToken}/color-output', [ColorCompositionController::class, 'store'])
     ->whereUuid('sessionToken')

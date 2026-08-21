@@ -30,10 +30,15 @@ describe('CaptureStep', () => {
             shotCount: number;
             retakeLimit: number;
             countdownSeconds: number;
-            onComplete: (photos: string[]) => void;
+            uploadShot: (dataUrl: string) => Promise<string | null>;
+            onComplete: (
+                photos: string[],
+                photoPaths: (string | null)[],
+            ) => void;
             onActivity: () => void;
         }> = {},
     ) => {
+        const uploadShot = overrides.uploadShot ?? vi.fn().mockResolvedValue(null);
         const onComplete = overrides.onComplete ?? vi.fn();
         const onActivity = overrides.onActivity ?? vi.fn();
 
@@ -42,6 +47,7 @@ describe('CaptureStep', () => {
                 shotCount={overrides.shotCount ?? 2}
                 retakeLimit={overrides.retakeLimit ?? 1}
                 countdownSeconds={overrides.countdownSeconds}
+                uploadShot={uploadShot}
                 onComplete={onComplete}
                 onActivity={onActivity}
             />,
@@ -58,7 +64,7 @@ describe('CaptureStep', () => {
             { value: 480, configurable: true },
         );
 
-        return { onComplete, onActivity };
+        return { uploadShot, onComplete, onActivity };
     };
 
     it('runs the countdown and captures a shot for review', async () => {
@@ -92,17 +98,23 @@ describe('CaptureStep', () => {
     });
 
     it('keeps a shot and calls onComplete once shotCount is reached', async () => {
-        const { onComplete } = renderCaptureStep({ shotCount: 1 });
+        const uploadShot = vi.fn().mockResolvedValue('captures/token/shot.jpg');
+        const { onComplete } = renderCaptureStep({
+            shotCount: 1,
+            uploadShot,
+        });
 
         await advanceCountdown();
 
-        act(() => {
+        await act(async () => {
             fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
         });
 
-        expect(onComplete).toHaveBeenCalledWith([
-            'data:image/jpeg;base64,mock',
-        ]);
+        expect(uploadShot).toHaveBeenCalledWith('data:image/jpeg;base64,mock');
+        expect(onComplete).toHaveBeenCalledWith(
+            ['data:image/jpeg;base64,mock'],
+            ['captures/token/shot.jpg'],
+        );
     });
 
     it('uses the configured countdownSeconds instead of the default', async () => {

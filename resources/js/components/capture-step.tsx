@@ -17,6 +17,7 @@ export function CaptureStep({
     shotCount,
     retakeLimit,
     countdownSeconds = DEFAULT_COUNTDOWN_SECONDS,
+    uploadShot,
     onComplete,
     onActivity,
     onExit,
@@ -24,18 +25,22 @@ export function CaptureStep({
     shotCount: number;
     retakeLimit: number;
     countdownSeconds?: number;
-    onComplete: (photos: string[]) => void;
+    /** Uploads a kept shot to the backend, resolving the stored path reference, or null if the upload failed. */
+    uploadShot?: (dataUrl: string) => Promise<string | null>;
+    onComplete: (photos: string[], photoPaths: (string | null)[]) => void;
     onActivity: () => void;
     onExit?: () => void;
 }) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [shots, setShots] = useState<string[]>([]);
+    const [shotPaths, setShotPaths] = useState<(string | null)[]>([]);
     const [phase, setPhase] = useState<CapturePhase>('countdown');
     const [countdown, setCountdown] = useState(countdownSeconds);
     const [retakesRemaining, setRetakesRemaining] = useState(retakeLimit);
     const [currentShot, setCurrentShot] = useState<string | null>(null);
     const [autoAdvanceIn, setAutoAdvanceIn] = useState<number | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     const capture = useCallback(() => {
         const video = videoRef.current;
@@ -78,33 +83,50 @@ export function CaptureStep({
         return () => clearInterval(interval);
     }, [phase, shots.length, capture]);
 
-    const keepShot = useCallback(() => {
-        setCurrentShot((shot) => {
-            if (!shot) {
-                return shot;
-            }
+    const keepShot = useCallback(async () => {
+        if (!currentShot || isSaving) {
+            return;
+        }
 
-            setShots((previousShots) => {
-                const nextShots = [...previousShots, shot];
+        const shot = currentShot;
+        setIsSaving(true);
 
-                if (nextShots.length >= shotCount) {
-                    onComplete(nextShots);
-                } else {
-                    setRetakesRemaining(retakeLimit);
-                    setCountdown(countdownSeconds);
-                    setPhase('countdown');
-                }
+        const path = uploadShot ? await uploadShot(shot) : null;
 
-                return nextShots;
-            });
+        const nextShots = [...shots, shot];
+        const nextShotPaths = [...shotPaths, path];
 
-            return null;
-        });
-
+        setShots(nextShots);
+        setShotPaths(nextShotPaths);
+        setCurrentShot(null);
+        setIsSaving(false);
         onActivity();
-    }, [shotCount, retakeLimit, countdownSeconds, onComplete, onActivity]);
+
+        if (nextShots.length >= shotCount) {
+            onComplete(nextShots, nextShotPaths);
+        } else {
+            setRetakesRemaining(retakeLimit);
+            setCountdown(countdownSeconds);
+            setPhase('countdown');
+        }
+    }, [
+        currentShot,
+        isSaving,
+        shots,
+        shotPaths,
+        shotCount,
+        retakeLimit,
+        countdownSeconds,
+        uploadShot,
+        onComplete,
+        onActivity,
+    ]);
 
     const retakeShot = useCallback(() => {
+        if (isSaving) {
+            return;
+        }
+
         setRetakesRemaining((remaining) => {
             if (remaining <= 0) {
                 return remaining;
@@ -117,7 +139,7 @@ export function CaptureStep({
 
             return remaining - 1;
         });
-    }, [countdownSeconds, onActivity]);
+    }, [isSaving, countdownSeconds, onActivity]);
 
     // Ticks the auto-advance countdown while reviewing a shot, keeping it once it reaches zero.
     useEffect(() => {
@@ -181,22 +203,29 @@ export function CaptureStep({
                         className="aspect-video w-full rounded-xl object-cover"
                     />
                     <p className="text-sm text-neutral-300">
-                        {retakesRemaining > 0
-                            ? `Retakes remaining: ${retakesRemaining}`
-                            : 'No retakes remaining.'}
-                        {autoAdvanceIn !== null &&
+                        {isSaving
+                            ? 'Saving shot…'
+                            : retakesRemaining > 0
+                              ? `Retakes remaining: ${retakesRemaining}`
+                              : 'No retakes remaining.'}
+                        {!isSaving &&
+                            autoAdvanceIn !== null &&
                             ` · Continuing in ${autoAdvanceIn}s`}
                     </p>
                     <div className="flex gap-3">
                         <Button
                             type="button"
                             variant="outline"
-                            disabled={retakesRemaining <= 0}
+                            disabled={retakesRemaining <= 0 || isSaving}
                             onClick={retakeShot}
                         >
                             Retake
                         </Button>
-                        <Button type="button" onClick={keepShot}>
+                        <Button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={keepShot}
+                        >
                             {shots.length + 1 >= shotCount
                                 ? 'Finish'
                                 : 'Keep & Continue'}

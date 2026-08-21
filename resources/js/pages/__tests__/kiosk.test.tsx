@@ -13,13 +13,19 @@ vi.mock('@/components/capture-step', () => ({
     CaptureStep: ({
         onComplete,
     }: {
-        onComplete: (photos: string[]) => void;
+        onComplete: (
+            photos: string[],
+            photoPaths: (string | null)[],
+        ) => void;
     }) => (
         <div data-testid="kiosk-capture-stub">
             <button
                 type="button"
                 onClick={() =>
-                    onComplete(['shot-1.jpg', 'shot-2.jpg', 'shot-3.jpg'])
+                    onComplete(
+                        ['shot-1.jpg', 'shot-2.jpg', 'shot-3.jpg'],
+                        ['captures/token/1.jpg', 'captures/token/2.jpg', 'captures/token/3.jpg'],
+                    )
                 }
             >
                 complete capture

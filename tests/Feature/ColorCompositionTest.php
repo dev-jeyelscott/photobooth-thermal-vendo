@@ -71,6 +71,65 @@ test('composing the final color photo advances the session and persists the colo
         ->and($composite->height())->toBeGreaterThan(0);
 });
 
+test('composing the final color photo accepts stored frame path references', function () {
+    Storage::fake('public');
+    Queue::fake();
+
+    $template = PhotoTemplate::factory()->create([
+        'photo_slots' => 2,
+        'layout_config' => [
+            'slots' => [
+                ['slot' => 1, 'x' => 0, 'y' => 0, 'width' => 50, 'height' => 50],
+                ['slot' => 2, 'x' => 50, 'y' => 0, 'width' => 50, 'height' => 50],
+            ],
+        ],
+        'print_width_mm' => 100,
+        'print_height_mm' => 50,
+    ]);
+
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Customizing,
+        'photo_template_id' => $template->id,
+    ]);
+
+    $firstPath = 'captures/'.$session->session_token.'/1.png';
+    $secondPath = 'captures/'.$session->session_token.'/2.png';
+    Storage::disk('public')->put($firstPath, imagecreatetruecolorPng());
+    Storage::disk('public')->put($secondPath, imagecreatetruecolorPng());
+
+    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photo_paths' => [$firstPath, $secondPath],
+    ]);
+
+    $response->assertOk();
+
+    $capturedMedia = CapturedMedia::where('photobooth_session_id', $session->id)->first();
+
+    expect($capturedMedia)->not->toBeNull();
+    Storage::disk('public')->assertExists($capturedMedia->color_path);
+});
+
+test('composing the final color photo rejects a stored frame path outside the session captures directory', function () {
+    Storage::fake('public');
+
+    $template = PhotoTemplate::factory()->create(['photo_slots' => 1]);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Customizing,
+        'photo_template_id' => $template->id,
+    ]);
+    $otherSession = PhotoboothSession::factory()->create();
+
+    $foreignPath = 'captures/'.$otherSession->session_token.'/1.png';
+    Storage::disk('public')->put($foreignPath, imagecreatetruecolorPng());
+
+    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photo_paths' => [$foreignPath],
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors(['photo_paths.0']);
+});
+
 test('composing the final color photo without enough confirmed photos is rejected', function () {
     Storage::fake('public');
 

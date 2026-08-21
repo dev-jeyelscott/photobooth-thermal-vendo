@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Storage;
 
 class ComposeColorPhotoRequest extends FormRequest
 {
@@ -16,8 +17,10 @@ class ComposeColorPhotoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'photos' => ['required', 'array', 'min:1', 'max:20'],
+            'photos' => ['required_without:photo_paths', 'array', 'min:1', 'max:20'],
             'photos.*' => ['required', 'string', $this->validPhotoDataUri()],
+            'photo_paths' => ['required_without:photos', 'array', 'min:1', 'max:20'],
+            'photo_paths.*' => ['required', 'string', $this->validStoredFramePath()],
         ];
     }
 
@@ -43,6 +46,29 @@ class ComposeColorPhotoRequest extends FormRequest
 
             if ($sizeKilobytes > $maxKilobytes) {
                 $fail("Each photo must not exceed {$maxKilobytes} KB.");
+            }
+        };
+    }
+
+    /**
+     * Validate that a photo reference points to a previously stored capture
+     * frame belonging to this session, preventing path traversal or access
+     * to another session's captures.
+     */
+    private function validStoredFramePath(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            $sessionToken = (string) $this->route('sessionToken');
+            $prefix = "captures/{$sessionToken}/";
+
+            if (! is_string($value) || ! str_starts_with($value, $prefix) || str_contains($value, '..')) {
+                $fail('Each photo reference must be a previously stored frame for this session.');
+
+                return;
+            }
+
+            if (! Storage::disk('public')->exists($value)) {
+                $fail('Each photo reference must point to a previously stored frame.');
             }
         };
     }
