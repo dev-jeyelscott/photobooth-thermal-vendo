@@ -135,16 +135,17 @@ every photobooth session with its payment and print status:
 
 ### Print retry
 
-The admin dashboard does not have a retry button; retrying a failed print is
-a server-side action performed by your technical contact:
+The admin dashboard does not have a retry button, and it does not display the
+print job's ID, so retrying a failed print requires your technical contact:
 
-1. Find the failed print job's session on the **Sessions** page to confirm it
-   needs a retry.
-2. Your technical contact runs `php artisan print-jobs:retry {printJob}` on
-   the server, using the print job's ID, to re-queue it for another print
+1. Find the failed session on the **Sessions** page (print job status
+   "failed") and note its **session token**, shown on that row.
+2. Give the session token to your technical contact. They will look up the
+   associated print job's ID on the server and run
+   `php artisan print-jobs:retry {printJob}` to re-queue it for another print
    attempt.
-3. Refresh the **Sessions** page to confirm the print job status has changed
-   from "failed" to a subsequent state (queued/printing/completed).
+3. Refresh the **Sessions** page to confirm the print job status changed from
+   "failed" to "printing" (in progress) and then "printed" (success).
 
 ### Basic troubleshooting
 
