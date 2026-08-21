@@ -18,13 +18,21 @@ class SettingController extends Controller
      * @var list<string>
      */
     private const KEYS = [
+        'booth_display_name',
         'session_price',
+        'currency',
+        'countdown_seconds',
+        'capture_shot_count',
         'retake_limit',
+        'kiosk_idle_timeout_seconds',
         'session_timeout_seconds',
         'gallery_expiration_hours',
         'gif_frame_duration_ms',
         'default_printer',
-        'booth_display_name',
+        'receipt_header',
+        'receipt_footer',
+        'maintenance_mode',
+        'maintenance_message',
     ];
 
     /**
@@ -48,9 +56,11 @@ class SettingController extends Controller
         $validated = $request->validated();
 
         foreach (self::KEYS as $key) {
+            $value = $validated[$key] ?? null;
+
             ApplicationSetting::updateOrCreate(
                 ['key' => $key],
-                ['value' => (string) $validated[$key]]
+                ['value' => $value === null ? null : (string) $value]
             );
         }
 

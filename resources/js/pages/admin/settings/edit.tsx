@@ -3,18 +3,27 @@ import SettingController from '@/actions/App/Http/Controllers/Admin/SettingContr
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { edit } from '@/routes/admin/settings';
 
 type Settings = {
     session_price: number;
+    currency: string;
+    countdown_seconds: number;
+    capture_shot_count: number;
     retake_limit: number;
+    kiosk_idle_timeout_seconds: number;
     session_timeout_seconds: number;
     gallery_expiration_hours: number;
     gif_frame_duration_ms: number;
     default_printer: string;
     booth_display_name: string;
+    receipt_header: string | null;
+    receipt_footer: string | null;
+    maintenance_mode: boolean;
+    maintenance_message: string | null;
 };
 
 export default function SettingsEdit({ settings }: { settings: Settings }) {
@@ -56,6 +65,56 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                             </div>
 
                             <div className="grid gap-2">
+                                <Label htmlFor="currency">
+                                    Currency (ISO 4217 code)
+                                </Label>
+                                <Input
+                                    id="currency"
+                                    name="currency"
+                                    maxLength={3}
+                                    required
+                                    defaultValue={settings.currency}
+                                />
+                                <InputError message={errors.currency} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="countdown_seconds">
+                                    Capture countdown (seconds)
+                                </Label>
+                                <Input
+                                    id="countdown_seconds"
+                                    name="countdown_seconds"
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    required
+                                    defaultValue={settings.countdown_seconds}
+                                />
+                                <InputError
+                                    message={errors.countdown_seconds}
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="capture_shot_count">
+                                    Default capture count
+                                </Label>
+                                <Input
+                                    id="capture_shot_count"
+                                    name="capture_shot_count"
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    required
+                                    defaultValue={settings.capture_shot_count}
+                                />
+                                <InputError
+                                    message={errors.capture_shot_count}
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
                                 <Label htmlFor="retake_limit">
                                     Retake limit
                                 </Label>
@@ -68,6 +127,27 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     defaultValue={settings.retake_limit}
                                 />
                                 <InputError message={errors.retake_limit} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="kiosk_idle_timeout_seconds">
+                                    Idle timeout (seconds)
+                                </Label>
+                                <Input
+                                    id="kiosk_idle_timeout_seconds"
+                                    name="kiosk_idle_timeout_seconds"
+                                    type="number"
+                                    min={1}
+                                    required
+                                    defaultValue={
+                                        settings.kiosk_idle_timeout_seconds
+                                    }
+                                />
+                                <InputError
+                                    message={
+                                        errors.kiosk_idle_timeout_seconds
+                                    }
+                                />
                             </div>
 
                             <div className="grid gap-2">
@@ -152,6 +232,62 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                 />
                                 <InputError
                                     message={errors.booth_display_name}
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="receipt_header">
+                                    Receipt header
+                                </Label>
+                                <Input
+                                    id="receipt_header"
+                                    name="receipt_header"
+                                    defaultValue={
+                                        settings.receipt_header ?? ''
+                                    }
+                                />
+                                <InputError message={errors.receipt_header} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="receipt_footer">
+                                    Receipt footer
+                                </Label>
+                                <Input
+                                    id="receipt_footer"
+                                    name="receipt_footer"
+                                    defaultValue={
+                                        settings.receipt_footer ?? ''
+                                    }
+                                />
+                                <InputError message={errors.receipt_footer} />
+                            </div>
+
+                            <div className="flex items-center space-x-3">
+                                <Checkbox
+                                    id="maintenance_mode"
+                                    name="maintenance_mode"
+                                    defaultChecked={settings.maintenance_mode}
+                                />
+                                <Label htmlFor="maintenance_mode">
+                                    Maintenance mode
+                                </Label>
+                            </div>
+                            <InputError message={errors.maintenance_mode} />
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="maintenance_message">
+                                    Maintenance message
+                                </Label>
+                                <Input
+                                    id="maintenance_message"
+                                    name="maintenance_message"
+                                    defaultValue={
+                                        settings.maintenance_message ?? ''
+                                    }
+                                />
+                                <InputError
+                                    message={errors.maintenance_message}
                                 />
                             </div>
 

@@ -247,4 +247,79 @@ return [
 
     'captured_photo_max_kilobytes' => env('PHOTOBOOTH_CAPTURED_PHOTO_MAX_KILOBYTES', 8192),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Currency
+    |--------------------------------------------------------------------------
+    |
+    | The ISO 4217 currency code used when displaying prices on the kiosk,
+    | receipts, and admin screens, used when no ApplicationSetting override
+    | has been configured by an admin.
+    |
+    */
+
+    'currency' => env('PHOTOBOOTH_CURRENCY', 'PHP'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Capture Countdown
+    |--------------------------------------------------------------------------
+    |
+    | Number of seconds the kiosk counts down before each shot is captured,
+    | used when no ApplicationSetting override has been configured by an
+    | admin.
+    |
+    */
+
+    'countdown_seconds' => env('PHOTOBOOTH_COUNTDOWN_SECONDS', 3),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Receipt Header
+    |--------------------------------------------------------------------------
+    |
+    | Text printed at the top of the customer receipt, used when no
+    | ApplicationSetting override has been configured by an admin.
+    |
+    */
+
+    'receipt_header' => env('PHOTOBOOTH_RECEIPT_HEADER', 'Thank you for visiting!'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Receipt Footer
+    |--------------------------------------------------------------------------
+    |
+    | Text printed at the bottom of the customer receipt, used when no
+    | ApplicationSetting override has been configured by an admin.
+    |
+    */
+
+    'receipt_footer' => env('PHOTOBOOTH_RECEIPT_FOOTER', 'See you again soon!'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Maintenance Mode
+    |--------------------------------------------------------------------------
+    |
+    | Whether the kiosk displays a maintenance message instead of accepting
+    | new sessions, used when no ApplicationSetting override has been
+    | configured by an admin.
+    |
+    */
+
+    'maintenance_mode' => env('PHOTOBOOTH_MAINTENANCE_MODE', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Maintenance Message
+    |--------------------------------------------------------------------------
+    |
+    | Message shown on the kiosk when maintenance mode is enabled, used when
+    | no ApplicationSetting override has been configured by an admin.
+    |
+    */
+
+    'maintenance_message' => env('PHOTOBOOTH_MAINTENANCE_MESSAGE', 'This photobooth is temporarily unavailable. Please check back soon.'),
+
 ];
