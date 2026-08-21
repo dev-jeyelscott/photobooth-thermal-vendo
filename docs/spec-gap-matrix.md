@@ -212,13 +212,22 @@ repository, cross-referenced against `docs/architecture-audit.md`. Classificatio
 
 **Needs Production Validation.**
 
-- No `Dockerfile`/`docker-compose*` present in the repository (`project_runtime_capabilities`
-  confirms `uses_docker: false`). CI (`.github/workflows/tests.yml`) runs `composer setup` then
-  `composer ci:check` on PHP 8.5/Node 22, targeting SQLite for tests per
-  `docs/ci-baseline.md`/`composer.json`. Production target is PostgreSQL
-  (`config/database.php` default driver env-controlled) and S3-compatible storage
-  (`config/filesystems.php` defines an `s3` disk alongside `public`/`local`), but no deployment
-  pipeline, environment-specific configuration, or production readiness check exists yet in-repo.
+- `deploy/production/README.md` documents host provisioning (Ubuntu 26.04, Nginx, PHP 8.5 FPM,
+  PostgreSQL, Supervisor, Certbot) and references checked-in environment-specific configuration
+  templates: `photobooth.env.example` (`DB_CONNECTION=pgsql`, `FILESYSTEM_DISK=public`,
+  `QUEUE_CONNECTION=database`), `nginx.conf.example`, `supervisor-worker.conf.example` (queue
+  worker for `ProcessPrintJob`), `photobooth-schedule.cron.example` (drives
+  `photobooth:expire-sessions`/`media:prune-expired`), and `backup.sh`/`backup.env.example`
+  (PostgreSQL `pg_dump` + media disk backup). The README also lists read-only post-deploy checks
+  (`php artisan about`, `config:show database.default`/`filesystems.default`/`queue.default`,
+  `schedule:list`, `route:list --except-vendor`). No `Dockerfile`/`docker-compose*` is present
+  (`project_runtime_capabilities` confirms `uses_docker: false`); deployment is host-based per the
+  documented runbook, not containerized. CI (`.github/workflows/tests.yml`) runs `composer setup`
+  then `composer ci:check` on PHP 8.5/Node 22, targeting SQLite for tests per
+  `docs/ci-baseline.md`/`composer.json`, distinct from the PostgreSQL/`public`-disk production
+  target the runbook requires. The remaining gap is that this runbook and its templates have not
+  been executed/validated against a live production host — no evidence in-repo of an actual
+  deployment run or its post-deploy checks having been performed.
 
 ## Cross-reference: known concrete gaps (Phase 1 pointers)
 
