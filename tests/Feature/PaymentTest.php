@@ -78,6 +78,41 @@ test('a new payment request is allowed once the prior payment has failed', funct
     expect(Payment::count())->toBe(2);
 });
 
+test('a retried checkout after a failed payment charges and keeps the original session snapshot even after settings change', function () {
+    config(['photobooth.capture_shot_count' => 4]);
+
+    Http::fake([
+        '*/checkout/v1/checkouts' => Http::sequence()
+            ->push([
+                'checkoutId' => 'checkout-initial',
+                'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-initial',
+            ], 200)
+            ->push([
+                'checkoutId' => 'checkout-retry',
+                'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-retry',
+            ], 200),
+    ]);
+
+    $session = PhotoboothSession::factory()->create();
+
+    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+
+    Payment::first()->update(['status' => PaymentStatus::Failed]);
+
+    ApplicationSetting::where('key', 'session_price')->update(['value' => '999.00']);
+    config(['photobooth.capture_shot_count' => 10]);
+
+    $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+
+    $response->assertCreated();
+
+    $retryPayment = Payment::where('maya_checkout_id', 'checkout-retry')->firstOrFail();
+
+    expect((float) $retryPayment->amount)->toBe(150.0)
+        ->and((float) $session->fresh()->price)->toBe(150.0)
+        ->and($session->fresh()->required_capture_count)->toBe(4);
+});
+
 test('a payment request for an already paid session is rejected without creating a payment', function () {
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Paid]);
 
