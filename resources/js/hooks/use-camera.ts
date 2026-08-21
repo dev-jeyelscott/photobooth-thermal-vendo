@@ -30,7 +30,8 @@ const listVideoInputDevices = async (): Promise<MediaDeviceInfo[]> => {
 };
 
 const buildVideoConstraints = (deviceId?: string): MediaTrackConstraints => ({
-    ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: 'user' } }),
+    facingMode: { ideal: 'user' },
+    ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
     width: { ideal: 1280 },
     height: { ideal: 720 },
     aspectRatio: { ideal: 16 / 9 },

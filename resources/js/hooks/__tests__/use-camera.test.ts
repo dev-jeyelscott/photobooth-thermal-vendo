@@ -50,6 +50,22 @@ describe('useCamera', () => {
         expect(result.current.error).toBeNull();
     });
 
+    it('includes both deviceId and ideal facingMode when a device is explicitly selected', async () => {
+        getUserMedia.mockResolvedValue(makeStream());
+
+        const { result } = renderHook(() => useCamera());
+
+        await act(async () => {
+            await result.current.start('device-1');
+        });
+
+        const [{ video }] = getUserMedia.mock.calls[0];
+
+        expect(video.deviceId).toEqual({ exact: 'device-1' });
+        expect(video.facingMode).toEqual({ ideal: 'user' });
+        expect(result.current.error).toBeNull();
+    });
+
     it('retries with relaxed constraints on OverconstrainedError and succeeds', async () => {
         getUserMedia
             .mockRejectedValueOnce(
