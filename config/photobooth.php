@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\Printing\LocalMockPrinterDriver;
+use App\Services\Printing\PrintBridgePrinterDriver;
 
 return [
 
@@ -117,6 +118,24 @@ return [
 
     'printer_drivers' => [
         'local_mock' => LocalMockPrinterDriver::class,
+        'print_bridge' => PrintBridgePrinterDriver::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Print Bridge Transport
+    |--------------------------------------------------------------------------
+    |
+    | Connection details for the HTTP print-bridge service that forwards
+    | rendered receipt images to physical thermal printer hardware, used
+    | when 'print_bridge' is the selected printer driver.
+    |
+    */
+
+    'print_bridge' => [
+        'endpoint' => env('PHOTOBOOTH_PRINT_BRIDGE_ENDPOINT'),
+        'timeout_seconds' => env('PHOTOBOOTH_PRINT_BRIDGE_TIMEOUT_SECONDS', 10),
+        'auth_token' => env('PHOTOBOOTH_PRINT_BRIDGE_AUTH_TOKEN'),
     ],
 
     /*
