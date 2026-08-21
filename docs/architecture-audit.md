@@ -27,8 +27,9 @@ Relationships hang off `PhotoboothSession` (`app/Models/PhotoboothSession.php`):
 - Enum: `app/Enums/PhotoboothSessionStatus.php` — states `New → PaymentPending → Paid →
   TemplateSelected → Capturing → Customizing → Processing → Printing → Completed`, plus terminal
   `Expired`/`Abandoned`. `next()`/`canTransitionTo()`/`isTerminal()` encode the only allowed
-  transitions, including the voucher shortcut `New → Paid` and the any-state escape to
-  `Expired`/`Abandoned`.
+  transitions, including the voucher shortcut `New → Paid`. `canTransitionTo()` first rejects any
+  transition when the current status is terminal (`Completed`/`Expired`/`Abandoned`); otherwise a
+  non-terminal session may transition to `Expired`/`Abandoned` at any point.
 - Every session-mutating Action (`RedeemVoucher`, `SelectPhotoTemplate`, `ConfirmSessionPreview`,
   `ComposeColorPhoto`, `ProcessMayaWebhook`) calls `expireIfPast()` first and then
   `transitionTo()`/`canTransitionTo()` rather than writing `status` directly.
@@ -90,8 +91,10 @@ Relationships hang off `PhotoboothSession` (`app/Models/PhotoboothSession.php`):
 - `app/Actions/Gallery/GenerateGalleryQrCode.php` — renders an SVG QR (BaconQrCode) encoding
   `route('gallery.show', $capturedMedia)`.
 - `app/Http/Controllers/GalleryController.php` — `show()` renders Inertia page `gallery`
-  (`resources/js/pages/gallery.tsx`) with signed public URLs for color/bw/gif from the `public`
-  disk, or an `expired` flag; `qrCode()` streams the SVG.
+  (`resources/js/pages/gallery.tsx`) with `Storage::disk('public')->url(...)` URLs for
+  color/bw/gif (not signed URLs), or an `expired` flag; `qrCode()` streams the SVG. Access control
+  relies on `CapturedMedia.expires_at`/`isExpired()` and route-model binding by the unguessable
+  `public_token`, not URL signing.
 - Routes: `GET gallery/{capturedMedia:public_token}` and
   `GET gallery/{capturedMedia:public_token}/qr-code` (`routes/web.php`). `CapturedMedia` binds by
   `public_token` (`getRouteKeyName()`), not the internal id.
