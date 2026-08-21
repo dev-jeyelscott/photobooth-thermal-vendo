@@ -30,9 +30,12 @@ Relationships hang off `PhotoboothSession` (`app/Models/PhotoboothSession.php`):
   transitions, including the voucher shortcut `New → Paid`. `canTransitionTo()` first rejects any
   transition when the current status is terminal (`Completed`/`Expired`/`Abandoned`); otherwise a
   non-terminal session may transition to `Expired`/`Abandoned` at any point.
-- Every session-mutating Action (`RedeemVoucher`, `SelectPhotoTemplate`, `ConfirmSessionPreview`,
-  `ComposeColorPhoto`, `ProcessMayaWebhook`) calls `expireIfPast()` first and then
+- Session-mutating Actions `RedeemVoucher`, `SelectPhotoTemplate`, `ConfirmSessionPreview`,
+  `ComposeColorPhoto`, and `SelectStickerDesign` call `expireIfPast()` first and then
   `transitionTo()`/`canTransitionTo()` rather than writing `status` directly.
+  `ProcessMayaWebhook` does not call `expireIfPast()`; it locks the `Payment` row, and on a
+  success status calls `canTransitionTo(Paid)` directly on the session's current status before
+  `transitionTo(Paid)`.
 - Scheduled command `photobooth:expire-sessions` (registered in `routes/console.php`, runs every
   minute) expires stale sessions.
 
