@@ -6,6 +6,7 @@ use App\Enums\PhotoboothSessionStatus;
 use App\Models\ApplicationSetting;
 use App\Models\Payment;
 use App\Models\PhotoboothSession;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -150,4 +151,27 @@ test('no maya secret key appears in the checkout response', function () {
 
     $response->assertCreated();
     $response->assertDontSee('sk_super_secret_value');
+});
+
+test('a duplicate maya_checkout_id is rejected at the database layer', function () {
+    Payment::factory()->create(['maya_checkout_id' => 'checkout-duplicate']);
+
+    expect(fn () => Payment::factory()->create(['maya_checkout_id' => 'checkout-duplicate']))
+        ->toThrow(QueryException::class);
+});
+
+test('a duplicate maya_payment_id is rejected at the database layer', function () {
+    Payment::factory()->create(['maya_payment_id' => 'payment-duplicate']);
+
+    expect(fn () => Payment::factory()->create(['maya_payment_id' => 'payment-duplicate']))
+        ->toThrow(QueryException::class);
+});
+
+test('multiple pending payments without a maya reference can coexist', function () {
+    Payment::factory()->count(2)->create([
+        'maya_checkout_id' => null,
+        'maya_payment_id' => null,
+    ]);
+
+    expect(Payment::count())->toBe(2);
 });

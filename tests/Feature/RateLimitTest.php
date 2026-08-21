@@ -3,6 +3,7 @@
 use App\Models\ApplicationSetting;
 use App\Models\PhotoboothSession;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 test('payment creation is rate limited per client', function () {
     config(['photobooth.rate_limits.payment_attempts_per_minute' => 2]);
@@ -12,12 +13,14 @@ test('payment creation is rate limited per client', function () {
         'value' => '150.00',
     ]);
 
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-123',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
-        ], 200),
-    ]);
+    Http::fake(function () {
+        $checkoutId = 'checkout-'.Str::random(8);
+
+        return Http::response([
+            'checkoutId' => $checkoutId,
+            'redirectUrl' => "https://pg-sandbox.paymaya.com/checkout/{$checkoutId}",
+        ], 200);
+    });
 
     $sessions = PhotoboothSession::factory()->count(3)->create();
 
