@@ -33,8 +33,13 @@ test('overlaying a sticker with no placement data matches the hardcoded ratios',
 
     $withoutPlacementKey = $service->compose(baseTemplate(), [], ['asset_path' => 'stickers/sticker.png']);
     $withNullPlacement = $service->compose(baseTemplate(), [], ['asset_path' => 'stickers/sticker.png', 'placement' => null]);
+    $withHistoricalRatios = $service->compose(baseTemplate(), [], [
+        'asset_path' => 'stickers/sticker.png',
+        'placement' => ['size_ratio' => 0.22, 'margin_ratio' => 0.03],
+    ]);
 
-    expect((string) $withoutPlacementKey->encode(new PngEncoder))->toBe((string) $withNullPlacement->encode(new PngEncoder));
+    expect((string) $withoutPlacementKey->encode(new PngEncoder))->toBe((string) $withNullPlacement->encode(new PngEncoder))
+        ->and((string) $withoutPlacementKey->encode(new PngEncoder))->toBe((string) $withHistoricalRatios->encode(new PngEncoder));
 });
 
 test('overlaying a sticker with placement data uses its size and margin ratios', function () {
