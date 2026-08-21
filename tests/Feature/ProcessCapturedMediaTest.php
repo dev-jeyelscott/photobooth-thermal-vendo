@@ -107,7 +107,7 @@ test('handling the job twice for the same session is idempotent and produces no 
         ->and($secondCapturedMedia->color_path)->toBe($firstColorPath);
 });
 
-test('a processing failure is logged without throwing and leaves the session in a customer-recoverable state', function () {
+test('a processing failure is logged and rethrown so the queue worker can retry, leaving the session in a customer-recoverable state', function () {
     Storage::fake('public');
     Log::shouldReceive('error')
         ->once()
@@ -119,8 +119,17 @@ test('a processing failure is logged without throwing and leaves the session in 
 
     $invalidPhoto = base64_encode('not-an-image-payload');
 
-    (new ProcessCapturedMedia($session, [$invalidPhoto, $invalidPhoto]))
-        ->handle(app(ComposeColorPhoto::class));
+    $job = new ProcessCapturedMedia($session, [$invalidPhoto, $invalidPhoto]);
+
+    $threw = false;
+
+    try {
+        $job->handle(app(ComposeColorPhoto::class));
+    } catch (Throwable) {
+        $threw = true;
+    }
+
+    expect($threw)->toBeTrue();
 
     expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Customizing)
         ->and(CapturedMedia::where('photobooth_session_id', $session->id)->exists())->toBeFalse();

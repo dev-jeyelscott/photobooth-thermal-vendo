@@ -41,6 +41,8 @@ class ProcessCapturedMedia implements ShouldQueue
                 'photobooth_session_id' => $this->session->id,
                 'error' => $exception->getMessage(),
             ]);
+
+            throw $exception;
         }
     }
 }

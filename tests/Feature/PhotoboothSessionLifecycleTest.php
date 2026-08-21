@@ -2,6 +2,7 @@
 
 use App\Enums\PhotoboothSessionStatus;
 use App\Exceptions\InvalidPhotoboothSessionTransitionException;
+use App\Models\CapturedMedia;
 use App\Models\PhotoboothSession;
 use App\Models\PhotoTemplate;
 use Illuminate\Support\Str;
@@ -110,4 +111,25 @@ test('resuming an unknown session token returns not found', function () {
     $response = $this->getJson(route('kiosk.sessions.show', (string) Str::uuid()));
 
     $response->assertNotFound();
+});
+
+test('a completed session remains readable so the kiosk can confirm the queued composition job gallery token', function () {
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Completed]);
+    $capturedMedia = CapturedMedia::factory()->for($session, 'photoboothSession')->create();
+
+    $response = $this->getJson(route('kiosk.sessions.show', $session->session_token));
+
+    $response->assertOk();
+    $response->assertJson([
+        'status' => PhotoboothSessionStatus::Completed->value,
+        'galleryToken' => $capturedMedia->public_token,
+    ]);
+});
+
+test('an abandoned session is unrecoverable', function () {
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Abandoned]);
+
+    $response = $this->getJson(route('kiosk.sessions.show', $session->session_token));
+
+    $response->assertStatus(410);
 });

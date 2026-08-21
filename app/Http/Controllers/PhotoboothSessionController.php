@@ -43,7 +43,14 @@ class PhotoboothSessionController extends Controller
             return response()->json(['message' => 'Session not found.'], 404);
         }
 
-        if ($session->expireIfPast() || $session->status->isTerminal()) {
+        if ($session->expireIfPast()) {
+            return response()->json(['message' => 'Session is no longer active.'], 410);
+        }
+
+        // Completed sessions remain readable so the kiosk can confirm the
+        // queued composition job's gallery token even if printing finishes
+        // between polls; only abandoned/expired sessions are unrecoverable.
+        if (in_array($session->status, [PhotoboothSessionStatus::Expired, PhotoboothSessionStatus::Abandoned], true)) {
             return response()->json(['message' => 'Session is no longer active.'], 410);
         }
 

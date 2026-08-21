@@ -8,6 +8,7 @@ use App\Jobs\ProcessCapturedMedia;
 use App\Models\PhotoboothSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class ColorCompositionController extends Controller
 {
@@ -40,7 +41,14 @@ class ColorCompositionController extends Controller
             ], 422);
         }
 
-        ProcessCapturedMedia::dispatch($session, array_values(array_map(base64_encode(...), $photos)));
+        try {
+            ProcessCapturedMedia::dispatch($session, array_values(array_map(base64_encode(...), $photos)));
+        } catch (Throwable) {
+            // The job logs and rethrows on failure so a real queue worker's
+            // automatic retries kick in; under the "sync" queue connection
+            // it runs inline here, so swallow it to keep the response
+            // prompt and let the customer recover via the processing poll.
+        }
 
         return response()->json([
             'status' => $session->fresh()->status->value,
