@@ -11,8 +11,41 @@ type ConfirmPreviewResult =
     { ok: true } | { ok: false; message: string; expired: boolean };
 
 const CANVAS_SCALE = 4;
+/**
+ * Must stay numerically identical to
+ * App\Services\ColorCompositionService::STICKER_SIZE_RATIO /
+ * STICKER_MARGIN_RATIO (app/Services/ColorCompositionService.php), which is
+ * the source of truth for the final print composition.
+ */
 const STICKER_SIZE_RATIO = 0.22;
 const STICKER_MARGIN_RATIO = 0.03;
+
+/**
+ * Mirrors Intervention Image's ->cover() semantics used by
+ * ColorCompositionService::compose(): scales the source image so it fully
+ * covers the destination rectangle while preserving aspect ratio, then
+ * crops any overflow evenly from the center.
+ */
+const coverSourceRect = (
+    image: HTMLImageElement,
+    destWidth: number,
+    destHeight: number,
+): { sx: number; sy: number; sWidth: number; sHeight: number } => {
+    const scale = Math.max(
+        destWidth / image.naturalWidth,
+        destHeight / image.naturalHeight,
+    );
+
+    const sWidth = destWidth / scale;
+    const sHeight = destHeight / scale;
+
+    return {
+        sx: (image.naturalWidth - sWidth) / 2,
+        sy: (image.naturalHeight - sHeight) / 2,
+        sWidth,
+        sHeight,
+    };
+};
 
 type LayoutSlot = {
     slot: number;
@@ -120,12 +153,24 @@ export function PreviewStep({
                     return;
                 }
 
+                const destWidth = slot.width * CANVAS_SCALE;
+                const destHeight = slot.height * CANVAS_SCALE;
+                const { sx, sy, sWidth, sHeight } = coverSourceRect(
+                    image,
+                    destWidth,
+                    destHeight,
+                );
+
                 context.drawImage(
                     image,
+                    sx,
+                    sy,
+                    sWidth,
+                    sHeight,
                     slot.x * CANVAS_SCALE,
                     slot.y * CANVAS_SCALE,
-                    slot.width * CANVAS_SCALE,
-                    slot.height * CANVAS_SCALE,
+                    destWidth,
+                    destHeight,
                 );
             }
 
@@ -138,9 +183,18 @@ export function PreviewStep({
 
                 const stickerSize = canvas.width * STICKER_SIZE_RATIO;
                 const margin = canvas.width * STICKER_MARGIN_RATIO;
+                const stickerSource = coverSourceRect(
+                    stickerImage,
+                    stickerSize,
+                    stickerSize,
+                );
 
                 context.drawImage(
                     stickerImage,
+                    stickerSource.sx,
+                    stickerSource.sy,
+                    stickerSource.sWidth,
+                    stickerSource.sHeight,
                     canvas.width - stickerSize - margin,
                     canvas.height - stickerSize - margin,
                     stickerSize,
