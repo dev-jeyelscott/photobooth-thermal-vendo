@@ -32,10 +32,13 @@ class SelectPhotoTemplate
 
         $session->update([
             'photo_template_id' => $template->id,
-            'template_layout_config' => $template->layout_config,
-            'template_print_width_mm' => $template->print_width_mm,
-            'template_print_height_mm' => $template->print_height_mm,
-            'template_photo_slots' => $template->photo_slots,
+            'template_snapshot' => [
+                'name' => $template->name,
+                'layout_config' => $template->layout_config,
+                'photo_slots' => $template->photo_slots,
+                'print_width_mm' => $template->print_width_mm,
+                'print_height_mm' => $template->print_height_mm,
+            ],
         ]);
         $session->transitionTo(PhotoboothSessionStatus::TemplateSelected);
 

@@ -62,7 +62,7 @@ class PhotoTemplateController extends Controller
 
         return response()->json([
             'status' => $session->status->value,
-            'requiredCaptureCount' => $session->template_photo_slots,
+            'requiredCaptureCount' => $session->template_snapshot['photo_slots'] ?? null,
         ]);
     }
 }

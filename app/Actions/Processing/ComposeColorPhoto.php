@@ -116,14 +116,12 @@ class ComposeColorPhoto
      */
     private function templateSnapshot(PhotoboothSession $session): array
     {
-        if ($session->template_photo_slots !== null
-            && $session->template_print_width_mm !== null
-            && $session->template_print_height_mm !== null) {
+        if ($session->template_snapshot !== null) {
             return [
-                'layout_config' => $session->template_layout_config,
-                'photo_slots' => $session->template_photo_slots,
-                'print_width_mm' => $session->template_print_width_mm,
-                'print_height_mm' => $session->template_print_height_mm,
+                'layout_config' => $session->template_snapshot['layout_config'],
+                'photo_slots' => $session->template_snapshot['photo_slots'],
+                'print_width_mm' => $session->template_snapshot['print_width_mm'],
+                'print_height_mm' => $session->template_snapshot['print_height_mm'],
             ];
         }
 

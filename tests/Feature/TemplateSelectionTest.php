@@ -74,10 +74,10 @@ test('selecting a template snapshots its rendering configuration onto the sessio
 
     $session->refresh();
 
-    expect($session->template_layout_config)->toBe(['slots' => [['slot' => 1, 'x' => 0, 'y' => 0]]])
-        ->and($session->template_print_width_mm)->toBe(100)
-        ->and($session->template_print_height_mm)->toBe(150)
-        ->and($session->template_photo_slots)->toBe(4);
+    expect($session->template_snapshot['layout_config'])->toBe(['slots' => [['slot' => 1, 'x' => 0, 'y' => 0]]])
+        ->and($session->template_snapshot['print_width_mm'])->toBe(100)
+        ->and($session->template_snapshot['print_height_mm'])->toBe(150)
+        ->and($session->template_snapshot['photo_slots'])->toBe(4);
 });
 
 test('editing the template after selection does not alter the session\'s stored snapshot', function () {
@@ -105,10 +105,10 @@ test('editing the template after selection does not alter the session\'s stored 
 
     $session->refresh();
 
-    expect($session->template_layout_config)->toBe(['slots' => [['slot' => 1, 'x' => 0, 'y' => 0]]])
-        ->and($session->template_print_width_mm)->toBe(100)
-        ->and($session->template_print_height_mm)->toBe(150)
-        ->and($session->template_photo_slots)->toBe(4);
+    expect($session->template_snapshot['layout_config'])->toBe(['slots' => [['slot' => 1, 'x' => 0, 'y' => 0]]])
+        ->and($session->template_snapshot['print_width_mm'])->toBe(100)
+        ->and($session->template_snapshot['print_height_mm'])->toBe(150)
+        ->and($session->template_snapshot['photo_slots'])->toBe(4);
 });
 
 test('selecting a template returns the template\'s photo slot count as the required capture count', function () {

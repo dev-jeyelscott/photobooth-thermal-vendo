@@ -25,10 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $currency
  * @property PaymentMethod|null $payment_method
  * @property int|null $required_capture_count
- * @property array<string, mixed>|null $template_layout_config
- * @property int|null $template_print_width_mm
- * @property int|null $template_print_height_mm
- * @property int|null $template_photo_slots
+ * @property array{layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}|null $template_snapshot
  * @property array<string, mixed>|null $sticker_snapshot
  * @property Carbon|null $started_at
  * @property Carbon|null $expires_at
@@ -45,10 +42,7 @@ use Illuminate\Support\Carbon;
     'currency',
     'payment_method',
     'required_capture_count',
-    'template_layout_config',
-    'template_print_width_mm',
-    'template_print_height_mm',
-    'template_photo_slots',
+    'template_snapshot',
     'sticker_snapshot',
     'started_at',
     'expires_at',
@@ -69,10 +63,7 @@ class PhotoboothSession extends Model
             'status' => PhotoboothSessionStatus::class,
             'payment_method' => PaymentMethod::class,
             'required_capture_count' => 'integer',
-            'template_layout_config' => 'array',
-            'template_print_width_mm' => 'integer',
-            'template_print_height_mm' => 'integer',
-            'template_photo_slots' => 'integer',
+            'template_snapshot' => 'array',
             'sticker_snapshot' => 'array',
             'started_at' => 'datetime',
             'expires_at' => 'datetime',

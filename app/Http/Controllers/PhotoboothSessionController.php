@@ -62,7 +62,7 @@ class PhotoboothSessionController extends Controller
             'expiresAt' => $session->expires_at,
             'paymentStatus' => $session->payment?->status->value,
             'printJobStatus' => $session->printJob?->status->value,
-            'requiredCaptureCount' => $session->template_photo_slots ?? $session->required_capture_count,
+            'requiredCaptureCount' => $session->template_snapshot['photo_slots'] ?? $session->required_capture_count,
         ];
     }
 }

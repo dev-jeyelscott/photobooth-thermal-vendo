@@ -82,7 +82,7 @@ test('resuming a session with a selected multi-slot template returns its photo s
     $session = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::TemplateSelected,
         'photo_template_id' => $template->id,
-        'template_photo_slots' => 5,
+        'template_snapshot' => ['photo_slots' => 5],
         'required_capture_count' => 3,
     ]);
 
@@ -96,7 +96,7 @@ test('resuming a session without a selected template falls back to the default r
     $session = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::Paid,
         'photo_template_id' => null,
-        'template_photo_slots' => null,
+        'template_snapshot' => null,
         'required_capture_count' => 3,
     ]);
 
