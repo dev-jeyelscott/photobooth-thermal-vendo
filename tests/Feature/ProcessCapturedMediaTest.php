@@ -109,13 +109,14 @@ test('handling the job twice for the same session is idempotent and produces no 
 
 test('a processing failure is logged and rethrown so the queue worker can retry, leaving the session in a customer-recoverable state', function () {
     Storage::fake('public');
+
+    [$session] = makeComposableSession();
+
     Log::shouldReceive('error')
         ->once()
         ->with('Photo processing failed.', Mockery::on(
-            fn (array $context): bool => isset($context['photobooth_session_id'], $context['error']),
+            fn (array $context): bool => ($context['session_token'] ?? null) === $session->session_token && isset($context['error']),
         ));
-
-    [$session] = makeComposableSession();
 
     $invalidPhoto = base64_encode('not-an-image-payload');
 

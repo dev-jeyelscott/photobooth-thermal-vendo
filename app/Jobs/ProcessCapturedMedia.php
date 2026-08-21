@@ -38,7 +38,7 @@ class ProcessCapturedMedia implements ShouldQueue
             $composeColorPhoto->handle($this->session, $photos);
         } catch (Throwable $exception) {
             Log::error('Photo processing failed.', [
-                'photobooth_session_id' => $this->session->id,
+                'session_token' => $this->session->session_token,
                 'error' => $exception->getMessage(),
             ]);
 
