@@ -4,7 +4,9 @@ namespace App\Console\Commands;
 
 use App\Models\CapturedMedia;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class PruneExpiredMedia extends Command
 {
@@ -20,7 +22,7 @@ class PruneExpiredMedia extends Command
      *
      * @var string
      */
-    protected $description = 'Delete expired captured media files from storage and clear their records';
+    protected $description = 'Delete expired captured media files from storage while preserving their records';
 
     /**
      * Execute the console command.
@@ -32,17 +34,32 @@ class PruneExpiredMedia extends Command
             ->where('expires_at', '<', now())
             ->get();
 
-        foreach ($expiredMedia as $capturedMedia) {
-            foreach ([$capturedMedia->color_path, $capturedMedia->bw_path, $capturedMedia->gif_path] as $path) {
-                if ($path !== null) {
-                    Storage::disk('public')->delete($path);
-                }
-            }
+        $prunedCount = 0;
 
-            $capturedMedia->delete();
+        foreach ($expiredMedia as $capturedMedia) {
+            try {
+                foreach (['color_path', 'bw_path', 'gif_path'] as $attribute) {
+                    if ($capturedMedia->{$attribute} !== null) {
+                        Storage::disk('public')->delete($capturedMedia->{$attribute});
+                    }
+                }
+
+                $capturedMedia->forceFill([
+                    'color_path' => null,
+                    'bw_path' => null,
+                    'gif_path' => null,
+                ])->save();
+
+                $prunedCount++;
+            } catch (Throwable $exception) {
+                Log::error('Failed to prune expired captured media.', [
+                    'captured_media_id' => $capturedMedia->id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
         }
 
-        $this->info("Pruned {$expiredMedia->count()} expired media record(s).");
+        $this->info("Pruned {$prunedCount} expired media record(s).");
 
         return self::SUCCESS;
     }

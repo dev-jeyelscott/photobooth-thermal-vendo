@@ -53,7 +53,7 @@ test('composing the final color photo sets expires_at based on the configured ga
     expect($capturedMedia->expires_at->diffInHours(now()->addHours(48)))->toBeLessThan(1);
 });
 
-test('pruning expired media deletes only expired captured media files and records', function () {
+test('pruning expired media deletes only expired captured media files while preserving records', function () {
     Storage::fake('public');
 
     $expired = CapturedMedia::factory()->create([
@@ -84,10 +84,14 @@ test('pruning expired media deletes only expired captured media files and record
 
     $this->artisan('media:prune-expired')->assertSuccessful();
 
-    expect(CapturedMedia::find($expired->id))->toBeNull();
-    Storage::disk('public')->assertMissing($expired->color_path);
-    Storage::disk('public')->assertMissing($expired->bw_path);
-    Storage::disk('public')->assertMissing($expired->gif_path);
+    $expired->refresh();
+    expect($expired)->not->toBeNull();
+    expect($expired->color_path)->toBeNull();
+    expect($expired->bw_path)->toBeNull();
+    expect($expired->gif_path)->toBeNull();
+    Storage::disk('public')->assertMissing('captures/expired-color.jpg');
+    Storage::disk('public')->assertMissing('captures/expired-bw.jpg');
+    Storage::disk('public')->assertMissing('captures/expired-animation.gif');
 
     expect(CapturedMedia::find($active->id))->not->toBeNull();
     Storage::disk('public')->assertExists($active->color_path);
@@ -106,7 +110,9 @@ test('pruning expired media does not throw when the underlying file is already m
 
     $this->artisan('media:prune-expired')->assertSuccessful();
 
-    expect(CapturedMedia::find($expired->id))->toBeNull();
+    $expired->refresh();
+    expect($expired)->not->toBeNull();
+    expect($expired->color_path)->toBeNull();
 });
 
 test('an expired gallery token returns an expired-state response', function () {
