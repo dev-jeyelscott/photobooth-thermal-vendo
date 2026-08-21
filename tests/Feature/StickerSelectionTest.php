@@ -157,6 +157,82 @@ test('selecting a sticker on an expired session is rejected', function () {
         ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Expired);
 });
 
+test('the sticker list is scoped to stickers compatible with the session\'s selected template', function () {
+    $template = PhotoTemplate::factory()->create();
+    $otherTemplate = PhotoTemplate::factory()->create();
+    $compatible = StickerDesign::factory()->create(['name' => 'Compatible']);
+    $compatible->photoTemplates()->attach($template);
+    $incompatible = StickerDesign::factory()->create(['name' => 'Incompatible']);
+    $incompatible->photoTemplates()->attach($otherTemplate);
+    $universal = StickerDesign::factory()->create(['name' => 'Universal']);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::TemplateSelected,
+        'photo_template_id' => $template->id,
+    ]);
+
+    $response = $this->getJson(route('stickers.index', ['sessionToken' => $session->session_token]));
+
+    $response->assertOk();
+    $names = collect($response->json('stickers'))->pluck('name');
+
+    expect($names)->toContain('Compatible')
+        ->toContain('Universal')
+        ->not->toContain('Incompatible');
+});
+
+test('the sticker list is unfiltered when the session has not selected a template', function () {
+    $otherTemplate = PhotoTemplate::factory()->create();
+    $restricted = StickerDesign::factory()->create();
+    $restricted->photoTemplates()->attach($otherTemplate);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Paid,
+        'photo_template_id' => null,
+    ]);
+
+    $response = $this->getJson(route('stickers.index', ['sessionToken' => $session->session_token]));
+
+    $response->assertOk();
+    expect($response->json('stickers'))->toHaveCount(1);
+});
+
+test('selecting a sticker that is not compatible with the session\'s selected template is rejected', function () {
+    $template = PhotoTemplate::factory()->create();
+    $otherTemplate = PhotoTemplate::factory()->create();
+    $incompatibleSticker = StickerDesign::factory()->create();
+    $incompatibleSticker->photoTemplates()->attach($otherTemplate);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::TemplateSelected,
+        'photo_template_id' => $template->id,
+        'sticker_design_id' => null,
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+        'stickerDesignId' => $incompatibleSticker->id,
+    ]);
+
+    $response->assertStatus(422);
+
+    expect($session->fresh()->sticker_design_id)->toBeNull();
+});
+
+test('selecting a sticker with no compatible-template restrictions is accepted for any template', function () {
+    $template = PhotoTemplate::factory()->create();
+    $universalSticker = StickerDesign::factory()->create();
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::TemplateSelected,
+        'photo_template_id' => $template->id,
+        'sticker_design_id' => null,
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+        'stickerDesignId' => $universalSticker->id,
+    ]);
+
+    $response->assertOk();
+
+    expect($session->fresh()->sticker_design_id)->toBe($universalSticker->id);
+});
+
 test('selecting a sticker for an unknown session returns not found', function () {
     $sticker = StickerDesign::factory()->create();
 

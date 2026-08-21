@@ -576,7 +576,10 @@ export default function Kiosk({
 
                         {activeStep === 'capture' && (
                             <CaptureStep
-                                shotCount={captureShotCount}
+                                shotCount={
+                                    session?.requiredCaptureCount ??
+                                    captureShotCount
+                                }
                                 retakeLimit={captureRetakeLimit}
                                 onActivity={resetTimer}
                                 onExit={startOver}

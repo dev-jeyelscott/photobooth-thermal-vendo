@@ -111,6 +111,21 @@ test('editing the template after selection does not alter the session\'s stored 
         ->and($session->template_photo_slots)->toBe(4);
 });
 
+test('selecting a template returns the template\'s photo slot count as the required capture count', function () {
+    $template = PhotoTemplate::factory()->create(['photo_slots' => 6]);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Paid,
+        'photo_template_id' => null,
+    ]);
+
+    $response = $this->postJson(route('kiosk.sessions.template.store', $session->session_token), [
+        'photoTemplateId' => $template->id,
+    ]);
+
+    $response->assertOk();
+    $response->assertJson(['requiredCaptureCount' => 6]);
+});
+
 test('selecting an inactive template is rejected', function () {
     $template = PhotoTemplate::factory()->inactive()->create();
     $session = PhotoboothSession::factory()->create([

@@ -12,12 +12,31 @@ class StickerDesignController extends Controller
 {
     /**
      * List the sticker designs available for customers to choose from.
+     *
+     * When a session token is supplied and that session already has a template
+     * selected, the list is filtered to stickers compatible with that template.
+     * An empty compatibility set means a sticker is compatible with all templates.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $stickers = StickerDesign::active()
-            ->orderBy('name')
-            ->get()
+        $query = StickerDesign::active()
+            ->orderBy('sort_order')
+            ->orderBy('name');
+
+        $sessionToken = $request->query('sessionToken');
+
+        if ($sessionToken !== null) {
+            $session = PhotoboothSession::where('session_token', $sessionToken)->first();
+
+            if ($session !== null && $session->photo_template_id !== null) {
+                $query->where(function ($compatible) use ($session) {
+                    $compatible->doesntHave('photoTemplates')
+                        ->orWhereHas('photoTemplates', fn ($templates) => $templates->where('photo_templates.id', $session->photo_template_id));
+                });
+            }
+        }
+
+        $stickers = $query->get()
             ->map(fn (StickerDesign $sticker) => [
                 'id' => $sticker->id,
                 'name' => $sticker->name,

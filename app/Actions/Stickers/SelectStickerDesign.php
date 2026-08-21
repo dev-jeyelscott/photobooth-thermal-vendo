@@ -11,7 +11,8 @@ class SelectStickerDesign
      * Attach the given active sticker design to the session.
      *
      * Returns false when the session is expired, has no template selected yet,
-     * or the sticker is not active, in which case the session is not mutated.
+     * the sticker is not active, or the sticker is not compatible with the
+     * session's selected template, in which case the session is not mutated.
      * Re-selecting updates the same column, so no duplicate records are created.
      */
     public function handle(PhotoboothSession $session, int $stickerDesignId): bool
@@ -31,6 +32,13 @@ class SelectStickerDesign
         $sticker = StickerDesign::active()->find($stickerDesignId);
 
         if ($sticker === null) {
+            return false;
+        }
+
+        $isCompatible = ! $sticker->photoTemplates()->exists()
+            || $sticker->photoTemplates()->where('photo_templates.id', $session->photo_template_id)->exists();
+
+        if (! $isCompatible) {
             return false;
         }
 

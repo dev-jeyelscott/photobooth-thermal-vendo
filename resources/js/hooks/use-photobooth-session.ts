@@ -29,6 +29,7 @@ export type PhotoboothSession = {
     expiresAt: string;
     paymentStatus: string | null;
     printJobStatus: string | null;
+    requiredCaptureCount: number | null;
 };
 
 type ActionFailure = { ok: false; message: string; expired: boolean };
@@ -225,6 +226,7 @@ export function usePhotoboothSession() {
 
                 const body = (await response.json()) as {
                     status?: string;
+                    requiredCaptureCount?: number | null;
                     message?: string;
                 };
 
@@ -241,6 +243,9 @@ export function usePhotoboothSession() {
                 setSession({
                     ...session,
                     status: body.status ?? session.status,
+                    requiredCaptureCount:
+                        body.requiredCaptureCount ??
+                        session.requiredCaptureCount,
                 });
 
                 return { ok: true };
@@ -258,16 +263,19 @@ export function usePhotoboothSession() {
     const fetchStickers = useCallback(async (): Promise<
         StickerDesignOption[]
     > => {
-        const response = await fetch(listStickers.url(), {
-            headers: { Accept: 'application/json' },
-        });
+        const response = await fetch(
+            listStickers.url({
+                query: session ? { sessionToken: session.sessionToken } : {},
+            }),
+            { headers: { Accept: 'application/json' } },
+        );
 
         const body = (await response.json()) as {
             stickers: StickerDesignOption[];
         };
 
         return body.stickers;
-    }, []);
+    }, [session]);
 
     const selectSticker = useCallback(
         async (

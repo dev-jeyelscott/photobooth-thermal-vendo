@@ -3,6 +3,7 @@
 use App\Enums\PhotoboothSessionStatus;
 use App\Exceptions\InvalidPhotoboothSessionTransitionException;
 use App\Models\PhotoboothSession;
+use App\Models\PhotoTemplate;
 use Illuminate\Support\Str;
 
 test('starting a session creates a photobooth session with a unique token and new status', function () {
@@ -74,6 +75,35 @@ test('a page refresh resumes the same active session instead of duplicating it',
     ]);
 
     expect(PhotoboothSession::count())->toBe(1);
+});
+
+test('resuming a session with a selected multi-slot template returns its photo slot count as the required capture count', function () {
+    $template = PhotoTemplate::factory()->create(['photo_slots' => 5]);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::TemplateSelected,
+        'photo_template_id' => $template->id,
+        'template_photo_slots' => 5,
+        'required_capture_count' => 3,
+    ]);
+
+    $response = $this->getJson(route('kiosk.sessions.show', $session->session_token));
+
+    $response->assertOk();
+    $response->assertJson(['requiredCaptureCount' => 5]);
+});
+
+test('resuming a session without a selected template falls back to the default required capture count', function () {
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Paid,
+        'photo_template_id' => null,
+        'template_photo_slots' => null,
+        'required_capture_count' => 3,
+    ]);
+
+    $response = $this->getJson(route('kiosk.sessions.show', $session->session_token));
+
+    $response->assertOk();
+    $response->assertJson(['requiredCaptureCount' => 3]);
 });
 
 test('resuming an unknown session token returns not found', function () {
