@@ -107,10 +107,14 @@ repository, cross-referenced against `docs/architecture-audit.md`. Classificatio
 
 **Implemented.**
 
-- `app/Http/Controllers/GalleryController.php::show()` renders the gallery Inertia page with
-  signed public URLs for color/bw/gif, or an `expired` flag, gated by `CapturedMedia.expires_at` +
-  `isExpired()`; route-model-binds by `public_token` (architecture-audit.md §6). Covered by
-  `GalleryTest.php`, `MediaExpirationTest.php`.
+- `app/Http/Controllers/GalleryController.php::show()` (lines 29-34) renders the gallery Inertia
+  page with `Storage::disk('public')->url(...)` public-disk URLs (not signed/temporary URLs) for
+  color/bw/gif, or an `expired` flag, gated by `CapturedMedia.expires_at` + `isExpired()`;
+  route-model-binds by `public_token` (architecture-audit.md §6, which explicitly notes these are
+  "not signed URLs"). Access control relies on `expires_at` gating plus the unguessable
+  `public_token`, not URL signing. The roadmap overview does not mandate signed URLs for gallery
+  delivery, so this is not recorded as a gap. Covered by `GalleryTest.php`,
+  `MediaExpirationTest.php`.
 
 ## QR
 
