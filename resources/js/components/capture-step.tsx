@@ -41,6 +41,7 @@ export function CaptureStep({
     const [currentShot, setCurrentShot] = useState<string | null>(null);
     const [autoAdvanceIn, setAutoAdvanceIn] = useState<number | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [uploadFailed, setUploadFailed] = useState(false);
 
     const capture = useCallback(() => {
         const video = videoRef.current;
@@ -90,8 +91,17 @@ export function CaptureStep({
 
         const shot = currentShot;
         setIsSaving(true);
+        setUploadFailed(false);
 
         const path = uploadShot ? await uploadShot(shot) : null;
+
+        if (uploadShot && path === null) {
+            setIsSaving(false);
+            setUploadFailed(true);
+            setAutoAdvanceIn(null);
+
+            return;
+        }
 
         const nextShots = [...shots, shot];
         const nextShotPaths = [...shotPaths, path];
@@ -133,6 +143,7 @@ export function CaptureStep({
             }
 
             setCurrentShot(null);
+            setUploadFailed(false);
             setCountdown(countdownSeconds);
             setPhase('countdown');
             onActivity();
@@ -142,8 +153,9 @@ export function CaptureStep({
     }, [isSaving, countdownSeconds, onActivity]);
 
     // Ticks the auto-advance countdown while reviewing a shot, keeping it once it reaches zero.
+    // Stops once an upload has failed so a stalled shot never advances on its own.
     useEffect(() => {
-        if (phase !== 'review') {
+        if (phase !== 'review' || uploadFailed) {
             return;
         }
 
@@ -161,7 +173,7 @@ export function CaptureStep({
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [phase, keepShot]);
+    }, [phase, uploadFailed, keepShot]);
 
     return (
         <div
@@ -202,13 +214,22 @@ export function CaptureStep({
                         alt={`Captured shot ${shots.length + 1}`}
                         className="aspect-video w-full rounded-xl object-cover"
                     />
-                    <p className="text-sm text-neutral-300">
-                        {isSaving
-                            ? 'Saving shot…'
-                            : retakesRemaining > 0
-                              ? `Retakes remaining: ${retakesRemaining}`
-                              : 'No retakes remaining.'}
+                    <p
+                        className={
+                            uploadFailed
+                                ? 'text-sm text-red-400'
+                                : 'text-sm text-neutral-300'
+                        }
+                    >
+                        {uploadFailed
+                            ? 'Could not save this shot. Please retry the upload.'
+                            : isSaving
+                              ? 'Saving shot…'
+                              : retakesRemaining > 0
+                                ? `Retakes remaining: ${retakesRemaining}`
+                                : 'No retakes remaining.'}
                         {!isSaving &&
+                            !uploadFailed &&
                             autoAdvanceIn !== null &&
                             ` · Continuing in ${autoAdvanceIn}s`}
                     </p>
@@ -226,9 +247,11 @@ export function CaptureStep({
                             disabled={isSaving}
                             onClick={keepShot}
                         >
-                            {shots.length + 1 >= shotCount
-                                ? 'Finish'
-                                : 'Keep & Continue'}
+                            {uploadFailed
+                                ? 'Retry Upload'
+                                : shots.length + 1 >= shotCount
+                                  ? 'Finish'
+                                  : 'Keep & Continue'}
                         </Button>
                     </div>
                 </div>

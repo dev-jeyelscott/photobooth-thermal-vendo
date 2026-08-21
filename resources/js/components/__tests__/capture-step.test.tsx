@@ -38,7 +38,8 @@ describe('CaptureStep', () => {
             onActivity: () => void;
         }> = {},
     ) => {
-        const uploadShot = overrides.uploadShot ?? vi.fn().mockResolvedValue(null);
+        const uploadShot =
+            overrides.uploadShot ?? vi.fn().mockResolvedValue(null);
         const onComplete = overrides.onComplete ?? vi.fn();
         const onActivity = overrides.onActivity ?? vi.fn();
 
@@ -111,6 +112,43 @@ describe('CaptureStep', () => {
         });
 
         expect(uploadShot).toHaveBeenCalledWith('data:image/jpeg;base64,mock');
+        expect(onComplete).toHaveBeenCalledWith(
+            ['data:image/jpeg;base64,mock'],
+            ['captures/token/shot.jpg'],
+        );
+    });
+
+    it('surfaces an upload failure and does not complete until a retry succeeds', async () => {
+        const uploadShot = vi
+            .fn()
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce('captures/token/shot.jpg');
+        const { onComplete } = renderCaptureStep({
+            shotCount: 1,
+            uploadShot,
+        });
+
+        await advanceCountdown();
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+        });
+
+        expect(uploadShot).toHaveBeenCalledTimes(1);
+        expect(onComplete).not.toHaveBeenCalled();
+        expect(
+            screen.getByText(
+                'Could not save this shot. Please retry the upload.',
+            ),
+        ).toBeInTheDocument();
+
+        await act(async () => {
+            fireEvent.click(
+                screen.getByRole('button', { name: 'Retry Upload' }),
+            );
+        });
+
+        expect(uploadShot).toHaveBeenCalledTimes(2);
         expect(onComplete).toHaveBeenCalledWith(
             ['data:image/jpeg;base64,mock'],
             ['captures/token/shot.jpg'],
