@@ -46,7 +46,7 @@ test('composing the final output persists an animated gif of the captured photo 
         'photos' => $photos,
     ]);
 
-    $response->assertOk();
+    $response->assertStatus(202);
 
     $capturedMedia = CapturedMedia::where('photobooth_session_id', $session->id)->first();
 

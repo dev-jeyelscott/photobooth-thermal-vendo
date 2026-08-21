@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PhotoboothSessionStatus;
+use App\Jobs\ProcessPrintJob;
 use App\Models\CapturedMedia;
 use App\Models\PhotoboothSession;
 use App\Models\PhotoTemplate;
@@ -22,7 +23,7 @@ function composeColorPhotoTestPng(): string
 
 test('composing the final color photo uses the template snapshot taken at selection, not a later edit', function () {
     Storage::fake('public');
-    Queue::fake();
+    Queue::fake([ProcessPrintJob::class]);
 
     $template = PhotoTemplate::factory()->create([
         'photo_slots' => 2,
@@ -62,7 +63,7 @@ test('composing the final color photo uses the template snapshot taken at select
         'photos' => [$photo, $photo],
     ]);
 
-    $response->assertOk();
+    $response->assertStatus(202);
 
     $capturedMedia = CapturedMedia::where('photobooth_session_id', $session->id)->first();
 
@@ -77,7 +78,7 @@ test('composing the final color photo uses the template snapshot taken at select
 
 test('composing the final color photo uses the sticker placement snapshot taken at selection, not a later edit', function () {
     Storage::fake('public');
-    Queue::fake();
+    Queue::fake([ProcessPrintJob::class]);
 
     $sticker = StickerDesign::factory()->create([
         'asset_path' => 'stickers/party-hat.png',
@@ -127,7 +128,7 @@ test('composing the final color photo uses the sticker placement snapshot taken 
         'photos' => [$photo],
     ]);
 
-    $response->assertOk();
+    $response->assertStatus(202);
 
     $capturedMedia = CapturedMedia::where('photobooth_session_id', $session->id)->first();
 

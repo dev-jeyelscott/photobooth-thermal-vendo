@@ -37,30 +37,11 @@ class ComposeColorPhoto
      */
     public function handle(PhotoboothSession $session, array $photos): ?CapturedMedia
     {
-        if ($session->expireIfPast()) {
-            return null;
-        }
-
-        if ($session->photo_template_id === null) {
-            return null;
-        }
-
-        $allowedStartingStatuses = [
-            PhotoboothSessionStatus::TemplateSelected,
-            PhotoboothSessionStatus::Capturing,
-            PhotoboothSessionStatus::Customizing,
-            PhotoboothSessionStatus::Processing,
-        ];
-
-        if (! in_array($session->status, $allowedStartingStatuses, true)) {
+        if (! $this->canCompose($session, $photos)) {
             return null;
         }
 
         $templateSnapshot = $this->templateSnapshot($session);
-
-        if (count($photos) < $templateSnapshot['photo_slots']) {
-            return null;
-        }
 
         $composite = $this->colorComposition->compose($templateSnapshot, $photos, $this->stickerSnapshot($session));
         $blackAndWhite = $this->colorComposition->toBlackAndWhite($composite);
@@ -103,6 +84,38 @@ class ComposeColorPhoto
 
             return $capturedMedia;
         });
+    }
+
+    /**
+     * Determine whether the session and supplied photos are eligible for
+     * composition, expiring the session as a side effect if its deadline has
+     * passed. Used both to fast-fail the request before a job is queued and
+     * to guard the queued job itself against stale or invalid state.
+     *
+     * @param  list<string>  $photos
+     */
+    public function canCompose(PhotoboothSession $session, array $photos): bool
+    {
+        if ($session->expireIfPast()) {
+            return false;
+        }
+
+        if ($session->photo_template_id === null) {
+            return false;
+        }
+
+        $allowedStartingStatuses = [
+            PhotoboothSessionStatus::TemplateSelected,
+            PhotoboothSessionStatus::Capturing,
+            PhotoboothSessionStatus::Customizing,
+            PhotoboothSessionStatus::Processing,
+        ];
+
+        if (! in_array($session->status, $allowedStartingStatuses, true)) {
+            return false;
+        }
+
+        return count($photos) >= $this->templateSnapshot($session)['photo_slots'];
     }
 
     /**

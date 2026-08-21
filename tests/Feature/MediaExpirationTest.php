@@ -45,7 +45,7 @@ test('composing the final color photo sets expires_at based on the configured ga
         'photos' => [$photo],
     ]);
 
-    $response->assertOk();
+    $response->assertStatus(202);
 
     $capturedMedia = CapturedMedia::where('photobooth_session_id', $session->id)->first();
 

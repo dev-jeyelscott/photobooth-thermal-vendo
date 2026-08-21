@@ -40,6 +40,8 @@ const DEFAULT_PAYMENT_TIMEOUT_SECONDS = 120;
 const PAYMENT_POLL_INTERVAL_MS = 3000;
 const PRINT_POLL_INTERVAL_MS = 3000;
 const PRINT_POLL_ATTEMPTS = 5;
+const PROCESSING_POLL_INTERVAL_MS = 2000;
+const PROCESSING_POLL_ATTEMPTS = 30;
 
 export default function Kiosk({
     idleTimeoutSeconds = DEFAULT_IDLE_TIMEOUT_SECONDS,
@@ -169,13 +171,7 @@ export default function Kiosk({
                     },
                 });
             }
-
-            return;
         }
-
-        setGalleryToken(result.galleryToken);
-        setStep('complete');
-        resetTimer();
     };
 
     const submitVoucher = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -321,6 +317,62 @@ export default function Kiosk({
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, paymentAttempt, paymentTimeoutSeconds]);
+
+    // Polls the session until the queued composition job publishes a
+    // gallery token, then advances to the completion step.
+    useEffect(() => {
+        if (step !== 'processing') {
+            return;
+        }
+
+        let cancelled = false;
+        let attempts = 0;
+
+        const pollHandle = setInterval(async () => {
+            attempts += 1;
+
+            const refreshed = await refreshSessionRef.current();
+
+            if (cancelled || !refreshed) {
+                if (!cancelled && attempts >= PROCESSING_POLL_ATTEMPTS) {
+                    clearInterval(pollHandle);
+                    raiseKioskError('network-interruption', {
+                        retry: () => {
+                            clearKioskError();
+                            setStep('processing');
+                            resetTimer();
+                            void finalizeSession();
+                        },
+                    });
+                }
+
+                return;
+            }
+
+            if (refreshed.galleryToken) {
+                clearInterval(pollHandle);
+                setGalleryToken(refreshed.galleryToken);
+                setStep('complete');
+                resetTimer();
+            } else if (attempts >= PROCESSING_POLL_ATTEMPTS) {
+                clearInterval(pollHandle);
+                raiseKioskError('processing-failure', {
+                    retry: () => {
+                        clearKioskError();
+                        setStep('processing');
+                        resetTimer();
+                        void finalizeSession();
+                    },
+                });
+            }
+        }, PROCESSING_POLL_INTERVAL_MS);
+
+        return () => {
+            cancelled = true;
+            clearInterval(pollHandle);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step]);
 
     // Advisory poll for print-job failures once the receipt has been queued;
     // this never blocks the customer, who already has their digital gallery.

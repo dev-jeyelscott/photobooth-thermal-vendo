@@ -50,7 +50,7 @@ test('composing the final output persists a distinct grayscale version alongside
         'photos' => [$photo, $photo],
     ]);
 
-    $response->assertOk();
+    $response->assertStatus(202);
 
     $capturedMedia = CapturedMedia::where('photobooth_session_id', $session->id)->first();
 

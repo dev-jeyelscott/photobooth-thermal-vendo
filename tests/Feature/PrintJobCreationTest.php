@@ -25,7 +25,7 @@ function printJobFixturePng(int $red): string
 
 test('composing the final output creates a pending print job for the session', function () {
     Storage::fake('public');
-    Queue::fake();
+    Queue::fake([ProcessPrintJob::class]);
 
     $template = PhotoTemplate::factory()->create([
         'photo_slots' => 2,
@@ -53,7 +53,7 @@ test('composing the final output creates a pending print job for the session', f
         'photos' => $photos,
     ]);
 
-    $response->assertOk();
+    $response->assertStatus(202);
 
     $printJob = PrintJob::where('photobooth_session_id', $session->id)->first();
 
@@ -66,7 +66,7 @@ test('composing the final output creates a pending print job for the session', f
 
 test('a failure while creating the print job rolls back the session transition and captured media', function () {
     Storage::fake('public');
-    Queue::fake();
+    Queue::fake([ProcessPrintJob::class]);
 
     $this->app->bind(CreatePrintJob::class, function (): CreatePrintJob {
         return new class extends CreatePrintJob
@@ -104,7 +104,7 @@ test('a failure while creating the print job rolls back the session transition a
         'photos' => $photos,
     ]);
 
-    $response->assertStatus(500);
+    $response->assertStatus(202);
 
     expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Customizing)
         ->and(PrintJob::where('photobooth_session_id', $session->id)->exists())->toBeFalse()

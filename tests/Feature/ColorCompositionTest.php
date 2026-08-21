@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PhotoboothSessionStatus;
+use App\Jobs\ProcessPrintJob;
 use App\Models\CapturedMedia;
 use App\Models\PhotoboothSession;
 use App\Models\PhotoTemplate;
@@ -23,7 +24,7 @@ function imagecreatetruecolorPng(): string
 
 test('composing the final color photo advances the session and persists the color path', function () {
     Storage::fake('public');
-    Queue::fake();
+    Queue::fake([ProcessPrintJob::class]);
 
     $sticker = StickerDesign::factory()->create(['asset_path' => 'stickers/party-hat.png']);
     Storage::disk('public')->put($sticker->asset_path, imagecreatetruecolorPng());
@@ -52,7 +53,7 @@ test('composing the final color photo advances the session and persists the colo
         'photos' => [$photo, $photo],
     ]);
 
-    $response->assertOk();
+    $response->assertStatus(202);
     $response->assertJson(['status' => PhotoboothSessionStatus::Printing->value]);
 
     $session->refresh();
@@ -73,7 +74,7 @@ test('composing the final color photo advances the session and persists the colo
 
 test('composing the final color photo accepts stored frame path references', function () {
     Storage::fake('public');
-    Queue::fake();
+    Queue::fake([ProcessPrintJob::class]);
 
     $template = PhotoTemplate::factory()->create([
         'photo_slots' => 2,
@@ -101,7 +102,7 @@ test('composing the final color photo accepts stored frame path references', fun
         'photo_paths' => [$firstPath, $secondPath],
     ]);
 
-    $response->assertOk();
+    $response->assertStatus(202);
 
     $capturedMedia = CapturedMedia::where('photobooth_session_id', $session->id)->first();
 

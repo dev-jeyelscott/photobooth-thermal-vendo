@@ -63,6 +63,7 @@ class PhotoboothSessionController extends Controller
             'paymentStatus' => $session->payment?->status->value,
             'printJobStatus' => $session->printJob?->status->value,
             'requiredCaptureCount' => $session->template_snapshot['photo_slots'] ?? $session->required_capture_count,
+            'galleryToken' => $session->capturedMedia()->latest()->first()?->public_token,
         ];
     }
 }

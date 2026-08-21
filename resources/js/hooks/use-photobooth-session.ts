@@ -31,6 +31,7 @@ export type PhotoboothSession = {
     paymentStatus: string | null;
     printJobStatus: string | null;
     requiredCaptureCount: number | null;
+    galleryToken: string | null;
 };
 
 type ActionFailure = { ok: false; message: string; expired: boolean };
@@ -418,7 +419,7 @@ export function usePhotoboothSession() {
         async (
             photos: string[],
             photoPaths: (string | null)[] = [],
-        ): Promise<{ ok: true; galleryToken: string } | ActionFailure> => {
+        ): Promise<{ ok: true } | ActionFailure> => {
             if (!session) {
                 return {
                     ok: false,
@@ -453,11 +454,10 @@ export function usePhotoboothSession() {
 
                 const body = (await response.json()) as {
                     status?: string;
-                    galleryToken?: string;
                     message?: string;
                 };
 
-                if (!response.ok || !body.galleryToken) {
+                if (!response.ok) {
                     return {
                         ok: false,
                         message:
@@ -472,7 +472,7 @@ export function usePhotoboothSession() {
                     status: body.status ?? session.status,
                 });
 
-                return { ok: true, galleryToken: body.galleryToken };
+                return { ok: true };
             } catch {
                 return {
                     ok: false,

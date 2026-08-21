@@ -4,17 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Actions\Processing\ComposeColorPhoto;
 use App\Http\Requests\ComposeColorPhotoRequest;
+use App\Jobs\ProcessCapturedMedia;
 use App\Models\PhotoboothSession;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Throwable;
 
 class ColorCompositionController extends Controller
 {
     /**
-     * Compose the session's confirmed captured photos into the final color
-     * output once the customer confirms the preview.
+     * Validate the session's confirmed captured photos and queue their final
+     * color, black-and-white, and GIF composition, returning promptly
+     * instead of waiting for the image and GIF encoding to finish.
      */
     public function store(string $sessionToken, ComposeColorPhotoRequest $request, ComposeColorPhoto $composeColorPhoto): JsonResponse
     {
@@ -33,33 +33,18 @@ class ColorCompositionController extends Controller
             )
             : $validated['photos'];
 
-        try {
-            $capturedMedia = $composeColorPhoto->handle($session, $photos);
-        } catch (Throwable $exception) {
-            Log::error('Photo processing failed.', [
-                'photobooth_session_id' => $session->id,
-                'error' => $exception->getMessage(),
-            ]);
-
-            return response()->json([
-                'message' => 'Your photos could not be processed. Please try again.',
-                'status' => $session->fresh()->status->value,
-            ], 500);
-        }
-
-        if ($capturedMedia === null) {
+        if (! $composeColorPhoto->canCompose($session, $photos)) {
             return response()->json([
                 'message' => 'The final photo could not be composed for the current session.',
                 'status' => $session->fresh()->status->value,
             ], 422);
         }
 
+        ProcessCapturedMedia::dispatch($session, array_values(array_map(base64_encode(...), $photos)));
+
         return response()->json([
             'status' => $session->fresh()->status->value,
-            'colorPath' => $capturedMedia->color_path,
-            'bwPath' => $capturedMedia->bw_path,
-            'gifPath' => $capturedMedia->gif_path,
-            'galleryToken' => $capturedMedia->public_token,
-        ]);
+            'processing' => true,
+        ], 202);
     }
 }
