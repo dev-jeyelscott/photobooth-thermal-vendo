@@ -16,7 +16,9 @@ return new class extends Migration
             $table->json('template_snapshot')->nullable()->after('template_photo_slots');
         });
 
-        DB::table('photobooth_sessions')->whereNotNull('template_layout_config')->orWhereNotNull('template_photo_slots')->orderBy('id')->chunkById(100, function ($sessions) {
+        DB::table('photobooth_sessions')->where(function ($query) {
+            $query->whereNotNull('template_layout_config')->orWhereNotNull('template_photo_slots');
+        })->orderBy('id')->chunkById(100, function ($sessions) {
             foreach ($sessions as $session) {
                 DB::table('photobooth_sessions')->where('id', $session->id)->update([
                     'template_snapshot' => json_encode([

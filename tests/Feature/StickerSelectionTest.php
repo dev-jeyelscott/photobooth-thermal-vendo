@@ -49,7 +49,10 @@ test('selecting a sticker on a session with a template attaches it without chang
 });
 
 test('selecting a sticker snapshots its rendering configuration onto the session', function () {
-    $sticker = StickerDesign::factory()->create(['asset_path' => 'stickers/party-hat.png']);
+    $sticker = StickerDesign::factory()->create([
+        'asset_path' => 'stickers/party-hat.png',
+        'placement' => ['size_ratio' => 0.3, 'margin_ratio' => 0.05],
+    ]);
     $template = PhotoTemplate::factory()->create();
     $session = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::TemplateSelected,
@@ -61,11 +64,17 @@ test('selecting a sticker snapshots its rendering configuration onto the session
         'stickerDesignId' => $sticker->id,
     ])->assertOk();
 
-    expect($session->fresh()->sticker_snapshot)->toBe(['asset_path' => 'stickers/party-hat.png']);
+    expect($session->fresh()->sticker_snapshot)->toBe([
+        'asset_path' => 'stickers/party-hat.png',
+        'placement' => ['size_ratio' => 0.3, 'margin_ratio' => 0.05],
+    ]);
 });
 
 test('editing the sticker after selection does not alter the session\'s stored snapshot', function () {
-    $sticker = StickerDesign::factory()->create(['asset_path' => 'stickers/party-hat.png']);
+    $sticker = StickerDesign::factory()->create([
+        'asset_path' => 'stickers/party-hat.png',
+        'placement' => ['size_ratio' => 0.3, 'margin_ratio' => 0.05],
+    ]);
     $template = PhotoTemplate::factory()->create();
     $session = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::TemplateSelected,
@@ -77,9 +86,15 @@ test('editing the sticker after selection does not alter the session\'s stored s
         'stickerDesignId' => $sticker->id,
     ])->assertOk();
 
-    $sticker->update(['asset_path' => 'stickers/updated.png']);
+    $sticker->update([
+        'asset_path' => 'stickers/updated.png',
+        'placement' => ['size_ratio' => 0.9, 'margin_ratio' => 0.9],
+    ]);
 
-    expect($session->fresh()->sticker_snapshot)->toBe(['asset_path' => 'stickers/party-hat.png']);
+    expect($session->fresh()->sticker_snapshot)->toBe([
+        'asset_path' => 'stickers/party-hat.png',
+        'placement' => ['size_ratio' => 0.3, 'margin_ratio' => 0.05],
+    ]);
 });
 
 test('the customer can change their sticker selection before finalizing', function () {

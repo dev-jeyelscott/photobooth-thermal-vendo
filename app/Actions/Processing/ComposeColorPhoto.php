@@ -142,18 +142,24 @@ class ComposeColorPhoto
      * completed session. Falls back to the live relation only if the
      * session predates snapshotting.
      *
-     * @return array{asset_path: string}|null
+     * @return array{asset_path: string, placement: array<string, mixed>|null}|null
      */
     private function stickerSnapshot(PhotoboothSession $session): ?array
     {
         if ($session->sticker_snapshot !== null) {
-            return ['asset_path' => (string) $session->sticker_snapshot['asset_path']];
+            return [
+                'asset_path' => (string) $session->sticker_snapshot['asset_path'],
+                'placement' => $session->sticker_snapshot['placement'] ?? null,
+            ];
         }
 
         if ($session->sticker_design_id === null) {
             return null;
         }
 
-        return ['asset_path' => $session->stickerDesign->asset_path];
+        return [
+            'asset_path' => $session->stickerDesign->asset_path,
+            'placement' => $session->stickerDesign->placement,
+        ];
     }
 }

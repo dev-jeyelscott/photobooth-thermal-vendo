@@ -44,7 +44,10 @@ class SelectStickerDesign
 
         $session->update([
             'sticker_design_id' => $sticker->id,
-            'sticker_snapshot' => ['asset_path' => $sticker->asset_path],
+            'sticker_snapshot' => [
+                'asset_path' => $sticker->asset_path,
+                'placement' => $sticker->placement,
+            ],
         ]);
 
         return true;
