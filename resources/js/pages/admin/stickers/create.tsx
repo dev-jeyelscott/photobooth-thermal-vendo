@@ -3,8 +3,13 @@ import StickerController from '@/actions/App/Http/Controllers/Admin/StickerContr
 import Heading from '@/components/heading';
 import { create, index } from '@/routes/admin/stickers';
 import StickerForm from './sticker-form';
+import type { TemplateOption } from './sticker-form';
 
-export default function StickersCreate() {
+export default function StickersCreate({
+    templates,
+}: {
+    templates: TemplateOption[];
+}) {
     setLayoutProps({
         breadcrumbs: [
             { title: 'Stickers', href: index() },
@@ -22,7 +27,10 @@ export default function StickersCreate() {
                     description="Add a sticker overlay design for the kiosk"
                 />
 
-                <StickerForm form={StickerController.store.form()} />
+                <StickerForm
+                    form={StickerController.store.form()}
+                    templates={templates}
+                />
             </div>
         </>
     );

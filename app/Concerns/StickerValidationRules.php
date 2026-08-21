@@ -19,6 +19,10 @@ trait StickerValidationRules
             'asset' => [$assetRequired ? 'required' : 'sometimes', 'image', 'max:5120'],
             'thumbnail' => ['nullable', 'image', 'max:5120'],
             'active' => ['sometimes', 'boolean'],
+            'sort_order' => ['sometimes', 'integer', 'min:0'],
+            'placement' => ['nullable', 'json'],
+            'template_ids' => ['sometimes', 'array'],
+            'template_ids.*' => ['integer', 'exists:photo_templates,id'],
         ];
     }
 }

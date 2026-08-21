@@ -40,7 +40,7 @@ class ColorCompositionService
      *
      * @param  array{layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}  $template  Snapshot of the rendering-critical template configuration.
      * @param  list<string>  $photos  Raw image sources (data URIs, base64, or binary), in shot order.
-     * @param  array{asset_path: string}|null  $sticker  Snapshot of the selected sticker's rendering-critical configuration.
+     * @param  array{asset_path: string, placement?: array{size_ratio?: float, margin_ratio?: float}|null}|null  $sticker  Snapshot of the selected sticker's rendering-critical configuration.
      */
     public function compose(array $template, array $photos, ?array $sticker): ImageInterface
     {
@@ -63,7 +63,7 @@ class ColorCompositionService
         }
 
         if ($sticker !== null) {
-            $this->overlaySticker($canvas, $sticker['asset_path'], $canvasWidth);
+            $this->overlaySticker($canvas, $sticker['asset_path'], $canvasWidth, $sticker['placement'] ?? null);
         }
 
         return $canvas;
@@ -80,12 +80,18 @@ class ColorCompositionService
             ->contrast(self::THERMAL_CONTRAST_LEVEL);
     }
 
-    private function overlaySticker(ImageInterface $canvas, string $assetPath, int $canvasWidth): void
+    /**
+     * @param  array{size_ratio?: float, margin_ratio?: float}|null  $placement  Sticker-specific size/margin ratios, falling back to the hardcoded constants when absent.
+     */
+    private function overlaySticker(ImageInterface $canvas, string $assetPath, int $canvasWidth, ?array $placement): void
     {
         $stickerImage = $this->imageManager->decode(Storage::disk('public')->get($assetPath));
 
-        $stickerSize = (int) round($canvasWidth * self::STICKER_SIZE_RATIO);
-        $margin = (int) round($canvasWidth * self::STICKER_MARGIN_RATIO);
+        $sizeRatio = $placement['size_ratio'] ?? self::STICKER_SIZE_RATIO;
+        $marginRatio = $placement['margin_ratio'] ?? self::STICKER_MARGIN_RATIO;
+
+        $stickerSize = (int) round($canvasWidth * $sizeRatio);
+        $margin = (int) round($canvasWidth * $marginRatio);
 
         $stickerImage->cover($stickerSize, $stickerSize);
 

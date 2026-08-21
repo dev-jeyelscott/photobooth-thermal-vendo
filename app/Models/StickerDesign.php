@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -17,10 +18,12 @@ use Illuminate\Support\Carbon;
  * @property string $asset_path
  * @property string|null $thumbnail_path
  * @property bool $active
+ * @property int $sort_order
+ * @property array<string, mixed>|null $placement
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'asset_path', 'thumbnail_path', 'active'])]
+#[Fillable(['name', 'asset_path', 'thumbnail_path', 'active', 'sort_order', 'placement'])]
 class StickerDesign extends Model
 {
     /** @use HasFactory<StickerDesignFactory> */
@@ -35,6 +38,8 @@ class StickerDesign extends Model
     {
         return [
             'active' => 'boolean',
+            'sort_order' => 'integer',
+            'placement' => 'array',
         ];
     }
 
@@ -56,5 +61,16 @@ class StickerDesign extends Model
     public function photoboothSessions(): HasMany
     {
         return $this->hasMany(PhotoboothSession::class);
+    }
+
+    /**
+     * The photo templates this sticker is compatible with. An empty pivot
+     * set means the sticker is compatible with all templates.
+     *
+     * @return BelongsToMany<PhotoTemplate, $this>
+     */
+    public function photoTemplates(): BelongsToMany
+    {
+        return $this->belongsToMany(PhotoTemplate::class, 'photo_template_sticker_design');
     }
 }

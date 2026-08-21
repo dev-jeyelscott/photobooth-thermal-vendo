@@ -3,16 +3,15 @@ import StickerController from '@/actions/App/Http/Controllers/Admin/StickerContr
 import Heading from '@/components/heading';
 import { index } from '@/routes/admin/stickers';
 import StickerForm from './sticker-form';
+import type { Sticker, TemplateOption } from './sticker-form';
 
-type Sticker = {
-    id: number;
-    name: string;
-    assetPath: string;
-    thumbnailPath: string | null;
-    active: boolean;
-};
-
-export default function StickersEdit({ sticker }: { sticker: Sticker }) {
+export default function StickersEdit({
+    sticker,
+    templates,
+}: {
+    sticker: Sticker;
+    templates: TemplateOption[];
+}) {
     setLayoutProps({
         breadcrumbs: [
             { title: 'Stickers', href: index() },
@@ -36,6 +35,7 @@ export default function StickersEdit({ sticker }: { sticker: Sticker }) {
                 <StickerForm
                     form={StickerController.update.form(sticker.id)}
                     sticker={sticker}
+                    templates={templates}
                 />
             </div>
         </>

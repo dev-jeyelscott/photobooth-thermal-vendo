@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -70,5 +71,16 @@ class PhotoTemplate extends Model
     public function photoboothSessions(): HasMany
     {
         return $this->hasMany(PhotoboothSession::class);
+    }
+
+    /**
+     * The sticker designs explicitly marked compatible with this template.
+     * An empty pivot set means every active sticker is compatible.
+     *
+     * @return BelongsToMany<StickerDesign, $this>
+     */
+    public function stickerDesigns(): BelongsToMany
+    {
+        return $this->belongsToMany(StickerDesign::class, 'photo_template_sticker_design');
     }
 }

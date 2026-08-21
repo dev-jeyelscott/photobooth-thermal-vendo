@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreStickerRequest;
 use App\Http\Requests\Admin\UpdateStickerRequest;
+use App\Models\PhotoTemplate;
 use App\Models\StickerDesign;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
@@ -19,6 +20,7 @@ class StickerController extends Controller
     public function index(): Response
     {
         $stickers = StickerDesign::query()
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
             ->map(fn (StickerDesign $sticker) => $this->presentSticker($sticker));
@@ -33,7 +35,9 @@ class StickerController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('admin/stickers/create');
+        return Inertia::render('admin/stickers/create', [
+            'templates' => $this->presentTemplateOptions(),
+        ]);
     }
 
     /**
@@ -43,14 +47,20 @@ class StickerController extends Controller
     {
         $validated = $request->validated();
 
-        StickerDesign::create([
+        $sticker = StickerDesign::create([
             'name' => $validated['name'],
             'asset_path' => $request->file('asset')->store('stickers', 'public'),
             'thumbnail_path' => $request->hasFile('thumbnail')
                 ? $request->file('thumbnail')->store('stickers/thumbnails', 'public')
                 : null,
             'active' => $request->boolean('active', true),
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'placement' => isset($validated['placement'])
+                ? json_decode($validated['placement'], true)
+                : null,
         ]);
+
+        $sticker->photoTemplates()->sync($validated['template_ids'] ?? []);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Sticker created.')]);
 
@@ -64,6 +74,7 @@ class StickerController extends Controller
     {
         return Inertia::render('admin/stickers/edit', [
             'sticker' => $this->presentSticker($sticker),
+            'templates' => $this->presentTemplateOptions(),
         ]);
     }
 
@@ -77,6 +88,10 @@ class StickerController extends Controller
         $attributes = [
             'name' => $validated['name'],
             'active' => $request->boolean('active'),
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'placement' => isset($validated['placement'])
+                ? json_decode($validated['placement'], true)
+                : null,
         ];
 
         if ($request->hasFile('asset')) {
@@ -92,6 +107,8 @@ class StickerController extends Controller
         }
 
         $sticker->update($attributes);
+
+        $sticker->photoTemplates()->sync($validated['template_ids'] ?? []);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Sticker updated.')]);
 
@@ -141,6 +158,29 @@ class StickerController extends Controller
             'assetPath' => $sticker->asset_path,
             'thumbnailPath' => $sticker->thumbnail_path,
             'active' => $sticker->active,
+            'sortOrder' => $sticker->sort_order,
+            'placement' => $sticker->placement,
+            'templateIds' => $sticker->relationLoaded('photoTemplates')
+                ? $sticker->photoTemplates->pluck('id')
+                : $sticker->photoTemplates()->pluck('photo_templates.id'),
         ];
+    }
+
+    /**
+     * Present the available templates for the compatible-template selector.
+     *
+     * @return array<int, array{id: int, name: string}>
+     */
+    private function presentTemplateOptions(): array
+    {
+        return PhotoTemplate::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (PhotoTemplate $template) => [
+                'id' => $template->id,
+                'name' => $template->name,
+            ])
+            ->all();
     }
 }
