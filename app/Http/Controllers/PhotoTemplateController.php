@@ -16,11 +16,14 @@ class PhotoTemplateController extends Controller
     public function index(): JsonResponse
     {
         $templates = PhotoTemplate::active()
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
             ->map(fn (PhotoTemplate $template) => [
                 'id' => $template->id,
                 'name' => $template->name,
+                'slug' => $template->slug,
+                'orientation' => $template->orientation,
                 'thumbnailPath' => $template->thumbnail_path,
                 'photoSlots' => $template->photo_slots,
                 'layoutConfig' => $template->layout_config,

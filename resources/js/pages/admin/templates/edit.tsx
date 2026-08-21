@@ -7,12 +7,16 @@ import TemplateForm from './template-form';
 type Template = {
     id: number;
     name: string;
+    slug: string;
+    orientation: 'portrait' | 'landscape';
     layoutPath: string;
     thumbnailPath: string | null;
     photoSlots: number;
     printWidthMm: number;
     printHeightMm: number;
     active: boolean;
+    sortOrder: number;
+    printerCompatibility: Record<string, unknown> | null;
 };
 
 export default function TemplatesEdit({ template }: { template: Template }) {

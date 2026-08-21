@@ -37,20 +37,26 @@ test('admin can create a template with layout and thumbnail assets', function ()
 
     $response = $this->actingAs($user)->post(route('admin.templates.store'), [
         'name' => 'Classic Strip',
+        'slug' => 'classic-strip',
+        'orientation' => 'portrait',
         'layout' => UploadedFile::fake()->image('layout.png'),
         'thumbnail' => UploadedFile::fake()->image('thumb.png'),
         'photo_slots' => 3,
         'print_width_mm' => 100,
         'print_height_mm' => 150,
         'active' => '1',
+        'sort_order' => 2,
     ]);
 
     $response->assertRedirect(route('admin.templates.index'));
 
     $template = PhotoTemplate::sole();
     expect($template->name)->toBe('Classic Strip')
+        ->and($template->slug)->toBe('classic-strip')
+        ->and($template->orientation)->toBe('portrait')
         ->and($template->photo_slots)->toBe(3)
-        ->and($template->active)->toBeTrue();
+        ->and($template->active)->toBeTrue()
+        ->and($template->sort_order)->toBe(2);
 
     Storage::disk('public')->assertExists($template->layout_path);
     Storage::disk('public')->assertExists($template->thumbnail_path);
@@ -67,6 +73,8 @@ test('admin can edit a template and replace its layout asset', function () {
 
     $response = $this->actingAs($user)->put(route('admin.templates.update', $template), [
         'name' => 'New Name',
+        'slug' => $template->slug,
+        'orientation' => $template->orientation,
         'layout' => UploadedFile::fake()->image('new-layout.png'),
         'photo_slots' => $template->photo_slots,
         'print_width_mm' => $template->print_width_mm,

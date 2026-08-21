@@ -9,12 +9,16 @@ import type { RouteFormDefinition } from '@/wayfinder';
 type Template = {
     id: number;
     name: string;
+    slug: string;
+    orientation: 'portrait' | 'landscape';
     layoutPath: string;
     thumbnailPath: string | null;
     photoSlots: number;
     printWidthMm: number;
     printHeightMm: number;
     active: boolean;
+    sortOrder: number;
+    printerCompatibility: Record<string, unknown> | null;
 };
 
 export default function TemplateForm({
@@ -42,6 +46,33 @@ export default function TemplateForm({
                             placeholder="Classic Strip"
                         />
                         <InputError message={errors.name} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="slug">Slug</Label>
+                        <Input
+                            id="slug"
+                            name="slug"
+                            required
+                            defaultValue={template?.slug}
+                            placeholder="classic-strip"
+                        />
+                        <InputError message={errors.slug} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="orientation">Orientation</Label>
+                        <select
+                            id="orientation"
+                            name="orientation"
+                            required
+                            defaultValue={template?.orientation ?? 'portrait'}
+                            className="border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs outline-none md:text-sm"
+                        >
+                            <option value="portrait">Portrait</option>
+                            <option value="landscape">Landscape</option>
+                        </select>
+                        <InputError message={errors.orientation} />
                     </div>
 
                     <div className="grid gap-2">
@@ -119,6 +150,41 @@ export default function TemplateForm({
                             />
                             <InputError message={errors.print_height_mm} />
                         </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="sort_order">Sort order</Label>
+                        <Input
+                            id="sort_order"
+                            name="sort_order"
+                            type="number"
+                            min={0}
+                            defaultValue={template?.sortOrder ?? 0}
+                        />
+                        <InputError message={errors.sort_order} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="printer_compatibility">
+                            Printer compatibility (JSON, optional)
+                        </Label>
+                        <textarea
+                            id="printer_compatibility"
+                            name="printer_compatibility"
+                            rows={4}
+                            defaultValue={
+                                template?.printerCompatibility
+                                    ? JSON.stringify(
+                                          template.printerCompatibility,
+                                          null,
+                                          2,
+                                      )
+                                    : ''
+                            }
+                            placeholder='{"paperWidthsMm": [100], "printerIds": ["dnp-ds620"]}'
+                            className="border-input flex w-full min-w-0 rounded-md border bg-transparent px-3 py-2 text-base shadow-xs outline-none md:text-sm"
+                        />
+                        <InputError message={errors.printer_compatibility} />
                     </div>
 
                     <div className="flex items-center space-x-3">

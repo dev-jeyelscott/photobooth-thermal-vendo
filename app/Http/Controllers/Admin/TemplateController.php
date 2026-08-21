@@ -19,6 +19,7 @@ class TemplateController extends Controller
     public function index(): Response
     {
         $templates = PhotoTemplate::query()
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
             ->map(fn (PhotoTemplate $template) => $this->presentTemplate($template));
@@ -45,6 +46,8 @@ class TemplateController extends Controller
 
         PhotoTemplate::create([
             'name' => $validated['name'],
+            'slug' => $validated['slug'],
+            'orientation' => $validated['orientation'],
             'layout_path' => $request->file('layout')->store('templates', 'public'),
             'thumbnail_path' => $request->hasFile('thumbnail')
                 ? $request->file('thumbnail')->store('templates/thumbnails', 'public')
@@ -53,6 +56,10 @@ class TemplateController extends Controller
             'print_width_mm' => $validated['print_width_mm'],
             'print_height_mm' => $validated['print_height_mm'],
             'active' => $request->boolean('active', true),
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'printer_compatibility' => isset($validated['printer_compatibility'])
+                ? json_decode($validated['printer_compatibility'], true)
+                : null,
         ]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Template created.')]);
@@ -79,10 +86,16 @@ class TemplateController extends Controller
 
         $attributes = [
             'name' => $validated['name'],
+            'slug' => $validated['slug'],
+            'orientation' => $validated['orientation'],
             'photo_slots' => $validated['photo_slots'],
             'print_width_mm' => $validated['print_width_mm'],
             'print_height_mm' => $validated['print_height_mm'],
             'active' => $request->boolean('active'),
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'printer_compatibility' => isset($validated['printer_compatibility'])
+                ? json_decode($validated['printer_compatibility'], true)
+                : null,
         ];
 
         if ($request->hasFile('layout')) {
@@ -144,12 +157,16 @@ class TemplateController extends Controller
         return [
             'id' => $template->id,
             'name' => $template->name,
+            'slug' => $template->slug,
+            'orientation' => $template->orientation,
             'layoutPath' => $template->layout_path,
             'thumbnailPath' => $template->thumbnail_path,
             'photoSlots' => $template->photo_slots,
             'printWidthMm' => $template->print_width_mm,
             'printHeightMm' => $template->print_height_mm,
             'active' => $template->active,
+            'sortOrder' => $template->sort_order,
+            'printerCompatibility' => $template->printer_compatibility,
         ];
     }
 }

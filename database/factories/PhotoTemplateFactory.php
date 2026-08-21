@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\PhotoTemplate;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<PhotoTemplate>
@@ -18,9 +19,12 @@ class PhotoTemplateFactory extends Factory
     public function definition(): array
     {
         $photoSlots = fake()->numberBetween(1, 4);
+        $name = fake()->sentence(2).' template';
 
         return [
-            'name' => fake()->sentence(2).' template',
+            'name' => $name,
+            'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(1, 1_000_000),
+            'orientation' => fake()->randomElement(['portrait', 'landscape']),
             'layout_path' => 'templates/'.fake()->uuid().'.png',
             'thumbnail_path' => 'templates/thumbnails/'.fake()->uuid().'.png',
             'photo_slots' => $photoSlots,
@@ -36,6 +40,8 @@ class PhotoTemplateFactory extends Factory
             'print_width_mm' => 100,
             'print_height_mm' => 150,
             'active' => true,
+            'sort_order' => 0,
+            'printer_compatibility' => null,
         ];
     }
 

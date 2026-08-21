@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 test('the public template list only returns active templates with their layout and print details', function () {
     $active = PhotoTemplate::factory()->create([
         'name' => 'Classic Strip',
+        'slug' => 'classic-strip',
+        'orientation' => 'portrait',
         'photo_slots' => 3,
         'layout_config' => ['slots' => [['slot' => 1, 'x' => 0, 'y' => 0]]],
         'print_width_mm' => 100,
@@ -23,6 +25,8 @@ test('the public template list only returns active templates with their layout a
             [
                 'id' => $active->id,
                 'name' => 'Classic Strip',
+                'slug' => 'classic-strip',
+                'orientation' => 'portrait',
                 'thumbnailPath' => $active->thumbnail_path,
                 'photoSlots' => 3,
                 'layoutConfig' => ['slots' => [['slot' => 1, 'x' => 0, 'y' => 0]]],

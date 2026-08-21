@@ -14,6 +14,8 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property string $name
+ * @property string $slug
+ * @property string $orientation
  * @property string $layout_path
  * @property string|null $thumbnail_path
  * @property int $photo_slots
@@ -21,10 +23,12 @@ use Illuminate\Support\Carbon;
  * @property int $print_width_mm
  * @property int $print_height_mm
  * @property bool $active
+ * @property int $sort_order
+ * @property array<string, mixed>|null $printer_compatibility
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'layout_path', 'thumbnail_path', 'photo_slots', 'layout_config', 'print_width_mm', 'print_height_mm', 'active'])]
+#[Fillable(['name', 'slug', 'orientation', 'layout_path', 'thumbnail_path', 'photo_slots', 'layout_config', 'print_width_mm', 'print_height_mm', 'active', 'sort_order', 'printer_compatibility'])]
 class PhotoTemplate extends Model
 {
     /** @use HasFactory<PhotoTemplateFactory> */
@@ -43,6 +47,8 @@ class PhotoTemplate extends Model
             'print_width_mm' => 'integer',
             'print_height_mm' => 'integer',
             'active' => 'boolean',
+            'sort_order' => 'integer',
+            'printer_compatibility' => 'array',
         ];
     }
 
