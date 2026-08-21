@@ -12,7 +12,7 @@ verification-only snapshot: no application or test code was modified to produce 
 | Larastan/PHPStan (level 7)          | `vendor/bin/phpstan analyse --no-progress` | ✅ Pass |
 | Pint (check mode)                   | `vendor/bin/pint --test`             | ✅ Pass    |
 | TypeScript check                    | `npm run types:check`                | ✅ Pass    |
-| ESLint                              | `npm run lint:check`                 | ✅ Pass    |
+| ESLint                              | `npm run lint`                       | ✅ Pass    |
 | Prettier (check mode)               | `npm run format:check`               | ✅ Pass    |
 | Production frontend build           | `npm run build`                      | ✅ Pass    |
 
@@ -26,7 +26,7 @@ introduced by this verification pass.
 `php artisan test --compact`
 
 ```
-{"tool":"pest","result":"passed","tests":167,"passed":167,"assertions":837,"duration_ms":36456}
+{"tool":"pest","result":"passed","tests":167,"passed":167,"assertions":837,"duration_ms":36530}
 ```
 
 ### Larastan/PHPStan — Pass
@@ -51,7 +51,8 @@ introduced by this verification pass.
 
 ### ESLint — Pass
 
-`npm run lint:check` (`eslint .`) completed with no output/errors.
+`npm run lint` (`eslint . --fix`) completed with no output/errors and made no changes to any file
+(confirmed via `git status --porcelain` before/after).
 
 ### Prettier (check mode) — Pass
 
