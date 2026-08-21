@@ -320,6 +320,6 @@ return [
     |
     */
 
-    'maintenance_message' => env('PHOTOBOOTH_MAINTENANCE_MESSAGE', 'This photobooth is temporarily unavailable. Please check back soon.'),
+    'maintenance_message' => env('PHOTOBOOTH_MAINTENANCE_MESSAGE', ''),
 
 ];

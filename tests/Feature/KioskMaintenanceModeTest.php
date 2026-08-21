@@ -3,6 +3,11 @@
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\ApplicationSetting;
 use App\Models\PhotoboothSession;
+use App\Services\Settings;
+
+test('maintenance_message falls back to an empty string when no ApplicationSetting override exists', function () {
+    expect(Settings::get('maintenance_message'))->toBe('');
+});
 
 test('starting a session is blocked with a 503 while maintenance mode is enabled', function () {
     ApplicationSetting::updateOrCreate(['key' => 'maintenance_mode'], ['value' => '1']);
