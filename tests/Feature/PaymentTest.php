@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\ApplicationSetting;
@@ -92,6 +93,45 @@ test('a payment request for a completed session is rejected without creating a p
     $response->assertStatus(409);
     expect(Payment::count())->toBe(0)
         ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Completed);
+});
+
+test('a maya checkout snapshots the price, currency, payment method, and required capture count on the session', function () {
+    config(['photobooth.capture_shot_count' => 4]);
+
+    Http::fake([
+        '*/checkout/v1/checkouts' => Http::response([
+            'checkoutId' => 'checkout-123',
+            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
+        ], 200),
+    ]);
+
+    $session = PhotoboothSession::factory()->create();
+
+    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+
+    $session->refresh();
+
+    expect((float) $session->price)->toBe(150.0)
+        ->and($session->currency)->toBe('PHP')
+        ->and($session->payment_method)->toBe(PaymentMethod::Maya)
+        ->and($session->required_capture_count)->toBe(4);
+});
+
+test('changing the session price setting after checkout does not alter an already snapshotted session', function () {
+    Http::fake([
+        '*/checkout/v1/checkouts' => Http::response([
+            'checkoutId' => 'checkout-123',
+            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
+        ], 200),
+    ]);
+
+    $session = PhotoboothSession::factory()->create();
+
+    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+
+    ApplicationSetting::where('key', 'session_price')->update(['value' => '999.00']);
+
+    expect((float) $session->fresh()->price)->toBe(150.0);
 });
 
 test('no maya secret key appears in the checkout response', function () {

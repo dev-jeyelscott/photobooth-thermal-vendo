@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Models\ApplicationSetting;
 use App\Models\Payment;
 use App\Models\PhotoboothSession;
+use App\Services\Settings;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -49,6 +50,13 @@ class CreateMayaCheckout
             'status' => PaymentStatus::Pending,
             'maya_checkout_id' => $response->json('checkoutId'),
             'amount' => $amount,
+        ]);
+
+        $session->update([
+            'price' => $amount,
+            'currency' => 'PHP',
+            'payment_method' => PaymentMethod::Maya,
+            'required_capture_count' => Settings::get('capture_shot_count'),
         ]);
 
         return [

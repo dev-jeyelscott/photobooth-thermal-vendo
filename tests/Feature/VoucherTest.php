@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PaymentMethod;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\PhotoboothSession;
 use App\Models\Voucher;
@@ -18,6 +19,24 @@ test('a valid voucher redemption unlocks the session', function () {
     expect($voucher->fresh()->usage_count)->toBe(1)
         ->and($session->fresh()->voucher_id)->toBe($voucher->id)
         ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Paid);
+});
+
+test('a voucher redemption snapshots the price, currency, payment method, and required capture count on the session', function () {
+    config(['photobooth.capture_shot_count' => 5]);
+
+    $voucher = Voucher::factory()->create(['usage_limit' => 1, 'usage_count' => 0]);
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+
+    $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        'code' => $voucher->code,
+    ])->assertOk();
+
+    $session->refresh();
+
+    expect((float) $session->price)->toBe(0.0)
+        ->and($session->currency)->toBe('PHP')
+        ->and($session->payment_method)->toBe(PaymentMethod::Voucher)
+        ->and($session->required_capture_count)->toBe(5);
 });
 
 test('an expired voucher is rejected without mutating usage_count or the session', function () {

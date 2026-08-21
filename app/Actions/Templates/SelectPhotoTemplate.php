@@ -30,7 +30,13 @@ class SelectPhotoTemplate
             return false;
         }
 
-        $session->update(['photo_template_id' => $template->id]);
+        $session->update([
+            'photo_template_id' => $template->id,
+            'template_layout_config' => $template->layout_config,
+            'template_print_width_mm' => $template->print_width_mm,
+            'template_print_height_mm' => $template->print_height_mm,
+            'template_photo_slots' => $template->photo_slots,
+        ]);
         $session->transitionTo(PhotoboothSessionStatus::TemplateSelected);
 
         return true;

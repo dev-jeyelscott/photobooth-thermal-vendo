@@ -2,9 +2,11 @@
 
 namespace App\Actions\Vouchers;
 
+use App\Enums\PaymentMethod;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\PhotoboothSession;
 use App\Models\Voucher;
+use App\Services\Settings;
 use Illuminate\Support\Facades\DB;
 
 class RedeemVoucher
@@ -47,7 +49,13 @@ class RedeemVoucher
 
             $voucher->update(['usage_count' => $voucher->usage_count + 1]);
 
-            $session->update(['voucher_id' => $voucher->id]);
+            $session->update([
+                'voucher_id' => $voucher->id,
+                'price' => '0.00',
+                'currency' => 'PHP',
+                'payment_method' => PaymentMethod::Voucher,
+                'required_capture_count' => Settings::get('capture_shot_count'),
+            ]);
             $session->transitionTo(PhotoboothSessionStatus::Paid);
 
             return $voucher;

@@ -52,6 +52,61 @@ test('selecting a template on a paid session attaches it and advances to templat
         ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::TemplateSelected);
 });
 
+test('selecting a template snapshots its rendering configuration onto the session', function () {
+    $template = PhotoTemplate::factory()->create([
+        'photo_slots' => 4,
+        'layout_config' => ['slots' => [['slot' => 1, 'x' => 0, 'y' => 0]]],
+        'print_width_mm' => 100,
+        'print_height_mm' => 150,
+    ]);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Paid,
+        'photo_template_id' => null,
+    ]);
+
+    $this->postJson(route('kiosk.sessions.template.store', $session->session_token), [
+        'photoTemplateId' => $template->id,
+    ])->assertOk();
+
+    $session->refresh();
+
+    expect($session->template_layout_config)->toBe(['slots' => [['slot' => 1, 'x' => 0, 'y' => 0]]])
+        ->and($session->template_print_width_mm)->toBe(100)
+        ->and($session->template_print_height_mm)->toBe(150)
+        ->and($session->template_photo_slots)->toBe(4);
+});
+
+test('editing the template after selection does not alter the session\'s stored snapshot', function () {
+    $template = PhotoTemplate::factory()->create([
+        'photo_slots' => 4,
+        'layout_config' => ['slots' => [['slot' => 1, 'x' => 0, 'y' => 0]]],
+        'print_width_mm' => 100,
+        'print_height_mm' => 150,
+    ]);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Paid,
+        'photo_template_id' => null,
+    ]);
+
+    $this->postJson(route('kiosk.sessions.template.store', $session->session_token), [
+        'photoTemplateId' => $template->id,
+    ])->assertOk();
+
+    $template->update([
+        'photo_slots' => 6,
+        'layout_config' => ['slots' => [['slot' => 1, 'x' => 999, 'y' => 999]]],
+        'print_width_mm' => 500,
+        'print_height_mm' => 600,
+    ]);
+
+    $session->refresh();
+
+    expect($session->template_layout_config)->toBe(['slots' => [['slot' => 1, 'x' => 0, 'y' => 0]]])
+        ->and($session->template_print_width_mm)->toBe(100)
+        ->and($session->template_print_height_mm)->toBe(150)
+        ->and($session->template_photo_slots)->toBe(4);
+});
+
 test('selecting an inactive template is rejected', function () {
     $template = PhotoTemplate::factory()->inactive()->create();
     $session = PhotoboothSession::factory()->create([
