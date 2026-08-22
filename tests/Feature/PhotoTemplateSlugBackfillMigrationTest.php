@@ -4,9 +4,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 test('slug backfill migration preserves existing templates and assigns unique slugs', function () {
-    $migration = require database_path('migrations/2026_08_21_102341_add_slug_orientation_sort_order_and_printer_compatibility_to_photo_templates_table.php');
+    $slugMigration = require database_path('migrations/2026_08_21_102341_add_slug_orientation_sort_order_and_printer_compatibility_to_photo_templates_table.php');
+    $sortOrderIndexMigration = require database_path('migrations/2026_08_22_000000_add_sort_order_index_to_templates_and_stickers_table.php');
 
-    $migration->down();
+    // Roll back the later dependent migration before reversing the migration under test.
+    $sortOrderIndexMigration->down();
+    $slugMigration->down();
 
     $duplicateNameId = DB::table('photo_templates')->insertGetId([
         'name' => 'Classic Strip',
@@ -30,7 +33,9 @@ test('slug backfill migration preserves existing templates and assigns unique sl
         'updated_at' => now(),
     ]);
 
-    $migration->up();
+    // Re-run the migration under test and then restore the later dependent index migration.
+    $slugMigration->up();
+    $sortOrderIndexMigration->up();
 
     expect(Schema::hasColumns('photo_templates', ['slug', 'orientation', 'sort_order', 'printer_compatibility']))->toBeTrue();
 
@@ -44,5 +49,6 @@ test('slug backfill migration preserves existing templates and assigns unique sl
     expect($sameName->sort_order)->toBe(0);
 
     $slugColumn = collect(DB::select('PRAGMA table_info(photo_templates)'))->firstWhere('name', 'slug');
+
     expect($slugColumn->notnull)->toBe(1);
 });
