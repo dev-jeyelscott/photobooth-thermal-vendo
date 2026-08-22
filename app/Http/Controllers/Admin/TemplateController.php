@@ -8,10 +8,13 @@ use App\Http\Requests\Admin\UpdateTemplateRequest;
 use App\Models\PhotoTemplate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
+use Throwable;
 
 class TemplateController extends Controller
 {
@@ -45,24 +48,46 @@ class TemplateController extends Controller
     public function store(StoreTemplateRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        $storedPaths = [];
 
-        PhotoTemplate::create([
-            'name' => $validated['name'],
-            'slug' => $validated['slug'],
-            'orientation' => $validated['orientation'],
-            'layout_path' => $request->file('layout')->store('templates', 'public'),
-            'thumbnail_path' => $request->hasFile('thumbnail')
-                ? $request->file('thumbnail')->store('templates/thumbnails', 'public')
-                : null,
-            'photo_slots' => $validated['photo_slots'],
-            'print_width_mm' => $validated['print_width_mm'],
-            'print_height_mm' => $validated['print_height_mm'],
-            'active' => $request->boolean('active', true),
-            'sort_order' => $validated['sort_order'] ?? ((int) PhotoTemplate::max('sort_order') + 1),
-            'printer_compatibility' => isset($validated['printer_compatibility'])
-                ? json_decode($validated['printer_compatibility'], true)
-                : null,
-        ]);
+        try {
+            $layout = $request->file('layout');
+
+            if (! $layout instanceof UploadedFile) {
+                throw new RuntimeException('A valid template layout asset is required.');
+            }
+
+            $layoutPath = $this->storePublicAsset($layout, 'templates');
+            $storedPaths[] = $layoutPath;
+
+            $thumbnailPath = null;
+            $thumbnail = $request->file('thumbnail');
+
+            if ($thumbnail instanceof UploadedFile) {
+                $thumbnailPath = $this->storePublicAsset($thumbnail, 'templates/thumbnails');
+                $storedPaths[] = $thumbnailPath;
+            }
+
+            PhotoTemplate::create([
+                'name' => $validated['name'],
+                'slug' => $validated['slug'],
+                'orientation' => $validated['orientation'],
+                'layout_path' => $layoutPath,
+                'thumbnail_path' => $thumbnailPath,
+                'photo_slots' => $validated['photo_slots'],
+                'print_width_mm' => $validated['print_width_mm'],
+                'print_height_mm' => $validated['print_height_mm'],
+                'active' => $request->boolean('active', true),
+                'sort_order' => $validated['sort_order'] ?? ((int) PhotoTemplate::max('sort_order') + 1),
+                'printer_compatibility' => isset($validated['printer_compatibility'])
+                    ? json_decode($validated['printer_compatibility'], true)
+                    : null,
+            ]);
+        } catch (Throwable $exception) {
+            $this->deletePublicAssets($storedPaths);
+
+            throw $exception;
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Template created.')]);
 
@@ -85,6 +110,8 @@ class TemplateController extends Controller
     public function update(UpdateTemplateRequest $request, PhotoTemplate $template): RedirectResponse
     {
         $validated = $request->validated();
+        $storedPaths = [];
+        $replacedPaths = [];
 
         $attributes = [
             'name' => $validated['name'],
@@ -100,19 +127,37 @@ class TemplateController extends Controller
                 : null,
         ];
 
-        if ($request->hasFile('layout')) {
-            Storage::disk('public')->delete($template->layout_path);
-            $attributes['layout_path'] = $request->file('layout')->store('templates', 'public');
-        }
+        try {
+            $layout = $request->file('layout');
 
-        if ($request->hasFile('thumbnail')) {
-            if ($template->thumbnail_path) {
-                Storage::disk('public')->delete($template->thumbnail_path);
+            if ($layout instanceof UploadedFile) {
+                $layoutPath = $this->storePublicAsset($layout, 'templates');
+                $storedPaths[] = $layoutPath;
+                $replacedPaths[] = $template->layout_path;
+                $attributes['layout_path'] = $layoutPath;
             }
-            $attributes['thumbnail_path'] = $request->file('thumbnail')->store('templates/thumbnails', 'public');
+
+            $thumbnail = $request->file('thumbnail');
+
+            if ($thumbnail instanceof UploadedFile) {
+                $thumbnailPath = $this->storePublicAsset($thumbnail, 'templates/thumbnails');
+                $storedPaths[] = $thumbnailPath;
+
+                if ($template->thumbnail_path !== null) {
+                    $replacedPaths[] = $template->thumbnail_path;
+                }
+
+                $attributes['thumbnail_path'] = $thumbnailPath;
+            }
+
+            $template->updateOrFail($attributes);
+        } catch (Throwable $exception) {
+            $this->deletePublicAssets($storedPaths);
+
+            throw $exception;
         }
 
-        $template->update($attributes);
+        $this->deletePublicAssets($replacedPaths);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Template updated.')]);
 
@@ -124,7 +169,14 @@ class TemplateController extends Controller
      */
     public function toggle(PhotoTemplate $template): RedirectResponse
     {
-        $template->update(['active' => ! $template->active]);
+        $active = ! $template->active;
+
+        $template->updateOrFail(['active' => $active]);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $active ? __('Template enabled.') : __('Template disabled.'),
+        ]);
 
         return to_route('admin.templates.index');
     }
@@ -159,9 +211,13 @@ class TemplateController extends Controller
             ]);
         }
 
-        Storage::disk('public')->delete(array_filter([$template->layout_path, $template->thumbnail_path]));
+        $assetPaths = array_filter([
+            $template->layout_path,
+            $template->thumbnail_path,
+        ]);
 
-        $template->delete();
+        $template->deleteOrFail();
+        $this->deletePublicAssets($assetPaths);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Template deleted.')]);
 
@@ -181,7 +237,11 @@ class TemplateController extends Controller
             'slug' => $template->slug,
             'orientation' => $template->orientation,
             'layoutPath' => $template->layout_path,
+            'layoutUrl' => Storage::disk('public')->url($template->layout_path),
             'thumbnailPath' => $template->thumbnail_path,
+            'thumbnailUrl' => $template->thumbnail_path !== null
+                ? Storage::disk('public')->url($template->thumbnail_path)
+                : null,
             'photoSlots' => $template->photo_slots,
             'printWidthMm' => $template->print_width_mm,
             'printHeightMm' => $template->print_height_mm,
@@ -189,5 +249,28 @@ class TemplateController extends Controller
             'sortOrder' => $template->sort_order,
             'printerCompatibility' => $template->printer_compatibility,
         ];
+    }
+
+    private function storePublicAsset(UploadedFile $file, string $directory): string
+    {
+        $path = $file->store($directory, 'public');
+
+        if (! is_string($path)) {
+            throw new RuntimeException("Unable to store template asset in [{$directory}].");
+        }
+
+        return $path;
+    }
+
+    /**
+     * @param  array<int, string>  $paths
+     */
+    private function deletePublicAssets(array $paths): void
+    {
+        if ($paths === []) {
+            return;
+        }
+
+        Storage::disk('public')->delete(array_values(array_unique($paths)));
     }
 }

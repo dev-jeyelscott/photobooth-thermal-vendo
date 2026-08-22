@@ -230,7 +230,10 @@ export default function TemplatesIndex({
                                                                     <DialogClose
                                                                         asChild
                                                                     >
-                                                                        <Button variant="secondary">
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="secondary"
+                                                                        >
                                                                             Cancel
                                                                         </Button>
                                                                     </DialogClose>

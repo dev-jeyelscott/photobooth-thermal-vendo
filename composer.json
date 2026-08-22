@@ -58,17 +58,24 @@
             "Composer\\Config::disableProcessTimeout",
             "@php artisan dev"
         ],
+        "format": [
+            "pint --parallel",
+            "npm run format"
+        ],
         "lint": [
             "pint --parallel"
         ],
         "lint:check": [
             "pint --parallel --test"
         ],
+        "wayfinder:generate": "@php artisan wayfinder:generate --with-form",
         "ci:check": [
             "Composer\\Config::disableProcessTimeout",
+            "@wayfinder:generate",
             "npm run lint:check",
             "npm run format:check",
             "npm run types:check",
+            "npm run test",
             "@test"
         ],
         "types:check": [

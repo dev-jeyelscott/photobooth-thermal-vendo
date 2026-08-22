@@ -12,7 +12,9 @@ type Template = {
     slug: string;
     orientation: 'portrait' | 'landscape';
     layoutPath: string;
+    layoutUrl?: string;
     thumbnailPath: string | null;
+    thumbnailUrl?: string | null;
     photoSlots: number;
     printWidthMm: number;
     printHeightMm: number;
@@ -82,12 +84,22 @@ export default function TemplateForm({
                             name="layout"
                             type="file"
                             accept="image/*"
+                            required={!template}
                         />
-                        {template?.layoutPath && (
+                        {template?.layoutUrl ? (
+                            <a
+                                href={template.layoutUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm text-primary underline underline-offset-4"
+                            >
+                                View current layout asset
+                            </a>
+                        ) : template?.layoutPath ? (
                             <p className="text-sm text-muted-foreground">
                                 Current: {template.layoutPath}
                             </p>
-                        )}
+                        ) : null}
                         <InputError message={errors.layout} />
                     </div>
 
@@ -99,11 +111,20 @@ export default function TemplateForm({
                             type="file"
                             accept="image/*"
                         />
-                        {template?.thumbnailPath && (
+                        {template?.thumbnailUrl ? (
+                            <a
+                                href={template.thumbnailUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm text-primary underline underline-offset-4"
+                            >
+                                View current thumbnail
+                            </a>
+                        ) : template?.thumbnailPath ? (
                             <p className="text-sm text-muted-foreground">
                                 Current: {template.thumbnailPath}
                             </p>
-                        )}
+                        ) : null}
                         <InputError message={errors.thumbnail} />
                     </div>
 
@@ -188,13 +209,16 @@ export default function TemplateForm({
                     </div>
 
                     <div className="flex items-center space-x-3">
+                        <input type="hidden" name="active" value="0" />
                         <Checkbox
                             id="active"
                             name="active"
+                            value="1"
                             defaultChecked={template?.active ?? true}
                         />
                         <Label htmlFor="active">Active</Label>
                     </div>
+                    <InputError message={errors.active} />
 
                     <Button type="submit" disabled={processing}>
                         {template ? 'Save changes' : 'Create template'}
