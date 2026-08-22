@@ -105,3 +105,19 @@ assertions). No genuine pass/fail evidence for the six-device matrix can be
 produced from this sandbox; fabricating outcomes would violate the
 no-fabrication constraint, so the matrix remains blocked pending an
 operator with physical access to the target devices.
+
+## Re-check (2026-08-23, attempt 8)
+
+Environment re-inspected again with no change from the previous re-checks:
+`$DISPLAY` is still unset, `id -nG` for the sandbox user still shows
+`john-leward-escote adm cdrom sudo dip plugdev users lpadmin lxd docker`
+(no `video` group), and this host still has no Safari, no Edge, and no
+iPadOS/Android hardware attached. `npm run build` completed successfully
+(bundles emitted to `public/build/assets`, including `kiosk-*.js`) and
+`php artisan test --filter=KioskTest` passed (11 passed, 88 assertions).
+This is a hardware/manual-testing blocker, not a code defect — no further
+coding change in this sandbox can produce genuine pass/fail evidence for
+the six-device matrix. The matrix remains open pending an operator with
+physical access to the target devices; per this task's constraints, no
+speculative fix or workaround has been applied to
+`resources/js/pages/kiosk.tsx` or `resources/js/components/capture-step.tsx`.
