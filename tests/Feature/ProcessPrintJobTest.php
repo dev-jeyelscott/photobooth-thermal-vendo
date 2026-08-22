@@ -125,6 +125,37 @@ test('retrying a failed print job attempts printing again and can succeed', func
         ->and($printJob->completed_at)->not->toBeNull();
 });
 
+test('re-dispatching an already-printed job does not attempt to print again or re-increment attempt_count', function () {
+    Storage::fake('public');
+    $printJob = makePrintableSession();
+
+    (new ProcessPrintJob($printJob))->handle(app(PrinterDriver::class), app(ReceiptRenderer::class));
+
+    $printJob->refresh();
+    expect($printJob->status)->toBe(PrintJobStatus::Printed)
+        ->and($printJob->attempt_count)->toBe(1);
+    $firstCompletedAt = $printJob->completed_at;
+
+    $countingDriver = new class implements PrinterDriver
+    {
+        public int $sendCount = 0;
+
+        public function send(PrintJob $job, string $imagePath): void
+        {
+            $this->sendCount++;
+        }
+    };
+
+    (new ProcessPrintJob($printJob))->handle($countingDriver, app(ReceiptRenderer::class));
+
+    $printJob->refresh();
+
+    expect($countingDriver->sendCount)->toBe(0)
+        ->and($printJob->status)->toBe(PrintJobStatus::Printed)
+        ->and($printJob->attempt_count)->toBe(1)
+        ->and($printJob->completed_at)->toEqual($firstCompletedAt);
+});
+
 test('retrying a print job that is not failed is rejected', function () {
     Storage::fake('public');
     $printJob = makePrintableSession();

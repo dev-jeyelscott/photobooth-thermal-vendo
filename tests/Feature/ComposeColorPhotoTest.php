@@ -138,3 +138,84 @@ test('composing the final color photo uses the sticker placement snapshot taken 
     // not reach this point; with the mutated (large) placement it would.
     expect($composite->colorAt(600, 600)->toHex())->not->toBe('#00ff00');
 });
+
+test('re-submitting composition after a session has already advanced past Processing is rejected and does not create a duplicate CapturedMedia row or a second print job', function () {
+    Storage::fake('public');
+    Queue::fake([ProcessPrintJob::class]);
+
+    $template = PhotoTemplate::factory()->create([
+        'photo_slots' => 1,
+        'layout_config' => [
+            'slots' => [
+                ['slot' => 1, 'x' => 0, 'y' => 0, 'width' => 50, 'height' => 50],
+            ],
+        ],
+        'print_width_mm' => 100,
+        'print_height_mm' => 50,
+    ]);
+
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Paid,
+        'photo_template_id' => null,
+    ]);
+
+    $this->postJson(route('kiosk.sessions.template.store', $session->session_token), [
+        'photoTemplateId' => $template->id,
+    ])->assertOk();
+
+    $photo = 'data:image/png;base64,'.base64_encode(composeColorPhotoTestPng());
+
+    $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photos' => [$photo],
+    ])->assertStatus(202);
+
+    expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Printing);
+
+    $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photos' => [$photo],
+    ])->assertStatus(422);
+
+    expect(CapturedMedia::where('photobooth_session_id', $session->id)->count())->toBe(1);
+
+    Queue::assertPushed(ProcessPrintJob::class, 1);
+});
+
+test('re-running composition while a session is still Processing overwrites the same CapturedMedia row instead of creating a duplicate', function () {
+    Storage::fake('public');
+    Queue::fake([ProcessPrintJob::class]);
+
+    $template = PhotoTemplate::factory()->create([
+        'photo_slots' => 1,
+        'layout_config' => [
+            'slots' => [
+                ['slot' => 1, 'x' => 0, 'y' => 0, 'width' => 50, 'height' => 50],
+            ],
+        ],
+        'print_width_mm' => 100,
+        'print_height_mm' => 50,
+    ]);
+
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Processing,
+        'photo_template_id' => $template->id,
+    ]);
+
+    $photo = 'data:image/png;base64,'.base64_encode(composeColorPhotoTestPng());
+
+    $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photos' => [$photo],
+    ])->assertStatus(202);
+
+    $firstCapturedMedia = CapturedMedia::where('photobooth_session_id', $session->id)->firstOrFail();
+
+    $session->refresh()->update(['status' => PhotoboothSessionStatus::Processing]);
+
+    $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+        'photos' => [$photo],
+    ])->assertStatus(202);
+
+    expect(CapturedMedia::where('photobooth_session_id', $session->id)->count())->toBe(1)
+        ->and(CapturedMedia::where('photobooth_session_id', $session->id)->first()->id)->toBe($firstCapturedMedia->id);
+
+    Queue::assertPushed(ProcessPrintJob::class, 1);
+});

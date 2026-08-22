@@ -30,6 +30,10 @@ class ProcessPrintJob implements ShouldQueue
 
     public function handle(PrinterDriver $printerDriver, ReceiptRenderer $receiptRenderer): void
     {
+        if ($this->printJob->fresh()->status === PrintJobStatus::Printed) {
+            return;
+        }
+
         $this->printJob->update([
             'status' => PrintJobStatus::Printing,
             'attempt_count' => $this->printJob->attempt_count + 1,
