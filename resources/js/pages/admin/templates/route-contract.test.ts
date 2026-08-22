@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import StickerController from '@/actions/App/Http/Controllers/Admin/StickerController';
-import { create, index, reorder } from '@/routes/admin/stickers';
+import TemplateController from '@/actions/App/Http/Controllers/Admin/TemplateController';
+import { create, index, reorder } from '@/routes/admin/templates';
 
 function expectSpoofedForm(
     form: { action: string; method: string },
@@ -18,43 +18,48 @@ function expectSpoofedForm(
     expect(expectedMethods).toContain(spoofedMethod);
 }
 
-describe('sticker management Wayfinder contract', () => {
-    it('maps navigation and CRUD forms to the admin sticker routes', () => {
+describe('template management Wayfinder contract', () => {
+    it('maps navigation and CRUD forms to the admin template routes', () => {
         expect(index()).toMatchObject({
-            url: '/admin/stickers',
+            url: '/admin/templates',
             method: 'get',
         });
+
         expect(create()).toMatchObject({
-            url: '/admin/stickers/create',
+            url: '/admin/templates/create',
             method: 'get',
         });
-        expect(StickerController.edit(42)).toMatchObject({
-            url: '/admin/stickers/42/edit',
+
+        expect(TemplateController.edit(42)).toMatchObject({
+            url: '/admin/templates/42/edit',
             method: 'get',
         });
+
         expect(reorder()).toMatchObject({
-            url: '/admin/stickers/reorder',
+            url: '/admin/templates/reorder',
             method: 'patch',
         });
 
-        expect(StickerController.store.form()).toEqual({
-            action: '/admin/stickers',
+        expect(TemplateController.store.form()).toEqual({
+            action: '/admin/templates',
             method: 'post',
         });
 
         expectSpoofedForm(
-            StickerController.update.form(42),
-            '/admin/stickers/42',
+            TemplateController.update.form(42),
+            '/admin/templates/42',
             ['put', 'patch'],
         );
+
         expectSpoofedForm(
-            StickerController.destroy.form(42),
-            '/admin/stickers/42',
+            TemplateController.destroy.form(42),
+            '/admin/templates/42',
             ['delete'],
         );
+
         expectSpoofedForm(
-            StickerController.toggle.form(42),
-            '/admin/stickers/42/toggle',
+            TemplateController.toggle.form(42),
+            '/admin/templates/42/toggle',
             ['patch'],
         );
     });
