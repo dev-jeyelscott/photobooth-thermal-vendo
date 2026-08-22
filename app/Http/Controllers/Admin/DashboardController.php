@@ -11,7 +11,6 @@ use App\Models\PhotoboothSession;
 use App\Models\PrintJob;
 use App\Models\Voucher;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -73,13 +72,13 @@ class DashboardController extends Controller
      * Build the recent-activity feed from the latest sessions, payments, voucher redemptions,
      * and failed print jobs, sorted by recency and capped to a bounded total size.
      *
-     * @return Collection<int, array{
-     *     type: 'session'|'payment'|'voucher'|'print_failure',
+     * @return array<int, array{
+     *     type: string,
      *     label: string,
      *     occurredAt: string|null
      * }>
      */
-    private function recentActivity(): Collection
+    private function recentActivity(): array
     {
         $sessions = PhotoboothSession::query()
             ->latest('updated_at')
@@ -134,6 +133,7 @@ class DashboardController extends Controller
                 'label' => $entry['label'],
                 'occurredAt' => $entry['occurredAt']?->toIso8601String(),
             ])
-            ->values();
+            ->values()
+            ->all();
     }
 }
