@@ -5,6 +5,7 @@ namespace App\Actions\Payments;
 use App\Enums\PaymentStatus;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\Payment;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -98,9 +99,16 @@ class ProcessMayaWebhook
                 return true;
             }
 
+            $terminalTimestampColumn = match ($newStatus) {
+                PaymentStatus::Success => 'paid_at',
+                PaymentStatus::Failed => 'failed_at',
+                PaymentStatus::Cancelled => 'cancelled_at',
+            };
+
             $payment->update([
                 'status' => $newStatus,
                 'maya_payment_id' => $paymentId ?? $payment->maya_payment_id,
+                $terminalTimestampColumn => Carbon::now(),
             ]);
 
             if ($newStatus === PaymentStatus::Success) {

@@ -19,10 +19,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $maya_payment_id
  * @property string|null $maya_checkout_id
  * @property string $amount
+ * @property Carbon|null $paid_at
+ * @property Carbon|null $failed_at
+ * @property Carbon|null $cancelled_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['photobooth_session_id', 'method', 'status', 'maya_payment_id', 'maya_checkout_id', 'amount'])]
+#[Fillable(['photobooth_session_id', 'method', 'status', 'maya_payment_id', 'maya_checkout_id', 'amount', 'paid_at', 'failed_at', 'cancelled_at'])]
 class Payment extends Model
 {
     /** @use HasFactory<PaymentFactory> */
@@ -39,6 +42,9 @@ class Payment extends Model
             'method' => PaymentMethod::class,
             'status' => PaymentStatus::class,
             'amount' => 'decimal:2',
+            'paid_at' => 'datetime',
+            'failed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
     }
 

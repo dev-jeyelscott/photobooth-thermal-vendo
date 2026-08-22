@@ -38,6 +38,9 @@ test('a successful payment webhook marks the payment and session as paid', funct
 
     expect($payment->status)->toBe(PaymentStatus::Success)
         ->and($payment->maya_payment_id)->toBe('payment-abc')
+        ->and($payment->paid_at)->not->toBeNull()
+        ->and($payment->failed_at)->toBeNull()
+        ->and($payment->cancelled_at)->toBeNull()
         ->and($session->status)->toBe(PhotoboothSessionStatus::Paid);
 });
 
@@ -61,6 +64,9 @@ test('a replayed success webhook does not duplicate the payment or re-apply the 
     $this->postJson(route('webhooks.maya'), $payload, ['Maya-Webhook-Signature' => $signature])
         ->assertOk();
 
+    $payment->refresh();
+    $originalPaidAt = $payment->paid_at;
+
     $response = $this->postJson(route('webhooks.maya'), $payload, ['Maya-Webhook-Signature' => $signature]);
 
     $response->assertOk();
@@ -71,6 +77,7 @@ test('a replayed success webhook does not duplicate the payment or re-apply the 
     $session->refresh();
 
     expect($payment->status)->toBe(PaymentStatus::Success)
+        ->and($payment->paid_at)->toEqual($originalPaidAt)
         ->and($session->status)->toBe(PhotoboothSessionStatus::Paid);
 });
 
@@ -99,6 +106,9 @@ test('a failed payment webhook marks the payment as failed without transitioning
     $session->refresh();
 
     expect($payment->status)->toBe(PaymentStatus::Failed)
+        ->and($payment->failed_at)->not->toBeNull()
+        ->and($payment->paid_at)->toBeNull()
+        ->and($payment->cancelled_at)->toBeNull()
         ->and($session->status)->toBe(PhotoboothSessionStatus::PaymentPending);
 });
 
@@ -127,6 +137,9 @@ test('a cancelled payment webhook marks the payment as cancelled without transit
     $session->refresh();
 
     expect($payment->status)->toBe(PaymentStatus::Cancelled)
+        ->and($payment->cancelled_at)->not->toBeNull()
+        ->and($payment->paid_at)->toBeNull()
+        ->and($payment->failed_at)->toBeNull()
         ->and($session->status)->toBe(PhotoboothSessionStatus::PaymentPending);
 });
 
