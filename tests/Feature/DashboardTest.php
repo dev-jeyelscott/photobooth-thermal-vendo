@@ -124,7 +124,7 @@ test('dashboard exposes operator focused sales session and issue aggregates', fu
                 ->where('summary.needsAttention.failedPrintJobs', 1)
                 ->where('summary.needsAttention.total', 3)
                 ->has('trend', 7)
-                ->where('trend.6.sales', 100.0)
+                ->where('trend.6.sales', 100)
                 ->where('trend.6.sessions', 2)
                 ->where('paymentMethods.total', 2)
                 ->where('paymentMethods.maya', 1)

@@ -32,11 +32,11 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import type { ChartConfig } from '@/components/ui/chart';
 import {
     ChartContainer,
     ChartTooltip,
     ChartTooltipContent,
-    type ChartConfig,
 } from '@/components/ui/chart';
 import { cn } from '@/lib/utils';
 import { kiosk } from '@/routes';
