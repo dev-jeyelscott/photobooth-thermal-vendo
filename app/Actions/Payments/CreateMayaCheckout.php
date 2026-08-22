@@ -71,10 +71,11 @@ class CreateMayaCheckout
                 $lockedSession->update([
                     'price' => $amount,
                     'currency' => $currency,
-                    'payment_method' => PaymentMethod::Maya,
                     'required_capture_count' => Settings::get('capture_shot_count'),
                 ]);
             }
+
+            $lockedSession->update(['payment_method' => PaymentMethod::Maya]);
 
             return $payment;
         });
