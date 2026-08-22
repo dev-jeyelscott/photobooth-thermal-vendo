@@ -6,6 +6,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\Payment;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ProcessMayaWebhook
 {
@@ -37,10 +38,20 @@ class ProcessMayaWebhook
         $amount = $payload['amount']['value'] ?? null;
 
         if (! is_string($status) || ! array_key_exists($status, self::STATUS_MAP)) {
+            Log::warning('Maya webhook reported an unrecognized status.', [
+                'maya_checkout_id' => $checkoutId,
+                'maya_payment_id' => $paymentId,
+                'status' => $status,
+            ]);
+
             return false;
         }
 
         if ($checkoutId === null && $paymentId === null) {
+            Log::warning('Maya webhook payload missing checkout and payment identifiers.', [
+                'status' => $status,
+            ]);
+
             return false;
         }
 
@@ -57,6 +68,11 @@ class ProcessMayaWebhook
             ->first();
 
         if ($payment === null) {
+            Log::warning('Maya webhook could not be matched to a known payment.', [
+                'maya_checkout_id' => $checkoutId,
+                'maya_payment_id' => $paymentId,
+            ]);
+
             return false;
         }
 
@@ -64,6 +80,12 @@ class ProcessMayaWebhook
             || ! $this->isDecimalAmount($amount)
             || ! $this->isDecimalAmount($payment->amount)
             || bccomp($amount, $payment->amount, 2) !== 0) {
+            Log::warning('Maya webhook amount failed validation.', [
+                'maya_checkout_id' => $checkoutId,
+                'maya_payment_id' => $paymentId,
+                'payment_id' => $payment->id,
+            ]);
+
             return false;
         }
 

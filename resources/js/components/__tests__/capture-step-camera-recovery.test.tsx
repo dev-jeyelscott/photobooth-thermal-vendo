@@ -5,7 +5,11 @@ import type { CameraErrorReason } from '@/hooks/use-camera';
 
 const makeStream = () => ({}) as MediaStream;
 const makeDevice = (deviceId: string) =>
-    ({ deviceId, label: `Camera ${deviceId}`, kind: 'videoinput' }) as MediaDeviceInfo;
+    ({
+        deviceId,
+        label: `Camera ${deviceId}`,
+        kind: 'videoinput',
+    }) as MediaDeviceInfo;
 
 let hookState: {
     stream: MediaStream | null;

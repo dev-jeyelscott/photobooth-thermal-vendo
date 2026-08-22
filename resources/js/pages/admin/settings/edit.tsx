@@ -29,11 +29,11 @@ type Settings = {
 
 function FutureSessionsNote() {
     return (
-        <p className="text-muted-foreground text-xs">
-            Only applies to sessions started after this change is saved.
-            Each session snapshots this value the moment it starts, so
-            already-started, in-progress, or historical sessions keep the
-            value that was in effect when they began.
+        <p className="text-xs text-muted-foreground">
+            Only applies to sessions started after this change is saved. Each
+            session snapshots this value the moment it starts, so
+            already-started, in-progress, or historical sessions keep the value
+            that was in effect when they began.
         </p>
     );
 }
@@ -145,9 +145,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     }
                                 />
                                 <InputError
-                                    message={
-                                        errors.capture_countdown_seconds
-                                    }
+                                    message={errors.capture_countdown_seconds}
                                 />
                             </div>
 
@@ -181,9 +179,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     }
                                 />
                                 <InputError
-                                    message={
-                                        errors.kiosk_idle_timeout_seconds
-                                    }
+                                    message={errors.kiosk_idle_timeout_seconds}
                                 />
                             </div>
 
@@ -279,9 +275,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                 <Input
                                     id="receipt_header"
                                     name="receipt_header"
-                                    defaultValue={
-                                        settings.receipt_header ?? ''
-                                    }
+                                    defaultValue={settings.receipt_header ?? ''}
                                 />
                                 <InputError message={errors.receipt_header} />
                             </div>
@@ -293,9 +287,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                 <Input
                                     id="receipt_footer"
                                     name="receipt_footer"
-                                    defaultValue={
-                                        settings.receipt_footer ?? ''
-                                    }
+                                    defaultValue={settings.receipt_footer ?? ''}
                                 />
                                 <InputError message={errors.receipt_footer} />
                             </div>

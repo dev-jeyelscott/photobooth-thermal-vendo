@@ -120,9 +120,7 @@ export default function RangeReport({
                     </Card>
                     <Card>
                         <CardHeader>
-                            <CardDescription>
-                                Failed print jobs
-                            </CardDescription>
+                            <CardDescription>Failed print jobs</CardDescription>
                             <CardTitle className="text-3xl">
                                 {report.failedPrintJobs}
                             </CardTitle>

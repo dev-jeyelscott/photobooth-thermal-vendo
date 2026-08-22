@@ -13,10 +13,7 @@ vi.mock('@/components/capture-step', () => ({
     CaptureStep: ({
         onComplete,
     }: {
-        onComplete: (
-            photos: string[],
-            photoPaths: (string | null)[],
-        ) => void;
+        onComplete: (photos: string[], photoPaths: (string | null)[]) => void;
     }) => (
         <div data-testid="kiosk-capture-stub">
             <button
@@ -24,7 +21,11 @@ vi.mock('@/components/capture-step', () => ({
                 onClick={() =>
                     onComplete(
                         ['shot-1.jpg', 'shot-2.jpg', 'shot-3.jpg'],
-                        ['captures/token/1.jpg', 'captures/token/2.jpg', 'captures/token/3.jpg'],
+                        [
+                            'captures/token/1.jpg',
+                            'captures/token/2.jpg',
+                            'captures/token/3.jpg',
+                        ],
                     )
                 }
             >
@@ -238,64 +239,66 @@ describe('Kiosk', () => {
         let sessionPollCount = 0;
         const paymentPostCalls: string[] = [];
 
-        global.fetch = vi.fn(async (input: string | URL, init?: RequestInit) => {
-            const method = (init?.method ?? 'get').toLowerCase();
-            const { pathname } = new URL(String(input), 'http://localhost');
+        global.fetch = vi.fn(
+            async (input: string | URL, init?: RequestInit) => {
+                const method = (init?.method ?? 'get').toLowerCase();
+                const { pathname } = new URL(String(input), 'http://localhost');
 
-            if (
-                method === 'post' &&
-                /^\/kiosk\/sessions\/[^/]+\/payments$/.test(pathname)
-            ) {
-                paymentPostCalls.push(pathname);
+                if (
+                    method === 'post' &&
+                    /^\/kiosk\/sessions\/[^/]+\/payments$/.test(pathname)
+                ) {
+                    paymentPostCalls.push(pathname);
 
-                return jsonResponse(200, {
-                    checkoutUrl: 'https://pay.example.test/checkout',
-                }) as unknown as Response;
-            }
-
-            if (
-                method === 'get' &&
-                /^\/kiosk\/sessions\/[^/]+$/.test(pathname)
-            ) {
-                sessionPollCount += 1;
-
-                // The very first poll after checkout creation fails
-                // transiently (e.g. a dropped connection).
-                if (sessionPollCount === 1) {
-                    throw new TypeError('Failed to fetch');
+                    return jsonResponse(200, {
+                        checkoutUrl: 'https://pay.example.test/checkout',
+                    }) as unknown as Response;
                 }
 
-                if (sessionPollCount >= 3) {
-                    paymentStatusState.status = 'paid';
-                    paymentStatusState.paymentStatus = 'succeeded';
+                if (
+                    method === 'get' &&
+                    /^\/kiosk\/sessions\/[^/]+$/.test(pathname)
+                ) {
+                    sessionPollCount += 1;
+
+                    // The very first poll after checkout creation fails
+                    // transiently (e.g. a dropped connection).
+                    if (sessionPollCount === 1) {
+                        throw new TypeError('Failed to fetch');
+                    }
+
+                    if (sessionPollCount >= 3) {
+                        paymentStatusState.status = 'paid';
+                        paymentStatusState.paymentStatus = 'succeeded';
+                    }
+
+                    return jsonResponse(200, {
+                        sessionToken: SESSION_TOKEN,
+                        status: paymentStatusState.status,
+                        startedAt: new Date().toISOString(),
+                        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                        paymentStatus: paymentStatusState.paymentStatus,
+                        printJobStatus: null,
+                    }) as unknown as Response;
                 }
 
-                return jsonResponse(200, {
-                    sessionToken: SESSION_TOKEN,
-                    status: paymentStatusState.status,
-                    startedAt: new Date().toISOString(),
-                    expiresAt: new Date(Date.now() + 60_000).toISOString(),
-                    paymentStatus: paymentStatusState.paymentStatus,
-                    printJobStatus: null,
-                }) as unknown as Response;
-            }
-
-            const route = baseRoutes.find(
-                (candidate) =>
-                    candidate.method === method &&
-                    candidate.pattern.test(pathname),
-            );
-
-            if (!route) {
-                throw new Error(
-                    `Unhandled request: ${method.toUpperCase()} ${pathname}`,
+                const route = baseRoutes.find(
+                    (candidate) =>
+                        candidate.method === method &&
+                        candidate.pattern.test(pathname),
                 );
-            }
 
-            const { status, body } = route.handler();
+                if (!route) {
+                    throw new Error(
+                        `Unhandled request: ${method.toUpperCase()} ${pathname}`,
+                    );
+                }
 
-            return jsonResponse(status, body) as unknown as Response;
-        }) as unknown as typeof fetch;
+                const { status, body } = route.handler();
+
+                return jsonResponse(status, body) as unknown as Response;
+            },
+        ) as unknown as typeof fetch;
 
         render(<Kiosk paymentTimeoutSeconds={30} />);
 

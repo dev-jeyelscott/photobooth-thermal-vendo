@@ -139,9 +139,7 @@ export default function MonthlyReport({
                     </Card>
                     <Card>
                         <CardHeader>
-                            <CardDescription>
-                                Failed print jobs
-                            </CardDescription>
+                            <CardDescription>Failed print jobs</CardDescription>
                             <CardTitle className="text-3xl">
                                 {report.failedPrintJobs}
                             </CardTitle>
@@ -157,9 +155,7 @@ export default function MonthlyReport({
                                 <th className="p-3 font-medium">
                                     Successful sessions
                                 </th>
-                                <th className="p-3 font-medium">
-                                    Gross sales
-                                </th>
+                                <th className="p-3 font-medium">Gross sales</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -183,9 +179,7 @@ export default function MonthlyReport({
                                     <td className="p-3">
                                         {row.successfulSessions}
                                     </td>
-                                    <td className="p-3">
-                                        ₱{row.grossSales}
-                                    </td>
+                                    <td className="p-3">₱{row.grossSales}</td>
                                 </tr>
                             ))}
                         </tbody>

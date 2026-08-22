@@ -5,6 +5,7 @@ use App\Enums\PhotoboothSessionStatus;
 use App\Models\ApplicationSetting;
 use App\Models\PhotoboothSession;
 use App\Models\Voucher;
+use Illuminate\Support\Facades\Log;
 
 test('a valid voucher redemption unlocks the session', function () {
     $voucher = Voucher::factory()->create(['usage_limit' => 1, 'usage_count' => 0]);
@@ -104,6 +105,22 @@ test('an exhausted voucher is rejected without mutating usage_count or the sessi
     expect($voucher->fresh()->usage_count)->toBe(1)
         ->and($session->fresh()->voucher_id)->toBeNull()
         ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::New);
+});
+
+test('an unknown voucher code logs a warning with the code and session token', function () {
+    Log::spy();
+
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+
+    $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        'code' => 'DOES-NOT-EXIST',
+    ])->assertStatus(422);
+
+    Log::shouldHaveReceived('warning')
+        ->once()
+        ->withArgs(fn (string $message, array $context) => str_contains($message, 'not found')
+            && $context['voucher_code'] === 'DOES-NOT-EXIST'
+            && $context['session_token'] === $session->session_token);
 });
 
 test('a voucher code with an invalid format is rejected', function () {

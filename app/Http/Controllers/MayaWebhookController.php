@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\Payments\ProcessMayaWebhook;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class MayaWebhookController extends Controller
 {
@@ -14,6 +15,11 @@ class MayaWebhookController extends Controller
     public function handle(Request $request, ProcessMayaWebhook $processMayaWebhook): JsonResponse
     {
         if (! $this->hasValidSignature($request)) {
+            Log::warning('Maya webhook signature verification failed.', [
+                'maya_checkout_id' => $request->input('checkoutId'),
+                'maya_payment_id' => $request->input('id'),
+            ]);
+
             return response()->json(['message' => 'Invalid webhook signature.'], 401);
         }
 

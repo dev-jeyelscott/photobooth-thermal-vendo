@@ -320,8 +320,7 @@ export default function Kiosk({
 
                     schedulePoll(
                         Math.min(
-                            PAYMENT_POLL_INTERVAL_MS *
-                                2 ** consecutiveFailures,
+                            PAYMENT_POLL_INTERVAL_MS * 2 ** consecutiveFailures,
                             PAYMENT_POLL_MAX_BACKOFF_MS,
                         ),
                     );
@@ -553,14 +552,11 @@ export default function Kiosk({
                                         }
 
                                         if (!session) {
-                                            const result =
-                                                await startSession();
+                                            const result = await startSession();
 
                                             if (!result.ok) {
                                                 if (result.maintenance) {
-                                                    setIsUnderMaintenance(
-                                                        true,
-                                                    );
+                                                    setIsUnderMaintenance(true);
                                                     setActiveMaintenanceMessage(
                                                         result.message,
                                                     );

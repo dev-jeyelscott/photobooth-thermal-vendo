@@ -81,13 +81,10 @@ export default function Gallery({
                                 className="mt-2 text-xs text-neutral-500"
                             >
                                 Available until{' '}
-                                {new Date(expiresAt).toLocaleString(
-                                    undefined,
-                                    {
-                                        dateStyle: 'medium',
-                                        timeStyle: 'short',
-                                    },
-                                )}
+                                {new Date(expiresAt).toLocaleString(undefined, {
+                                    dateStyle: 'medium',
+                                    timeStyle: 'short',
+                                })}
                             </p>
                         )}
                     </div>

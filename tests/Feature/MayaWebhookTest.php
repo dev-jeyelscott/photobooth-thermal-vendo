@@ -4,6 +4,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\Payment;
 use App\Models\PhotoboothSession;
+use Illuminate\Support\Facades\Log;
 
 beforeEach(function () {
     config(['services.maya.webhook_secret' => 'whsec_test_secret']);
@@ -157,6 +158,30 @@ test('a webhook request with an invalid signature is rejected and mutates nothin
         ->and($session->status)->toBe(PhotoboothSessionStatus::PaymentPending);
 });
 
+test('a webhook request with an invalid signature logs a warning without the configured secret', function () {
+    Log::spy();
+
+    $payload = [
+        'id' => 'payment-jkl',
+        'checkoutId' => 'checkout-999',
+        'status' => 'PAYMENT_SUCCESS',
+        'amount' => ['value' => '150.00', 'currency' => 'PHP'],
+    ];
+
+    $this->postJson(route('webhooks.maya'), $payload, [
+        'Maya-Webhook-Signature' => 'not-the-right-signature',
+    ])->assertStatus(401);
+
+    Log::shouldHaveReceived('warning')
+        ->once()
+        ->withArgs(function (string $message, array $context) {
+            return str_contains($message, 'signature')
+                && $context['maya_checkout_id'] === 'checkout-999'
+                && $context['maya_payment_id'] === 'payment-jkl'
+                && ! str_contains(json_encode($context), 'whsec_test_secret');
+        });
+});
+
 test('a webhook with an amount mismatch is rejected without mutating the payment', function () {
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::PaymentPending]);
     $payment = Payment::factory()->for($session, 'photoboothSession')->create([
@@ -226,4 +251,26 @@ test('a webhook referencing an unknown checkout id is rejected without mutating 
 
     $response->assertStatus(422);
     expect(Payment::count())->toBe(0);
+});
+
+test('a webhook referencing an unknown checkout id logs a warning with the identifiers', function () {
+    Log::spy();
+
+    $payload = [
+        'id' => 'payment-unknown',
+        'checkoutId' => 'checkout-does-not-exist',
+        'status' => 'PAYMENT_SUCCESS',
+        'amount' => ['value' => '150.00', 'currency' => 'PHP'],
+    ];
+
+    $signature = hash_hmac('sha256', json_encode($payload), 'whsec_test_secret');
+
+    $this->postJson(route('webhooks.maya'), $payload, ['Maya-Webhook-Signature' => $signature])
+        ->assertStatus(422);
+
+    Log::shouldHaveReceived('warning')
+        ->once()
+        ->withArgs(fn (string $message, array $context) => str_contains($message, 'matched')
+            && $context['maya_checkout_id'] === 'checkout-does-not-exist'
+            && $context['maya_payment_id'] === 'payment-unknown');
 });

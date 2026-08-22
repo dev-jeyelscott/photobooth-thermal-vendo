@@ -67,7 +67,7 @@ export default function TemplateForm({
                             name="orientation"
                             required
                             defaultValue={template?.orientation ?? 'portrait'}
-                            className="border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs outline-none md:text-sm"
+                            className="flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none md:text-sm"
                         >
                             <option value="portrait">Portrait</option>
                             <option value="landscape">Landscape</option>
@@ -182,7 +182,7 @@ export default function TemplateForm({
                                     : ''
                             }
                             placeholder='{"paperWidthsMm": [100], "printerIds": ["dnp-ds620"]}'
-                            className="border-input flex w-full min-w-0 rounded-md border bg-transparent px-3 py-2 text-base shadow-xs outline-none md:text-sm"
+                            className="flex w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none md:text-sm"
                         />
                         <InputError message={errors.printer_compatibility} />
                     </div>

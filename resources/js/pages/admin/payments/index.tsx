@@ -108,8 +108,12 @@ export default function PaymentsIndex({
                                 <th className="p-3 font-medium">Session</th>
                                 <th className="p-3 font-medium">Method</th>
                                 <th className="p-3 font-medium">Status</th>
-                                <th className="p-3 font-medium">Maya payment ID</th>
-                                <th className="p-3 font-medium">Maya checkout ID</th>
+                                <th className="p-3 font-medium">
+                                    Maya payment ID
+                                </th>
+                                <th className="p-3 font-medium">
+                                    Maya checkout ID
+                                </th>
                                 <th className="p-3 font-medium">Amount</th>
                                 <th className="p-3 font-medium">Created</th>
                                 <th className="p-3 font-medium">Updated</th>
