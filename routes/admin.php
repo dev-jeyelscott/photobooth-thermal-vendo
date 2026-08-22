@@ -30,6 +30,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     Route::get('reports/daily', [ReportController::class, 'daily'])->name('reports.daily');
     Route::get('reports/monthly', [ReportController::class, 'monthly'])->name('reports.monthly');
+    Route::get('reports/range', [ReportController::class, 'range'])->name('reports.range');
 
     Route::get('settings', [SettingController::class, 'edit'])->name('settings.edit');
     Route::put('settings', [SettingController::class, 'update'])->name('settings.update');

@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\PhotoboothSessionStatus;
 use App\Enums\PrintJobStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\DateRangeReportRequest;
 use App\Models\Payment;
 use App\Models\PhotoboothSession;
 use App\Models\PrintJob;
@@ -59,6 +60,74 @@ class ReportController extends Controller
             'month' => $month,
             'report' => $this->monthlyStats([$start, $end]),
         ]);
+    }
+
+    /**
+     * Show the sales report for an arbitrary admin-selected start/end date range.
+     */
+    public function range(DateRangeReportRequest $request): Response
+    {
+        $start = Carbon::parse($request->validated('start'))->startOfDay();
+        $end = Carbon::parse($request->validated('end'))->endOfDay();
+
+        return Inertia::render('admin/reports/range', [
+            'start' => $start->toDateString(),
+            'end' => $end->toDateString(),
+            'report' => $this->rangeStats([$start, $end]),
+        ]);
+    }
+
+    /**
+     * Compute the sales report metrics for an arbitrary date range.
+     *
+     * @param  array{0: Carbon, 1: Carbon}  $range
+     * @return array{revenue: string, successfulPayments: int, failedPayments: int, completedSessions: int, voucherSessions: int, failedPrintJobs: int}
+     */
+    private function rangeStats(array $range): array
+    {
+        [$start, $end] = $range;
+
+        $successfulPaymentsQuery = fn () => Payment::query()
+            ->where('status', PaymentStatus::Success)
+            ->whereHas('photoboothSession', function ($query) use ($start, $end) {
+                $query->where('status', PhotoboothSessionStatus::Completed)
+                    ->whereBetween('updated_at', [$start, $end]);
+            });
+
+        $revenue = (float) $successfulPaymentsQuery()->sum('amount');
+        $successfulPayments = $successfulPaymentsQuery()->count();
+
+        $failedPayments = Payment::query()
+            ->where('status', PaymentStatus::Failed)
+            ->whereBetween('updated_at', [$start, $end])
+            ->count();
+
+        $completedSessions = PhotoboothSession::query()
+            ->where('status', PhotoboothSessionStatus::Completed)
+            ->whereBetween('updated_at', [$start, $end])
+            ->count();
+
+        $voucherSessions = PhotoboothSession::query()
+            ->where('status', PhotoboothSessionStatus::Completed)
+            ->where('payment_method', PaymentMethod::Voucher)
+            ->whereBetween('updated_at', [$start, $end])
+            ->count();
+
+        $failedPrintJobs = PrintJob::query()
+            ->where('status', PrintJobStatus::Failed)
+            ->whereHas('photoboothSession', function ($query) use ($start, $end) {
+                $query->whereBetween('updated_at', [$start, $end]);
+            })
+            ->count();
+
+        return [
+            'revenue' => number_format($revenue, 2, '.', ''),
+            'successfulPayments' => $successfulPayments,
+            'failedPayments' => $failedPayments,
+            'completedSessions' => $completedSessions,
+            'voucherSessions' => $voucherSessions,
+            'failedPrintJobs' => $failedPrintJobs,
+        ];
     }
 
     /**

@@ -211,3 +211,126 @@ test('an invalid month parameter is rejected', function () {
 
     $response->assertSessionHasErrors('month');
 });
+
+test('the range report requires authentication', function () {
+    $this->get(route('admin.reports.range', ['start' => '2026-01-01', 'end' => '2026-01-02']))
+        ->assertRedirect(route('login'));
+});
+
+test('admin can view the date range report matching the sum of per-day daily reports', function () {
+    $user = User::factory()->create();
+    $dayOne = now()->subDays(3)->startOfDay();
+    $dayTwo = now()->subDays(1)->startOfDay();
+
+    $mayaSession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Maya,
+        'updated_at' => $dayOne->copy()->setTime(10, 0),
+    ]);
+    Payment::factory()->for($mayaSession, 'photoboothSession')->success()->create([
+        'amount' => '150.00',
+        'updated_at' => $dayOne->copy()->setTime(10, 0),
+    ]);
+
+    $voucherSession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Voucher,
+        'updated_at' => $dayTwo->copy()->setTime(11, 0),
+    ]);
+    Payment::factory()->for($voucherSession, 'photoboothSession')->success()->create([
+        'amount' => '50.00',
+        'method' => PaymentMethod::Voucher,
+        'updated_at' => $dayTwo->copy()->setTime(11, 0),
+    ]);
+
+    Payment::factory()->create([
+        'status' => PaymentStatus::Failed,
+        'updated_at' => $dayTwo->copy()->setTime(12, 0),
+    ]);
+
+    PrintJob::factory()->for($voucherSession, 'photoboothSession')->failed()->create();
+
+    // Outside the selected range; must not be included.
+    $otherSession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Maya,
+        'updated_at' => now()->subDays(30),
+    ]);
+    Payment::factory()->for($otherSession, 'photoboothSession')->success()->create([
+        'amount' => '999.00',
+        'updated_at' => now()->subDays(30),
+    ]);
+
+    // Per-day daily report totals for the same range, summed manually.
+    $dailyOneReport = null;
+    $this->actingAs($user)->get(route('admin.reports.daily', ['date' => $dayOne->toDateString()]))
+        ->assertInertia(function ($page) use (&$dailyOneReport) {
+            $dailyOneReport = $page->toArray()['props']['report'];
+
+            return $page;
+        });
+
+    $dailyTwoReport = null;
+    $this->actingAs($user)->get(route('admin.reports.daily', ['date' => $dayTwo->toDateString()]))
+        ->assertInertia(function ($page) use (&$dailyTwoReport) {
+            $dailyTwoReport = $page->toArray()['props']['report'];
+
+            return $page;
+        });
+
+    $expectedRevenue = bcadd($dailyOneReport['grossSales'], $dailyTwoReport['grossSales'], 2);
+    $expectedCompletedSessions = $dailyOneReport['successfulSessions'] + $dailyTwoReport['successfulSessions'];
+    $expectedVoucherSessions = $dailyOneReport['voucherSessions'] + $dailyTwoReport['voucherSessions'];
+    $expectedFailedPayments = $dailyOneReport['failedPayments'] + $dailyTwoReport['failedPayments'];
+
+    $response = $this->actingAs($user)->get(route('admin.reports.range', [
+        'start' => $dayOne->toDateString(),
+        'end' => $dayTwo->toDateString(),
+    ]));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('admin/reports/range')
+        ->where('start', $dayOne->toDateString())
+        ->where('end', $dayTwo->toDateString())
+        ->where('report.revenue', $expectedRevenue)
+        ->where('report.successfulPayments', 2)
+        ->where('report.failedPayments', $expectedFailedPayments)
+        ->where('report.completedSessions', $expectedCompletedSessions)
+        ->where('report.voucherSessions', $expectedVoucherSessions)
+        ->where('report.failedPrintJobs', 1)
+    );
+});
+
+test('the range report returns zeroed totals for a range with no activity', function () {
+    $user = User::factory()->create();
+    $start = now()->subDays(60);
+    $end = now()->subDays(58);
+
+    $response = $this->actingAs($user)->get(route('admin.reports.range', [
+        'start' => $start->toDateString(),
+        'end' => $end->toDateString(),
+    ]));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('admin/reports/range')
+        ->where('report.revenue', '0.00')
+        ->where('report.successfulPayments', 0)
+        ->where('report.failedPayments', 0)
+        ->where('report.completedSessions', 0)
+        ->where('report.voucherSessions', 0)
+        ->where('report.failedPrintJobs', 0)
+    );
+});
+
+test('an inverted date range is rejected', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->get(route('admin.reports.range', [
+        'start' => now()->toDateString(),
+        'end' => now()->subDay()->toDateString(),
+    ]));
+
+    $response->assertSessionHasErrors('end');
+});
