@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
@@ -74,6 +75,52 @@ class ReportController extends Controller
             'start' => $start->toDateString(),
             'end' => $end->toDateString(),
             'report' => $this->rangeStats([$start, $end]),
+        ]);
+    }
+
+    /**
+     * Stream the underlying transactional data for an arbitrary date range as a CSV download.
+     */
+    public function export(DateRangeReportRequest $request): StreamedResponse
+    {
+        $start = Carbon::parse($request->validated('start'))->startOfDay();
+        $end = Carbon::parse($request->validated('end'))->endOfDay();
+
+        $filename = sprintf('sales-report_%s_%s.csv', $start->toDateString(), $end->toDateString());
+
+        return response()->streamDownload(function () use ($start, $end) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'session_token',
+                'started_at',
+                'payment_method',
+                'payment_status',
+                'amount',
+                'voucher_code',
+                'print_status',
+            ]);
+
+            PhotoboothSession::query()
+                ->with(['payment', 'voucher', 'printJob'])
+                ->whereBetween('updated_at', [$start, $end])
+                ->orderBy('updated_at')
+                ->cursor()
+                ->each(function (PhotoboothSession $session) use ($handle) {
+                    fputcsv($handle, [
+                        $session->session_token,
+                        $session->started_at?->toDateTimeString(),
+                        $session->payment_method?->value,
+                        $session->payment?->status?->value,
+                        $session->payment?->amount,
+                        $session->voucher?->code,
+                        $session->printJob?->status?->value,
+                    ]);
+                });
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
         ]);
     }
 

@@ -334,3 +334,108 @@ test('an inverted date range is rejected', function () {
 
     $response->assertSessionHasErrors('end');
 });
+
+test('the report export requires authentication', function () {
+    $this->get(route('admin.reports.export', ['start' => '2026-01-01', 'end' => '2026-01-02']))
+        ->assertRedirect(route('login'));
+});
+
+test('admin can export the date range report as a streamed csv', function () {
+    $user = User::factory()->create();
+    $dayOne = now()->subDays(3)->startOfDay();
+    $dayTwo = now()->subDays(1)->startOfDay();
+
+    $voucher = Voucher::factory()->create(['code' => 'SAVE10']);
+
+    $mayaSession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Maya,
+        'started_at' => $dayOne->copy()->setTime(10, 0),
+        'updated_at' => $dayOne->copy()->setTime(10, 0),
+    ]);
+    Payment::factory()->for($mayaSession, 'photoboothSession')->success()->create([
+        'amount' => '150.00',
+        'updated_at' => $dayOne->copy()->setTime(10, 0),
+    ]);
+    PrintJob::factory()->for($mayaSession, 'photoboothSession')->printed()->create();
+
+    $voucherSession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Voucher,
+        'voucher_id' => $voucher->id,
+        'started_at' => $dayTwo->copy()->setTime(11, 0),
+        'updated_at' => $dayTwo->copy()->setTime(11, 0),
+    ]);
+    Payment::factory()->for($voucherSession, 'photoboothSession')->success()->create([
+        'amount' => '50.00',
+        'method' => PaymentMethod::Voucher,
+        'updated_at' => $dayTwo->copy()->setTime(11, 0),
+    ]);
+
+    // Outside the selected range; must not be included.
+    PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Maya,
+        'updated_at' => now()->subDays(30),
+    ]);
+
+    $response = $this->actingAs($user)->get(route('admin.reports.export', [
+        'start' => $dayOne->toDateString(),
+        'end' => $dayTwo->toDateString(),
+    ]));
+
+    $response->assertOk();
+    $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+    $response->assertHeader('content-disposition');
+    expect($response->headers->get('content-disposition'))->toContain('attachment');
+
+    $rows = array_map('str_getcsv', explode("\n", trim($response->streamedContent())));
+    $header = array_shift($rows);
+
+    expect($header)->toBe([
+        'session_token',
+        'started_at',
+        'payment_method',
+        'payment_status',
+        'amount',
+        'voucher_code',
+        'print_status',
+    ]);
+
+    expect($rows)->toHaveCount(2);
+
+    $mayaRow = collect($rows)->first(fn ($row) => $row[0] === $mayaSession->session_token);
+
+    expect($mayaRow)->toBe([
+        $mayaSession->session_token,
+        $mayaSession->started_at->toDateTimeString(),
+        'maya',
+        'success',
+        '150.00',
+        '',
+        'printed',
+    ]);
+
+    $voucherRow = collect($rows)->first(fn ($row) => $row[0] === $voucherSession->session_token);
+
+    expect($voucherRow)->toBe([
+        $voucherSession->session_token,
+        $voucherSession->started_at->toDateTimeString(),
+        'voucher',
+        'success',
+        '50.00',
+        'SAVE10',
+        '',
+    ]);
+});
+
+test('the report export rejects an inverted date range', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->get(route('admin.reports.export', [
+        'start' => now()->toDateString(),
+        'end' => now()->subDay()->toDateString(),
+    ]));
+
+    $response->assertSessionHasErrors('end');
+});
