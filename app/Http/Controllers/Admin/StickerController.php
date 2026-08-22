@@ -9,10 +9,13 @@ use App\Models\PhotoTemplate;
 use App\Models\StickerDesign;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
+use Throwable;
 
 class StickerController extends Controller
 {
@@ -48,21 +51,45 @@ class StickerController extends Controller
     public function store(StoreStickerRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        $storedPaths = [];
 
-        $sticker = StickerDesign::create([
-            'name' => $validated['name'],
-            'asset_path' => $request->file('asset')->store('stickers', 'public'),
-            'thumbnail_path' => $request->hasFile('thumbnail')
-                ? $request->file('thumbnail')->store('stickers/thumbnails', 'public')
-                : null,
-            'active' => $request->boolean('active', true),
-            'sort_order' => $validated['sort_order'] ?? ((int) StickerDesign::max('sort_order') + 1),
-            'placement' => isset($validated['placement'])
-                ? json_decode($validated['placement'], true)
-                : null,
-        ]);
+        try {
+            $asset = $request->file('asset');
 
-        $sticker->photoTemplates()->sync($validated['template_ids'] ?? []);
+            if (! $asset instanceof UploadedFile) {
+                throw new RuntimeException('A valid sticker asset is required.');
+            }
+
+            $assetPath = $this->storePublicAsset($asset, 'stickers');
+            $storedPaths[] = $assetPath;
+
+            $thumbnailPath = null;
+            $thumbnail = $request->file('thumbnail');
+
+            if ($thumbnail instanceof UploadedFile) {
+                $thumbnailPath = $this->storePublicAsset($thumbnail, 'stickers/thumbnails');
+                $storedPaths[] = $thumbnailPath;
+            }
+
+            DB::transaction(function () use ($request, $validated, $assetPath, $thumbnailPath): void {
+                $sticker = StickerDesign::create([
+                    'name' => $validated['name'],
+                    'asset_path' => $assetPath,
+                    'thumbnail_path' => $thumbnailPath,
+                    'active' => $request->boolean('active', true),
+                    'sort_order' => $validated['sort_order'] ?? ((int) StickerDesign::max('sort_order') + 1),
+                    'placement' => isset($validated['placement'])
+                        ? json_decode($validated['placement'], true)
+                        : null,
+                ]);
+
+                $sticker->photoTemplates()->sync($validated['template_ids'] ?? []);
+            });
+        } catch (Throwable $exception) {
+            $this->deletePublicAssets($storedPaths);
+
+            throw $exception;
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Sticker created.')]);
 
@@ -86,6 +113,8 @@ class StickerController extends Controller
     public function update(UpdateStickerRequest $request, StickerDesign $sticker): RedirectResponse
     {
         $validated = $request->validated();
+        $storedPaths = [];
+        $replacedPaths = [];
 
         $attributes = [
             'name' => $validated['name'],
@@ -96,21 +125,40 @@ class StickerController extends Controller
                 : null,
         ];
 
-        if ($request->hasFile('asset')) {
-            Storage::disk('public')->delete($sticker->asset_path);
-            $attributes['asset_path'] = $request->file('asset')->store('stickers', 'public');
-        }
+        try {
+            $asset = $request->file('asset');
 
-        if ($request->hasFile('thumbnail')) {
-            if ($sticker->thumbnail_path) {
-                Storage::disk('public')->delete($sticker->thumbnail_path);
+            if ($asset instanceof UploadedFile) {
+                $assetPath = $this->storePublicAsset($asset, 'stickers');
+                $storedPaths[] = $assetPath;
+                $replacedPaths[] = $sticker->asset_path;
+                $attributes['asset_path'] = $assetPath;
             }
-            $attributes['thumbnail_path'] = $request->file('thumbnail')->store('stickers/thumbnails', 'public');
+
+            $thumbnail = $request->file('thumbnail');
+
+            if ($thumbnail instanceof UploadedFile) {
+                $thumbnailPath = $this->storePublicAsset($thumbnail, 'stickers/thumbnails');
+                $storedPaths[] = $thumbnailPath;
+
+                if ($sticker->thumbnail_path !== null) {
+                    $replacedPaths[] = $sticker->thumbnail_path;
+                }
+
+                $attributes['thumbnail_path'] = $thumbnailPath;
+            }
+
+            DB::transaction(function () use ($sticker, $attributes, $validated): void {
+                $sticker->updateOrFail($attributes);
+                $sticker->photoTemplates()->sync($validated['template_ids'] ?? []);
+            });
+        } catch (Throwable $exception) {
+            $this->deletePublicAssets($storedPaths);
+
+            throw $exception;
         }
 
-        $sticker->update($attributes);
-
-        $sticker->photoTemplates()->sync($validated['template_ids'] ?? []);
+        $this->deletePublicAssets($replacedPaths);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Sticker updated.')]);
 
@@ -122,7 +170,14 @@ class StickerController extends Controller
      */
     public function toggle(StickerDesign $sticker): RedirectResponse
     {
-        $sticker->update(['active' => ! $sticker->active]);
+        $active = ! $sticker->active;
+
+        $sticker->updateOrFail(['active' => $active]);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $active ? __('Sticker enabled.') : __('Sticker disabled.'),
+        ]);
 
         return to_route('admin.stickers.index');
     }
@@ -157,9 +212,13 @@ class StickerController extends Controller
             ]);
         }
 
-        Storage::disk('public')->delete(array_filter([$sticker->asset_path, $sticker->thumbnail_path]));
+        $assetPaths = array_filter([
+            $sticker->asset_path,
+            $sticker->thumbnail_path,
+        ]);
 
-        $sticker->delete();
+        $sticker->deleteOrFail();
+        $this->deletePublicAssets($assetPaths);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Sticker deleted.')]);
 
@@ -177,13 +236,17 @@ class StickerController extends Controller
             'id' => $sticker->id,
             'name' => $sticker->name,
             'assetPath' => $sticker->asset_path,
+            'assetUrl' => Storage::disk('public')->url($sticker->asset_path),
             'thumbnailPath' => $sticker->thumbnail_path,
+            'thumbnailUrl' => $sticker->thumbnail_path !== null
+                ? Storage::disk('public')->url($sticker->thumbnail_path)
+                : null,
             'active' => $sticker->active,
             'sortOrder' => $sticker->sort_order,
             'placement' => $sticker->placement,
             'templateIds' => $sticker->relationLoaded('photoTemplates')
-                ? $sticker->photoTemplates->pluck('id')
-                : $sticker->photoTemplates()->pluck('photo_templates.id'),
+                ? $sticker->photoTemplates->pluck('id')->values()->all()
+                : $sticker->photoTemplates()->pluck('photo_templates.id')->values()->all(),
         ];
     }
 
@@ -203,5 +266,28 @@ class StickerController extends Controller
                 'name' => $template->name,
             ])
             ->all();
+    }
+
+    private function storePublicAsset(UploadedFile $file, string $directory): string
+    {
+        $path = $file->store($directory, 'public');
+
+        if (! is_string($path)) {
+            throw new RuntimeException("Unable to store sticker asset in [{$directory}].");
+        }
+
+        return $path;
+    }
+
+    /**
+     * @param  array<int, string>  $paths
+     */
+    private function deletePublicAssets(array $paths): void
+    {
+        if ($paths === []) {
+            return;
+        }
+
+        Storage::disk('public')->delete(array_values(array_unique($paths)));
     }
 }
