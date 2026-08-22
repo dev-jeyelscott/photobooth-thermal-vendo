@@ -30,6 +30,8 @@ class RedeemVoucher
         $normalizedCode = Str::of($code)->trim()->upper()->value();
 
         return DB::transaction(function () use ($session, $normalizedCode) {
+            $session = PhotoboothSession::whereKey($session->id)->lockForUpdate()->first();
+
             $voucher = Voucher::whereRaw('upper(code) = ?', [$normalizedCode])->lockForUpdate()->first();
 
             if ($voucher === null) {

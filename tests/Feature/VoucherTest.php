@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Vouchers\RedeemVoucher;
 use App\Enums\PaymentMethod;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\ApplicationSetting;
@@ -164,4 +165,20 @@ test('concurrent redemption attempts at the usage limit boundary cannot exceed u
     );
 
     expect($paidSessions)->toHaveCount(1);
+});
+
+test('duplicate redemption requests for the same session cannot each consume a voucher use', function () {
+    $voucher = Voucher::factory()->create(['usage_limit' => 5, 'usage_count' => 0]);
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+
+    $staleSessionA = PhotoboothSession::findOrFail($session->id);
+    $staleSessionB = PhotoboothSession::findOrFail($session->id);
+
+    $resultA = app(RedeemVoucher::class)->handle($staleSessionA, $voucher->code);
+    $resultB = app(RedeemVoucher::class)->handle($staleSessionB, $voucher->code);
+
+    expect($resultA)->not->toBeNull()
+        ->and($resultB)->toBeNull()
+        ->and($voucher->fresh()->usage_count)->toBe(1)
+        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Paid);
 });
