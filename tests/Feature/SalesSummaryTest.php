@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\PhotoboothSession;
 use App\Models\PrintJob;
 use App\Models\User;
+use App\Models\Voucher;
 
 test('dashboard requires authentication', function () {
     $this->get(route('admin.dashboard'))->assertRedirect(route('login'));
@@ -34,6 +35,9 @@ test('dashboard shows sales summary computed from real session, payment, and pri
 
     PrintJob::factory()->for(PhotoboothSession::factory(), 'photoboothSession')->failed()->create();
 
+    Payment::factory()->for(PhotoboothSession::factory(), 'photoboothSession')->create(['status' => PaymentStatus::Pending]);
+    Voucher::factory()->create(['usage_count' => 1, 'usage_limit' => 5]);
+
     $response = $this->actingAs($user)->get(route('admin.dashboard'));
 
     $response->assertOk();
@@ -45,5 +49,8 @@ test('dashboard shows sales summary computed from real session, payment, and pri
         ->where('summary.thisMonth.salesTotal', '150.00')
         ->where('summary.failedPayments', 2)
         ->where('summary.failedPrintJobs', 1)
+        ->where('summary.pendingPayments', 1)
+        ->has('recentActivity')
+        ->where('recentActivity', fn ($activity) => count($activity) > 0)
     );
 });
