@@ -60,9 +60,9 @@ class RedeemVoucher
             $session->update([
                 'voucher_id' => $voucher->id,
                 'price' => '0.00',
-                'currency' => Settings::get('currency'),
+                'currency' => $session->currency ?? (string) Settings::get('currency'),
                 'payment_method' => PaymentMethod::Voucher,
-                'required_capture_count' => Settings::get('capture_shot_count'),
+                'required_capture_count' => $session->required_capture_count ?? Settings::get('capture_shot_count'),
             ]);
             $session->transitionTo(PhotoboothSessionStatus::Paid);
 

@@ -25,6 +25,9 @@ class PhotoboothSessionController extends Controller
         $session = PhotoboothSession::create([
             'session_token' => (string) Str::uuid(),
             'status' => PhotoboothSessionStatus::New,
+            'price' => (string) Settings::get('session_price'),
+            'currency' => (string) Settings::get('currency'),
+            'required_capture_count' => (int) Settings::get('capture_shot_count'),
             'started_at' => now(),
             'expires_at' => now()->addMinutes((int) config('photobooth.kiosk_session_ttl_minutes')),
         ]);

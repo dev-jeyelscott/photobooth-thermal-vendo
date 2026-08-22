@@ -193,6 +193,36 @@ test('changing the session price setting after checkout does not alter an alread
     expect((float) $session->fresh()->price)->toBe(150.0);
 });
 
+test('a real session snapshots price, currency, and capture count at creation and keeps them when settings change before checkout', function () {
+    config(['photobooth.capture_shot_count' => 4]);
+
+    Http::fake([
+        '*/checkout/v1/checkouts' => Http::response([
+            'checkoutId' => 'checkout-early-snapshot',
+            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-early-snapshot',
+        ], 200),
+    ]);
+
+    $sessionToken = $this->postJson(route('kiosk.sessions.store'))->json('sessionToken');
+    $session = PhotoboothSession::where('session_token', $sessionToken)->firstOrFail();
+
+    expect((float) $session->price)->toBe(150.0)
+        ->and($session->currency)->toBe('PHP')
+        ->and($session->required_capture_count)->toBe(4);
+
+    ApplicationSetting::where('key', 'session_price')->update(['value' => '999.00']);
+    ApplicationSetting::updateOrCreate(['key' => 'currency'], ['value' => 'USD']);
+    config(['photobooth.capture_shot_count' => 10]);
+
+    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+
+    $session->refresh();
+
+    expect((float) $session->price)->toBe(150.0)
+        ->and($session->currency)->toBe('PHP')
+        ->and($session->required_capture_count)->toBe(4);
+});
+
 test('no maya secret key appears in the checkout response', function () {
     config(['services.maya.secret_key' => 'sk_super_secret_value']);
 
