@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
 use App\Enums\PhotoboothSessionStatus;
+use App\Enums\PrintJobStatus;
 use App\Http\Controllers\Controller;
 use App\Models\PhotoboothSession;
 use Illuminate\Http\Request;
@@ -19,12 +22,30 @@ class SessionMonitorController extends Controller
         $status = $request->string('status')->toString();
         $from = $request->string('from')->toString();
         $to = $request->string('to')->toString();
+        $paymentStatus = $request->string('payment_status')->toString();
+        $paymentMethod = $request->string('payment_method')->toString();
+        $authorizationType = $request->string('authorization_type')->toString();
+        $printStatus = $request->string('print_status')->toString();
 
         $sessions = PhotoboothSession::query()
             ->with(['payment', 'printJob', 'photoTemplate', 'stickerDesign', 'voucher'])
             ->when($status !== '' && PhotoboothSessionStatus::tryFrom($status) !== null, fn ($query) => $query->where('status', $status))
             ->when($from !== '', fn ($query) => $query->whereDate('started_at', '>=', $from))
             ->when($to !== '', fn ($query) => $query->whereDate('started_at', '<=', $to))
+            ->when(
+                $paymentStatus !== '' && PaymentStatus::tryFrom($paymentStatus) !== null,
+                fn ($query) => $query->whereHas('payment', fn ($paymentQuery) => $paymentQuery->where('status', $paymentStatus))
+            )
+            ->when(
+                $paymentMethod !== '' && PaymentMethod::tryFrom($paymentMethod) !== null,
+                fn ($query) => $query->whereHas('payment', fn ($paymentQuery) => $paymentQuery->where('method', $paymentMethod))
+            )
+            ->when($authorizationType === 'voucher', fn ($query) => $query->whereNotNull('voucher_id'))
+            ->when($authorizationType === 'payment', fn ($query) => $query->whereHas('payment'))
+            ->when(
+                $printStatus !== '' && PrintJobStatus::tryFrom($printStatus) !== null,
+                fn ($query) => $query->whereHas('printJob', fn ($printJobQuery) => $printJobQuery->where('status', $printStatus))
+            )
             ->orderByDesc('started_at')
             ->paginate(20)
             ->withQueryString();
@@ -37,8 +58,15 @@ class SessionMonitorController extends Controller
                 'status' => $status !== '' ? $status : null,
                 'from' => $from !== '' ? $from : null,
                 'to' => $to !== '' ? $to : null,
+                'payment_status' => $paymentStatus !== '' ? $paymentStatus : null,
+                'payment_method' => $paymentMethod !== '' ? $paymentMethod : null,
+                'authorization_type' => $authorizationType !== '' ? $authorizationType : null,
+                'print_status' => $printStatus !== '' ? $printStatus : null,
             ],
             'statuses' => array_map(fn (PhotoboothSessionStatus $case) => $case->value, PhotoboothSessionStatus::cases()),
+            'paymentStatuses' => array_map(fn (PaymentStatus $case) => $case->value, PaymentStatus::cases()),
+            'paymentMethods' => array_map(fn (PaymentMethod $case) => $case->value, PaymentMethod::cases()),
+            'printStatuses' => array_map(fn (PrintJobStatus $case) => $case->value, PrintJobStatus::cases()),
         ]);
     }
 

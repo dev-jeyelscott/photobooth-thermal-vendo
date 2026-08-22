@@ -39,16 +39,26 @@ type Filters = {
     status: string | null;
     from: string | null;
     to: string | null;
+    payment_status: string | null;
+    payment_method: string | null;
+    authorization_type: string | null;
+    print_status: string | null;
 };
 
 export default function SessionsIndex({
     sessions,
     filters,
     statuses,
+    paymentStatuses,
+    paymentMethods,
+    printStatuses,
 }: {
     sessions: Paginated<Session>;
     filters: Filters;
     statuses: string[];
+    paymentStatuses: string[];
+    paymentMethods: string[];
+    printStatuses: string[];
 }) {
     setLayoutProps({
         breadcrumbs: [{ title: 'Sessions', href: sessionsIndex() }],
@@ -104,6 +114,78 @@ export default function SessionsIndex({
                                     name="to"
                                     defaultValue={filters.to ?? ''}
                                 />
+                            </label>
+
+                            <label className="flex flex-col gap-1 text-sm">
+                                Payment status
+                                <select
+                                    name="payment_status"
+                                    defaultValue={filters.payment_status ?? ''}
+                                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                >
+                                    <option value="">All</option>
+                                    {paymentStatuses.map((paymentStatus) => (
+                                        <option
+                                            key={paymentStatus}
+                                            value={paymentStatus}
+                                        >
+                                            {paymentStatus}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label className="flex flex-col gap-1 text-sm">
+                                Payment method
+                                <select
+                                    name="payment_method"
+                                    defaultValue={filters.payment_method ?? ''}
+                                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                >
+                                    <option value="">All</option>
+                                    {paymentMethods.map((paymentMethod) => (
+                                        <option
+                                            key={paymentMethod}
+                                            value={paymentMethod}
+                                        >
+                                            {paymentMethod}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label className="flex flex-col gap-1 text-sm">
+                                Authorization
+                                <select
+                                    name="authorization_type"
+                                    defaultValue={
+                                        filters.authorization_type ?? ''
+                                    }
+                                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                >
+                                    <option value="">All</option>
+                                    <option value="voucher">Voucher</option>
+                                    <option value="payment">Payment</option>
+                                </select>
+                            </label>
+
+                            <label className="flex flex-col gap-1 text-sm">
+                                Print status
+                                <select
+                                    name="print_status"
+                                    defaultValue={filters.print_status ?? ''}
+                                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                >
+                                    <option value="">All</option>
+                                    {printStatuses.map((printStatus) => (
+                                        <option
+                                            key={printStatus}
+                                            value={printStatus}
+                                        >
+                                            {printStatus}
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
 
                             <Button type="submit">Filter</Button>
