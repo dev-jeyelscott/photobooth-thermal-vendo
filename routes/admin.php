@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PaymentController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SessionMonitorController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\StickerController;
@@ -26,6 +27,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('sessions', [SessionMonitorController::class, 'index'])->name('sessions.index');
 
     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
+
+    Route::get('reports/daily', [ReportController::class, 'daily'])->name('reports.daily');
 
     Route::get('settings', [SettingController::class, 'edit'])->name('settings.edit');
     Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
