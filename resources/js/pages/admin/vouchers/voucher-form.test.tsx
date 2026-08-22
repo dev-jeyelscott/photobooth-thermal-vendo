@@ -3,6 +3,10 @@ import type { InputHTMLAttributes, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import VoucherForm from './voucher-form';
 
+const formErrors = vi.hoisted(() => ({
+    current: {} as Record<string, string>,
+}));
+
 vi.mock('@inertiajs/react', () => ({
     Form: ({
         action,
@@ -17,7 +21,7 @@ vi.mock('@inertiajs/react', () => ({
         }) => ReactNode;
     }) => (
         <form action={action} method={method}>
-            {children({ processing: false, errors: {} })}
+            {children({ processing: false, errors: formErrors.current })}
         </form>
     ),
 }));
@@ -100,5 +104,27 @@ describe('voucher form browser payload contract', () => {
         expect(
             container.querySelector('input[name="usage_count"]'),
         ).not.toBeInTheDocument();
+    });
+});
+
+describe('voucher form accessibility', () => {
+    it('associates a validation error with its field via aria-describedby', () => {
+        formErrors.current = { code: 'The code has already been taken.' };
+
+        render(
+            <VoucherForm
+                form={{ action: '/admin/vouchers', method: 'post' }}
+            />,
+        );
+
+        const codeInput = screen.getByLabelText('Code');
+        expect(codeInput).toHaveAttribute('aria-invalid', 'true');
+        expect(codeInput).toHaveAttribute('aria-describedby', 'code-error');
+
+        const message = screen.getByText('The code has already been taken.');
+        expect(message).toHaveAttribute('id', 'code-error');
+        expect(message).toHaveAttribute('role', 'alert');
+
+        formErrors.current = {};
     });
 });

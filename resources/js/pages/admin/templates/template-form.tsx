@@ -46,8 +46,12 @@ export default function TemplateForm({
                             required
                             defaultValue={template?.name}
                             placeholder="Classic Strip"
+                            aria-invalid={!!errors.name}
+                            aria-describedby={
+                                errors.name ? 'name-error' : undefined
+                            }
                         />
-                        <InputError message={errors.name} />
+                        <InputError id="name-error" message={errors.name} />
                     </div>
 
                     <div className="grid gap-2">
@@ -58,8 +62,12 @@ export default function TemplateForm({
                             required
                             defaultValue={template?.slug}
                             placeholder="classic-strip"
+                            aria-invalid={!!errors.slug}
+                            aria-describedby={
+                                errors.slug ? 'slug-error' : undefined
+                            }
                         />
-                        <InputError message={errors.slug} />
+                        <InputError id="slug-error" message={errors.slug} />
                     </div>
 
                     <div className="grid gap-2">
@@ -69,12 +77,21 @@ export default function TemplateForm({
                             name="orientation"
                             required
                             defaultValue={template?.orientation ?? 'portrait'}
-                            className="flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none md:text-sm"
+                            aria-invalid={!!errors.orientation}
+                            aria-describedby={
+                                errors.orientation
+                                    ? 'orientation-error'
+                                    : undefined
+                            }
+                            className="flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
                         >
                             <option value="portrait">Portrait</option>
                             <option value="landscape">Landscape</option>
                         </select>
-                        <InputError message={errors.orientation} />
+                        <InputError
+                            id="orientation-error"
+                            message={errors.orientation}
+                        />
                     </div>
 
                     <div className="grid gap-2">
@@ -85,6 +102,10 @@ export default function TemplateForm({
                             type="file"
                             accept="image/*"
                             required={!template}
+                            aria-invalid={!!errors.layout}
+                            aria-describedby={
+                                errors.layout ? 'layout-error' : undefined
+                            }
                         />
                         {template?.layoutUrl ? (
                             <a
@@ -100,7 +121,7 @@ export default function TemplateForm({
                                 Current: {template.layoutPath}
                             </p>
                         ) : null}
-                        <InputError message={errors.layout} />
+                        <InputError id="layout-error" message={errors.layout} />
                     </div>
 
                     <div className="grid gap-2">
@@ -110,6 +131,10 @@ export default function TemplateForm({
                             name="thumbnail"
                             type="file"
                             accept="image/*"
+                            aria-invalid={!!errors.thumbnail}
+                            aria-describedby={
+                                errors.thumbnail ? 'thumbnail-error' : undefined
+                            }
                         />
                         {template?.thumbnailUrl ? (
                             <a
@@ -125,7 +150,10 @@ export default function TemplateForm({
                                 Current: {template.thumbnailPath}
                             </p>
                         ) : null}
-                        <InputError message={errors.thumbnail} />
+                        <InputError
+                            id="thumbnail-error"
+                            message={errors.thumbnail}
+                        />
                     </div>
 
                     <div className="grid gap-2">
@@ -137,8 +165,17 @@ export default function TemplateForm({
                             min={1}
                             required
                             defaultValue={template?.photoSlots ?? 1}
+                            aria-invalid={!!errors.photo_slots}
+                            aria-describedby={
+                                errors.photo_slots
+                                    ? 'photo_slots-error'
+                                    : undefined
+                            }
                         />
-                        <InputError message={errors.photo_slots} />
+                        <InputError
+                            id="photo_slots-error"
+                            message={errors.photo_slots}
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -153,8 +190,17 @@ export default function TemplateForm({
                                 min={1}
                                 required
                                 defaultValue={template?.printWidthMm ?? 100}
+                                aria-invalid={!!errors.print_width_mm}
+                                aria-describedby={
+                                    errors.print_width_mm
+                                        ? 'print_width_mm-error'
+                                        : undefined
+                                }
                             />
-                            <InputError message={errors.print_width_mm} />
+                            <InputError
+                                id="print_width_mm-error"
+                                message={errors.print_width_mm}
+                            />
                         </div>
 
                         <div className="grid gap-2">
@@ -168,8 +214,17 @@ export default function TemplateForm({
                                 min={1}
                                 required
                                 defaultValue={template?.printHeightMm ?? 150}
+                                aria-invalid={!!errors.print_height_mm}
+                                aria-describedby={
+                                    errors.print_height_mm
+                                        ? 'print_height_mm-error'
+                                        : undefined
+                                }
                             />
-                            <InputError message={errors.print_height_mm} />
+                            <InputError
+                                id="print_height_mm-error"
+                                message={errors.print_height_mm}
+                            />
                         </div>
                     </div>
 
@@ -181,8 +236,17 @@ export default function TemplateForm({
                             type="number"
                             min={0}
                             defaultValue={template?.sortOrder ?? 0}
+                            aria-invalid={!!errors.sort_order}
+                            aria-describedby={
+                                errors.sort_order
+                                    ? 'sort_order-error'
+                                    : undefined
+                            }
                         />
-                        <InputError message={errors.sort_order} />
+                        <InputError
+                            id="sort_order-error"
+                            message={errors.sort_order}
+                        />
                     </div>
 
                     <div className="grid gap-2">
@@ -203,9 +267,18 @@ export default function TemplateForm({
                                     : ''
                             }
                             placeholder='{"paperWidthsMm": [100], "printerIds": ["dnp-ds620"]}'
-                            className="flex w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none md:text-sm"
+                            aria-invalid={!!errors.printer_compatibility}
+                            aria-describedby={
+                                errors.printer_compatibility
+                                    ? 'printer_compatibility-error'
+                                    : undefined
+                            }
+                            className="flex w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
                         />
-                        <InputError message={errors.printer_compatibility} />
+                        <InputError
+                            id="printer_compatibility-error"
+                            message={errors.printer_compatibility}
+                        />
                     </div>
 
                     <div className="flex items-center space-x-3">
@@ -215,10 +288,14 @@ export default function TemplateForm({
                             name="active"
                             value="1"
                             defaultChecked={template?.active ?? true}
+                            aria-invalid={!!errors.active}
+                            aria-describedby={
+                                errors.active ? 'active-error' : undefined
+                            }
                         />
                         <Label htmlFor="active">Active</Label>
                     </div>
-                    <InputError message={errors.active} />
+                    <InputError id="active-error" message={errors.active} />
 
                     <Button type="submit" disabled={processing}>
                         {template ? 'Save changes' : 'Create template'}

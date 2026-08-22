@@ -55,8 +55,12 @@ export default function StickerForm({
                             required
                             defaultValue={sticker?.name}
                             placeholder="Party Hat"
+                            aria-invalid={!!errors.name}
+                            aria-describedby={
+                                errors.name ? 'name-error' : undefined
+                            }
                         />
-                        <InputError message={errors.name} />
+                        <InputError id="name-error" message={errors.name} />
                     </div>
 
                     <div className="grid gap-2">
@@ -74,6 +78,10 @@ export default function StickerForm({
                                     file ? URL.createObjectURL(file) : null,
                                 );
                             }}
+                            aria-invalid={!!errors.asset}
+                            aria-describedby={
+                                errors.asset ? 'asset-error' : undefined
+                            }
                         />
 
                         {sticker && !assetPreview && (
@@ -109,7 +117,7 @@ export default function StickerForm({
                             />
                         )}
 
-                        <InputError message={errors.asset} />
+                        <InputError id="asset-error" message={errors.asset} />
                     </div>
 
                     <div className="grid gap-2">
@@ -119,6 +127,10 @@ export default function StickerForm({
                             name="thumbnail"
                             type="file"
                             accept="image/*"
+                            aria-invalid={!!errors.thumbnail}
+                            aria-describedby={
+                                errors.thumbnail ? 'thumbnail-error' : undefined
+                            }
                         />
 
                         {sticker?.thumbnailUrl && (
@@ -148,7 +160,10 @@ export default function StickerForm({
                             </div>
                         )}
 
-                        <InputError message={errors.thumbnail} />
+                        <InputError
+                            id="thumbnail-error"
+                            message={errors.thumbnail}
+                        />
                     </div>
 
                     <div className="grid gap-2">
@@ -159,8 +174,17 @@ export default function StickerForm({
                             type="number"
                             min={0}
                             defaultValue={sticker?.sortOrder ?? 0}
+                            aria-invalid={!!errors.sort_order}
+                            aria-describedby={
+                                errors.sort_order
+                                    ? 'sort_order-error'
+                                    : undefined
+                            }
                         />
-                        <InputError message={errors.sort_order} />
+                        <InputError
+                            id="sort_order-error"
+                            message={errors.sort_order}
+                        />
                     </div>
 
                     <div className="grid gap-2">
@@ -177,18 +201,32 @@ export default function StickerForm({
                                     : ''
                             }
                             placeholder='{"size_ratio": 0.22, "margin_ratio": 0.03}'
-                            className="flex w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none md:text-sm"
+                            aria-invalid={!!errors.placement}
+                            aria-describedby={
+                                errors.placement ? 'placement-error' : undefined
+                            }
+                            className="flex w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
                         />
-                        <InputError message={errors.placement} />
+                        <InputError
+                            id="placement-error"
+                            message={errors.placement}
+                        />
                     </div>
 
-                    <div className="grid gap-2">
-                        <Label>
+                    <fieldset className="grid gap-2">
+                        <legend className="text-sm leading-none font-medium">
                             Compatible templates (none selected means all
                             templates)
-                        </Label>
+                        </legend>
 
-                        <div className="flex flex-col gap-2">
+                        <div
+                            className="flex flex-col gap-2"
+                            aria-describedby={
+                                errors.template_ids
+                                    ? 'template_ids-error'
+                                    : undefined
+                            }
+                        >
                             {templates.map((template) => (
                                 <div
                                     key={template.id}
@@ -210,8 +248,11 @@ export default function StickerForm({
                             ))}
                         </div>
 
-                        <InputError message={errors.template_ids} />
-                    </div>
+                        <InputError
+                            id="template_ids-error"
+                            message={errors.template_ids}
+                        />
+                    </fieldset>
 
                     <div className="flex items-center space-x-3">
                         <input type="hidden" name="active" value="0" />
@@ -221,12 +262,16 @@ export default function StickerForm({
                             name="active"
                             value="1"
                             defaultChecked={sticker?.active ?? true}
+                            aria-invalid={!!errors.active}
+                            aria-describedby={
+                                errors.active ? 'active-error' : undefined
+                            }
                         />
 
                         <Label htmlFor="active">Active</Label>
                     </div>
 
-                    <InputError message={errors.active} />
+                    <InputError id="active-error" message={errors.active} />
 
                     <Button type="submit" disabled={processing}>
                         {sticker ? 'Save changes' : 'Create sticker'}

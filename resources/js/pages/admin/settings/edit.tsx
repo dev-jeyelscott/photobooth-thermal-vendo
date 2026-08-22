@@ -72,8 +72,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     min={0.01}
                                     required
                                     defaultValue={settings.session_price}
+                                    aria-invalid={!!errors.session_price}
+                                    aria-describedby={
+                                        errors.session_price
+                                            ? 'session_price-error'
+                                            : undefined
+                                    }
                                 />
-                                <InputError message={errors.session_price} />
+                                <InputError
+                                    id="session_price-error"
+                                    message={errors.session_price}
+                                />
                                 <FutureSessionsNote />
                             </div>
 
@@ -87,8 +96,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     maxLength={3}
                                     required
                                     defaultValue={settings.currency}
+                                    aria-invalid={!!errors.currency}
+                                    aria-describedby={
+                                        errors.currency
+                                            ? 'currency-error'
+                                            : undefined
+                                    }
                                 />
-                                <InputError message={errors.currency} />
+                                <InputError
+                                    id="currency-error"
+                                    message={errors.currency}
+                                />
                                 <FutureSessionsNote />
                             </div>
 
@@ -104,8 +122,15 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     max={10}
                                     required
                                     defaultValue={settings.countdown_seconds}
+                                    aria-invalid={!!errors.countdown_seconds}
+                                    aria-describedby={
+                                        errors.countdown_seconds
+                                            ? 'countdown_seconds-error'
+                                            : undefined
+                                    }
                                 />
                                 <InputError
+                                    id="countdown_seconds-error"
                                     message={errors.countdown_seconds}
                                 />
                             </div>
@@ -122,8 +147,15 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     max={10}
                                     required
                                     defaultValue={settings.capture_shot_count}
+                                    aria-invalid={!!errors.capture_shot_count}
+                                    aria-describedby={
+                                        errors.capture_shot_count
+                                            ? 'capture_shot_count-error'
+                                            : undefined
+                                    }
                                 />
                                 <InputError
+                                    id="capture_shot_count-error"
                                     message={errors.capture_shot_count}
                                 />
                                 <FutureSessionsNote />
@@ -143,8 +175,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     defaultValue={
                                         settings.capture_countdown_seconds
                                     }
+                                    aria-invalid={
+                                        !!errors.capture_countdown_seconds
+                                    }
+                                    aria-describedby={
+                                        errors.capture_countdown_seconds
+                                            ? 'capture_countdown_seconds-error'
+                                            : undefined
+                                    }
                                 />
                                 <InputError
+                                    id="capture_countdown_seconds-error"
                                     message={errors.capture_countdown_seconds}
                                 />
                             </div>
@@ -160,8 +201,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     min={1}
                                     required
                                     defaultValue={settings.retake_limit}
+                                    aria-invalid={!!errors.retake_limit}
+                                    aria-describedby={
+                                        errors.retake_limit
+                                            ? 'retake_limit-error'
+                                            : undefined
+                                    }
                                 />
-                                <InputError message={errors.retake_limit} />
+                                <InputError
+                                    id="retake_limit-error"
+                                    message={errors.retake_limit}
+                                />
                             </div>
 
                             <div className="grid gap-2">
@@ -177,8 +227,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     defaultValue={
                                         settings.kiosk_idle_timeout_seconds
                                     }
+                                    aria-invalid={
+                                        !!errors.kiosk_idle_timeout_seconds
+                                    }
+                                    aria-describedby={
+                                        errors.kiosk_idle_timeout_seconds
+                                            ? 'kiosk_idle_timeout_seconds-error'
+                                            : undefined
+                                    }
                                 />
                                 <InputError
+                                    id="kiosk_idle_timeout_seconds-error"
                                     message={errors.kiosk_idle_timeout_seconds}
                                 />
                             </div>
@@ -196,8 +255,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     defaultValue={
                                         settings.session_timeout_seconds
                                     }
+                                    aria-invalid={
+                                        !!errors.session_timeout_seconds
+                                    }
+                                    aria-describedby={
+                                        errors.session_timeout_seconds
+                                            ? 'session_timeout_seconds-error'
+                                            : undefined
+                                    }
                                 />
                                 <InputError
+                                    id="session_timeout_seconds-error"
                                     message={errors.session_timeout_seconds}
                                 />
                             </div>
@@ -215,8 +283,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     defaultValue={
                                         settings.gallery_expiration_hours
                                     }
+                                    aria-invalid={
+                                        !!errors.gallery_expiration_hours
+                                    }
+                                    aria-describedby={
+                                        errors.gallery_expiration_hours
+                                            ? 'gallery_expiration_hours-error'
+                                            : undefined
+                                    }
                                 />
                                 <InputError
+                                    id="gallery_expiration_hours-error"
                                     message={errors.gallery_expiration_hours}
                                 />
                             </div>
@@ -234,8 +311,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     defaultValue={
                                         settings.gif_frame_duration_ms
                                     }
+                                    aria-invalid={
+                                        !!errors.gif_frame_duration_ms
+                                    }
+                                    aria-describedby={
+                                        errors.gif_frame_duration_ms
+                                            ? 'gif_frame_duration_ms-error'
+                                            : undefined
+                                    }
                                 />
                                 <InputError
+                                    id="gif_frame_duration_ms-error"
                                     message={errors.gif_frame_duration_ms}
                                 />
                             </div>
@@ -249,8 +335,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     name="default_printer"
                                     required
                                     defaultValue={settings.default_printer}
+                                    aria-invalid={!!errors.default_printer}
+                                    aria-describedby={
+                                        errors.default_printer
+                                            ? 'default_printer-error'
+                                            : undefined
+                                    }
                                 />
-                                <InputError message={errors.default_printer} />
+                                <InputError
+                                    id="default_printer-error"
+                                    message={errors.default_printer}
+                                />
                             </div>
 
                             <div className="grid gap-2">
@@ -262,8 +357,15 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     name="booth_display_name"
                                     required
                                     defaultValue={settings.booth_display_name}
+                                    aria-invalid={!!errors.booth_display_name}
+                                    aria-describedby={
+                                        errors.booth_display_name
+                                            ? 'booth_display_name-error'
+                                            : undefined
+                                    }
                                 />
                                 <InputError
+                                    id="booth_display_name-error"
                                     message={errors.booth_display_name}
                                 />
                             </div>
@@ -276,8 +378,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     id="receipt_header"
                                     name="receipt_header"
                                     defaultValue={settings.receipt_header ?? ''}
+                                    aria-invalid={!!errors.receipt_header}
+                                    aria-describedby={
+                                        errors.receipt_header
+                                            ? 'receipt_header-error'
+                                            : undefined
+                                    }
                                 />
-                                <InputError message={errors.receipt_header} />
+                                <InputError
+                                    id="receipt_header-error"
+                                    message={errors.receipt_header}
+                                />
                             </div>
 
                             <div className="grid gap-2">
@@ -288,8 +399,17 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     id="receipt_footer"
                                     name="receipt_footer"
                                     defaultValue={settings.receipt_footer ?? ''}
+                                    aria-invalid={!!errors.receipt_footer}
+                                    aria-describedby={
+                                        errors.receipt_footer
+                                            ? 'receipt_footer-error'
+                                            : undefined
+                                    }
                                 />
-                                <InputError message={errors.receipt_footer} />
+                                <InputError
+                                    id="receipt_footer-error"
+                                    message={errors.receipt_footer}
+                                />
                             </div>
 
                             <div className="flex items-center space-x-3">
@@ -297,12 +417,21 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     id="maintenance_mode"
                                     name="maintenance_mode"
                                     defaultChecked={settings.maintenance_mode}
+                                    aria-invalid={!!errors.maintenance_mode}
+                                    aria-describedby={
+                                        errors.maintenance_mode
+                                            ? 'maintenance_mode-error'
+                                            : undefined
+                                    }
                                 />
                                 <Label htmlFor="maintenance_mode">
                                     Maintenance mode
                                 </Label>
                             </div>
-                            <InputError message={errors.maintenance_mode} />
+                            <InputError
+                                id="maintenance_mode-error"
+                                message={errors.maintenance_mode}
+                            />
 
                             <div className="grid gap-2">
                                 <Label htmlFor="maintenance_message">
@@ -314,8 +443,15 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     defaultValue={
                                         settings.maintenance_message ?? ''
                                     }
+                                    aria-invalid={!!errors.maintenance_message}
+                                    aria-describedby={
+                                        errors.maintenance_message
+                                            ? 'maintenance_message-error'
+                                            : undefined
+                                    }
                                 />
                                 <InputError
+                                    id="maintenance_message-error"
                                     message={errors.maintenance_message}
                                 />
                             </div>

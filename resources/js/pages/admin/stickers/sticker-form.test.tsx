@@ -3,6 +3,10 @@ import type { InputHTMLAttributes, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import StickerForm from './sticker-form';
 
+const formErrors = vi.hoisted(() => ({
+    current: {} as Record<string, string>,
+}));
+
 vi.mock('@inertiajs/react', () => ({
     Form: ({
         action,
@@ -17,7 +21,7 @@ vi.mock('@inertiajs/react', () => ({
         }) => ReactNode;
     }) => (
         <form action={action} method={method}>
-            {children({ processing: false, errors: {} })}
+            {children({ processing: false, errors: formErrors.current })}
         </form>
     ),
 }));
@@ -213,5 +217,43 @@ describe('sticker form browser payload contract', () => {
         expect(
             screen.getByRole('link', { name: 'View current thumbnail' }),
         ).toHaveAttribute('href', existingSticker.thumbnailUrl);
+    });
+});
+
+describe('sticker form accessibility', () => {
+    it('associates a validation error with its field via aria-describedby', () => {
+        formErrors.current = { name: 'The name field is required.' };
+
+        render(
+            <StickerForm
+                form={{ action: '/admin/stickers', method: 'post' }}
+                templates={templates}
+            />,
+        );
+
+        const nameInput = screen.getByLabelText('Name');
+        expect(nameInput).toHaveAttribute('aria-invalid', 'true');
+        expect(nameInput).toHaveAttribute('aria-describedby', 'name-error');
+
+        const message = screen.getByText('The name field is required.');
+        expect(message).toHaveAttribute('id', 'name-error');
+        expect(message).toHaveAttribute('role', 'alert');
+
+        formErrors.current = {};
+    });
+
+    it('groups compatible template checkboxes under a labelled fieldset', () => {
+        render(
+            <StickerForm
+                form={{ action: '/admin/stickers', method: 'post' }}
+                templates={templates}
+            />,
+        );
+
+        expect(
+            screen.getByRole('group', {
+                name: 'Compatible templates (none selected means all templates)',
+            }),
+        ).toBeInTheDocument();
     });
 });

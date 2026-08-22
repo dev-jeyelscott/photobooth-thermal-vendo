@@ -48,8 +48,12 @@ export default function VoucherForm({
                             required
                             defaultValue={voucher?.code}
                             placeholder="VCH-ABCD-1234"
+                            aria-invalid={!!errors.code}
+                            aria-describedby={
+                                errors.code ? 'code-error' : undefined
+                            }
                         />
-                        <InputError message={errors.code} />
+                        <InputError id="code-error" message={errors.code} />
                     </div>
 
                     <div className="grid gap-2">
@@ -61,8 +65,17 @@ export default function VoucherForm({
                             name="valid_from"
                             type="datetime-local"
                             defaultValue={voucher?.validFrom?.slice(0, 16)}
+                            aria-invalid={!!errors.valid_from}
+                            aria-describedby={
+                                errors.valid_from
+                                    ? 'valid_from-error'
+                                    : undefined
+                            }
                         />
-                        <InputError message={errors.valid_from} />
+                        <InputError
+                            id="valid_from-error"
+                            message={errors.valid_from}
+                        />
                     </div>
 
                     <div className="grid gap-2">
@@ -74,8 +87,17 @@ export default function VoucherForm({
                             name="expires_at"
                             type="datetime-local"
                             defaultValue={voucher?.expiresAt?.slice(0, 16)}
+                            aria-invalid={!!errors.expires_at}
+                            aria-describedby={
+                                errors.expires_at
+                                    ? 'expires_at-error'
+                                    : undefined
+                            }
                         />
-                        <InputError message={errors.expires_at} />
+                        <InputError
+                            id="expires_at-error"
+                            message={errors.expires_at}
+                        />
                     </div>
 
                     <div className="grid gap-2">
@@ -87,8 +109,17 @@ export default function VoucherForm({
                             min={1}
                             required
                             defaultValue={voucher?.usageLimit ?? 1}
+                            aria-invalid={!!errors.usage_limit}
+                            aria-describedby={
+                                errors.usage_limit
+                                    ? 'usage_limit-error'
+                                    : undefined
+                            }
                         />
-                        <InputError message={errors.usage_limit} />
+                        <InputError
+                            id="usage_limit-error"
+                            message={errors.usage_limit}
+                        />
                     </div>
 
                     {voucher && (
@@ -115,10 +146,14 @@ export default function VoucherForm({
                             name="active"
                             value="1"
                             defaultChecked={voucher?.active ?? true}
+                            aria-invalid={!!errors.active}
+                            aria-describedby={
+                                errors.active ? 'active-error' : undefined
+                            }
                         />
                         <Label htmlFor="active">Active</Label>
                     </div>
-                    <InputError message={errors.active} />
+                    <InputError id="active-error" message={errors.active} />
 
                     <Button type="submit" disabled={processing}>
                         {voucher ? 'Save changes' : 'Create voucher'}

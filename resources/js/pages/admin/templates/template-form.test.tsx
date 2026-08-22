@@ -3,6 +3,10 @@ import type { InputHTMLAttributes, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import TemplateForm from './template-form';
 
+const formErrors = vi.hoisted(() => ({
+    current: {} as Record<string, string>,
+}));
+
 vi.mock('@inertiajs/react', () => ({
     Form: ({
         action,
@@ -17,7 +21,7 @@ vi.mock('@inertiajs/react', () => ({
         }) => ReactNode;
     }) => (
         <form action={action} method={method}>
-            {children({ processing: false, errors: {} })}
+            {children({ processing: false, errors: formErrors.current })}
         </form>
     ),
 }));
@@ -118,5 +122,27 @@ describe('template form browser payload contract', () => {
         expect(
             screen.getByRole('link', { name: 'View current thumbnail' }),
         ).toHaveAttribute('href', existingTemplate.thumbnailUrl);
+    });
+});
+
+describe('template form accessibility', () => {
+    it('associates a validation error with its field via aria-describedby', () => {
+        formErrors.current = { name: 'The name field is required.' };
+
+        render(
+            <TemplateForm
+                form={{ action: '/admin/templates', method: 'post' }}
+            />,
+        );
+
+        const nameInput = screen.getByLabelText('Name');
+        expect(nameInput).toHaveAttribute('aria-invalid', 'true');
+        expect(nameInput).toHaveAttribute('aria-describedby', 'name-error');
+
+        const message = screen.getByText('The name field is required.');
+        expect(message).toHaveAttribute('id', 'name-error');
+        expect(message).toHaveAttribute('role', 'alert');
+
+        formErrors.current = {};
     });
 });
