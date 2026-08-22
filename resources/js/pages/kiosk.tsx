@@ -43,7 +43,6 @@ const PAYMENT_POLL_MAX_CONSECUTIVE_FAILURES = 5;
 const PRINT_POLL_INTERVAL_MS = 3000;
 const PRINT_POLL_MAX_BACKOFF_MS = 15000;
 const PRINT_POLL_ATTEMPTS = 5;
-const PRINT_POLL_MAX_CONSECUTIVE_FAILURES = 5;
 const PROCESSING_POLL_INTERVAL_MS = 2000;
 const PROCESSING_POLL_ATTEMPTS = 30;
 
@@ -455,12 +454,6 @@ export default function Kiosk({
 
             if (!refreshed) {
                 consecutiveFailures += 1;
-
-                if (
-                    consecutiveFailures >= PRINT_POLL_MAX_CONSECUTIVE_FAILURES
-                ) {
-                    return;
-                }
 
                 schedulePoll(
                     Math.min(

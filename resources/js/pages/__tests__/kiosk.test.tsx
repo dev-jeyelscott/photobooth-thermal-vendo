@@ -363,6 +363,136 @@ describe('Kiosk', () => {
         expect(paymentPostCalls).toHaveLength(1);
     });
 
+    it('resumes the print-status poll after five consecutive transient failures and reports the terminal failed state', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        const user = userEvent.setup({
+            advanceTimers: vi.advanceTimersByTime,
+        });
+
+        let galleryPublished = false;
+        let printPollCount = 0;
+
+        global.fetch = vi.fn(
+            async (input: string | URL, init?: RequestInit) => {
+                const method = (init?.method ?? 'get').toLowerCase();
+                const { pathname } = new URL(String(input), 'http://localhost');
+
+                if (
+                    method === 'get' &&
+                    /^\/kiosk\/sessions\/[^/]+$/.test(pathname)
+                ) {
+                    if (!galleryPublished) {
+                        galleryPublished = true;
+
+                        return jsonResponse(200, {
+                            sessionToken: SESSION_TOKEN,
+                            status: 'complete',
+                            startedAt: new Date().toISOString(),
+                            expiresAt: new Date(
+                                Date.now() + 60_000,
+                            ).toISOString(),
+                            paymentStatus: 'succeeded',
+                            printJobStatus: null,
+                            requiredCaptureCount: 3,
+                            galleryToken: 'gallery-token-xyz',
+                        }) as unknown as Response;
+                    }
+
+                    printPollCount += 1;
+
+                    // The five polls immediately following gallery
+                    // completion fail transiently, such as a dropped
+                    // connection, before connectivity is restored.
+                    if (printPollCount <= 5) {
+                        throw new TypeError('Failed to fetch');
+                    }
+
+                    return jsonResponse(200, {
+                        sessionToken: SESSION_TOKEN,
+                        status: 'complete',
+                        startedAt: new Date().toISOString(),
+                        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                        paymentStatus: 'succeeded',
+                        printJobStatus: 'failed',
+                        requiredCaptureCount: 3,
+                        galleryToken: 'gallery-token-xyz',
+                    }) as unknown as Response;
+                }
+
+                const route = baseRoutes.find(
+                    (candidate) =>
+                        candidate.method === method &&
+                        candidate.pattern.test(pathname),
+                );
+
+                if (!route) {
+                    throw new Error(
+                        `Unhandled request: ${method.toUpperCase()} ${pathname}`,
+                    );
+                }
+
+                const { status, body } = route.handler();
+
+                return jsonResponse(status, body) as unknown as Response;
+            },
+        ) as unknown as typeof fetch;
+
+        render(<Kiosk idleTimeoutSeconds={9999} />);
+
+        await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
+        await user.type(screen.getByTestId('kiosk-voucher-input'), 'FREE-2026');
+        await user.click(
+            screen.getByRole('button', { name: 'Redeem Voucher' }),
+        );
+
+        await user.click(await screen.findByTestId('kiosk-template-1'));
+
+        await user.click(
+            await screen.findByRole('button', { name: 'complete capture' }),
+        );
+
+        await user.click(
+            screen.getByRole('button', { name: 'Choose a Sticker' }),
+        );
+
+        const stickerOption = await screen.findByTestId('kiosk-sticker-1');
+        await user.click(stickerOption);
+
+        await waitFor(() => {
+            expect(
+                screen.getByRole('button', { name: 'Continue' }),
+            ).toBeEnabled();
+        });
+
+        await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+        await user.click(
+            await screen.findByRole('button', { name: 'Confirm' }),
+        );
+
+        await act(async () => {
+            vi.advanceTimersByTime(2000);
+        });
+
+        expect(
+            await screen.findByTestId('kiosk-gallery-qr-code'),
+        ).toBeInTheDocument();
+
+        // Advance well past five consecutive transient poll failures; the
+        // print-status poll must keep retrying at the capped backoff
+        // interval instead of stopping permanently.
+        for (let i = 0; i < 7; i += 1) {
+            await act(async () => {
+                vi.advanceTimersByTime(15000);
+            });
+        }
+
+        expect(
+            await screen.findByTestId('kiosk-error-print-failure'),
+        ).toBeInTheDocument();
+    });
+
     it('resets an idle payment session back to the welcome screen', async () => {
         const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
         vi.useFakeTimers({ shouldAdvanceTime: true });
