@@ -5,7 +5,9 @@ use App\Enums\PaymentStatus;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\Payment;
 use App\Models\PhotoboothSession;
+use App\Models\PrintJob;
 use App\Models\User;
+use App\Models\Voucher;
 
 test('the daily report requires authentication', function () {
     $this->get(route('admin.reports.daily'))->assertRedirect(route('login'));
@@ -91,4 +93,121 @@ test('an invalid date parameter is rejected', function () {
     $response = $this->actingAs($user)->get(route('admin.reports.daily', ['date' => 'not-a-date']));
 
     $response->assertSessionHasErrors('date');
+});
+
+test('the monthly report requires authentication', function () {
+    $this->get(route('admin.reports.monthly'))->assertRedirect(route('login'));
+});
+
+test('admin can view the monthly sales report for a seeded month', function () {
+    $user = User::factory()->create();
+    $month = now()->subMonth()->startOfMonth();
+
+    $mayaDayOne = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Maya,
+        'updated_at' => $month->copy()->addDays(2)->setTime(10, 0),
+    ]);
+    Payment::factory()->for($mayaDayOne, 'photoboothSession')->success()->create([
+        'amount' => '150.00',
+        'updated_at' => $month->copy()->addDays(2)->setTime(10, 0),
+    ]);
+    PrintJob::factory()->for($mayaDayOne, 'photoboothSession')->printed()->create();
+
+    $voucher = Voucher::factory()->create();
+    $voucherDayOne = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Voucher,
+        'voucher_id' => $voucher->id,
+        'updated_at' => $month->copy()->addDays(2)->setTime(11, 0),
+    ]);
+    Payment::factory()->for($voucherDayOne, 'photoboothSession')->success()->create([
+        'amount' => '50.00',
+        'method' => PaymentMethod::Voucher,
+        'updated_at' => $month->copy()->addDays(2)->setTime(11, 0),
+    ]);
+    PrintJob::factory()->for($voucherDayOne, 'photoboothSession')->failed()->create();
+
+    $mayaDayTwo = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Maya,
+        'updated_at' => $month->copy()->addDays(10)->setTime(9, 0),
+    ]);
+    Payment::factory()->for($mayaDayTwo, 'photoboothSession')->success()->create([
+        'amount' => '75.00',
+        'updated_at' => $month->copy()->addDays(10)->setTime(9, 0),
+    ]);
+
+    // Outside the selected month; must not be included.
+    $otherMonthSession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Maya,
+        'updated_at' => now()->subMonths(3),
+    ]);
+    Payment::factory()->for($otherMonthSession, 'photoboothSession')->success()->create([
+        'amount' => '999.00',
+        'updated_at' => now()->subMonths(3),
+    ]);
+
+    $response = $this->actingAs($user)->get(route('admin.reports.monthly', [
+        'year' => $month->year,
+        'month' => $month->month,
+    ]));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('admin/reports/monthly')
+        ->where('year', $month->year)
+        ->where('month', $month->month)
+        ->where('report.grossSales', '275.00')
+        ->where('report.successfulSessions', 3)
+        ->where('report.paidSessions', 2)
+        ->where('report.voucherSessions', 1)
+        ->where('report.voucherRedemptions', 1)
+        ->where('report.printedJobs', 1)
+        ->where('report.failedPrintJobs', 1)
+        ->where('report.dailyBreakdown', [
+            [
+                'date' => $month->copy()->addDays(2)->toDateString(),
+                'grossSales' => '200.00',
+                'successfulSessions' => 2,
+            ],
+            [
+                'date' => $month->copy()->addDays(10)->toDateString(),
+                'grossSales' => '75.00',
+                'successfulSessions' => 1,
+            ],
+        ])
+    );
+});
+
+test('the monthly report returns zeroed totals for a month with no activity', function () {
+    $user = User::factory()->create();
+    $month = now()->subYear();
+
+    $response = $this->actingAs($user)->get(route('admin.reports.monthly', [
+        'year' => $month->year,
+        'month' => $month->month,
+    ]));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('admin/reports/monthly')
+        ->where('report.grossSales', '0.00')
+        ->where('report.successfulSessions', 0)
+        ->where('report.paidSessions', 0)
+        ->where('report.voucherSessions', 0)
+        ->where('report.voucherRedemptions', 0)
+        ->where('report.printedJobs', 0)
+        ->where('report.failedPrintJobs', 0)
+        ->where('report.dailyBreakdown', [])
+    );
+});
+
+test('an invalid month parameter is rejected', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->get(route('admin.reports.monthly', ['month' => 13]));
+
+    $response->assertSessionHasErrors('month');
 });
