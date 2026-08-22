@@ -63,12 +63,27 @@ export function useCamera() {
     const streamRef = useRef<MediaStream | null>(null);
     const hasPermissionRef = useRef(false);
     const selectedDeviceIdRef = useRef<string | null>(null);
+    const handleTrackEndedRef = useRef<((this: MediaStreamTrack, event: Event) => void) | null>(null);
+
+    const detachTrackEndedListeners = useCallback((mediaStream: MediaStream) => {
+        if (!handleTrackEndedRef.current) {
+            return;
+        }
+
+        mediaStream
+            .getTracks()
+            .forEach((track) => track.removeEventListener('ended', handleTrackEndedRef.current!));
+    }, []);
 
     const stop = useCallback(() => {
+        if (streamRef.current) {
+            detachTrackEndedListeners(streamRef.current);
+        }
+
         streamRef.current?.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
         setStream(null);
-    }, []);
+    }, [detachTrackEndedListeners]);
 
     const start = useCallback(async (deviceId?: string) => {
         if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
@@ -77,7 +92,11 @@ export function useCamera() {
             return;
         }
 
-        streamRef.current?.getTracks().forEach((track) => track.stop());
+        if (streamRef.current) {
+            detachTrackEndedListeners(streamRef.current);
+            streamRef.current.getTracks().forEach((track) => track.stop());
+        }
+
         streamRef.current = null;
         setStream(null);
         setIsStarting(true);
@@ -116,12 +135,23 @@ export function useCamera() {
 
             const videoInputDevices = await listVideoInputDevices();
             setDevices(videoInputDevices);
+
+            if (handleTrackEndedRef.current) {
+                mediaStream
+                    .getTracks()
+                    .forEach((track) =>
+                        track.addEventListener(
+                            'ended',
+                            handleTrackEndedRef.current!,
+                        ),
+                    );
+            }
         } catch (caughtError) {
             setError(resolveErrorReason(caughtError));
         } finally {
             setIsStarting(false);
         }
-    }, []);
+    }, [detachTrackEndedListeners]);
 
     const selectDevice = useCallback(
         (deviceId: string) => {
@@ -129,6 +159,38 @@ export function useCamera() {
         },
         [start],
     );
+
+    // Marks the active camera as disconnected without discarding any caller
+    // state (e.g. already-captured shots): stops the dead stream, clears
+    // selection, and surfaces a 'disconnected' error that Reconnect can retry.
+    const markDisconnected = useCallback(() => {
+        if (streamRef.current) {
+            detachTrackEndedListeners(streamRef.current);
+            streamRef.current.getTracks().forEach((track) => track.stop());
+        }
+
+        streamRef.current = null;
+        selectedDeviceIdRef.current = null;
+        setStream(null);
+        setSelectedDeviceId(null);
+        setError('disconnected');
+    }, [detachTrackEndedListeners]);
+
+    // An active track can end while its device remains enumerated (e.g. the
+    // browser or camera driver terminates the stream). Unlike a devicechange
+    // event, the device list can't tell us the stream is still usable, so
+    // always surface 'disconnected' and let Reconnect retry in place.
+    useEffect(() => {
+        const handleTrackEnded = () => {
+            markDisconnected();
+        };
+
+        handleTrackEndedRef.current = handleTrackEnded;
+
+        return () => {
+            handleTrackEndedRef.current = null;
+        };
+    }, [markDisconnected]);
 
     useEffect(() => {
         if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
@@ -160,12 +222,7 @@ export function useCamera() {
                 return;
             }
 
-            streamRef.current?.getTracks().forEach((track) => track.stop());
-            streamRef.current = null;
-            selectedDeviceIdRef.current = null;
-            setStream(null);
-            setSelectedDeviceId(null);
-            setError('disconnected');
+            markDisconnected();
         };
 
         navigator.mediaDevices.addEventListener(
@@ -179,7 +236,7 @@ export function useCamera() {
                 handleDeviceChange,
             );
         };
-    }, [start]);
+    }, [start, markDisconnected]);
 
     useEffect(() => {
         return () => {

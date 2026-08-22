@@ -66,10 +66,11 @@ export function CameraPreview({
     }, [stream, videoRef]);
 
     if (error) {
-        // 'disconnected' is only set once the active camera drops mid-session
-        // with no fallback device available (see useCamera's devicechange
-        // handler). Reconnecting still retries start(), so an already-plugged
-        // camera keeps working; Back to Start is offered as a fallback exit.
+        // 'disconnected' is set when the active camera drops mid-session,
+        // either because no fallback device remains (devicechange) or the
+        // active track itself ended (see useCamera). Reconnecting still
+        // retries start(), so an already-plugged camera keeps working;
+        // Back to Start is offered as a fallback exit either way.
         const isUnrecoverable = error === 'disconnected';
 
         return (

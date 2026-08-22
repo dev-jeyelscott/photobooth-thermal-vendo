@@ -2,6 +2,32 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCamera } from '@/hooks/use-camera';
 
+const makeTrack = (deviceId: string) => {
+    const listeners: Record<string, (() => void)[]> = {};
+
+    return {
+        getSettings: () => ({ deviceId }),
+        stop: vi.fn(),
+        addEventListener: vi.fn((event: string, handler: () => void) => {
+            listeners[event] = [...(listeners[event] ?? []), handler];
+        }),
+        removeEventListener: vi.fn((event: string, handler: () => void) => {
+            listeners[event] = (listeners[event] ?? []).filter(
+                (existing) => existing !== handler,
+            );
+        }),
+        dispatchEnded: () => {
+            listeners['ended']?.forEach((handler) => handler());
+        },
+    };
+};
+
+const makeStreamWithTrack = (track: ReturnType<typeof makeTrack>) =>
+    ({
+        getTracks: () => [track],
+        getVideoTracks: () => [track],
+    }) as unknown as MediaStream;
+
 const makeStream = () =>
     ({
         getTracks: () => [],
@@ -117,5 +143,41 @@ describe('useCamera', () => {
 
         expect(getUserMedia).toHaveBeenCalledTimes(1);
         expect(result.current.error).toBe('permission-denied');
+    });
+
+    it('surfaces disconnected when the active track ends even though the device is still enumerated', async () => {
+        const track = makeTrack('device-1');
+        getUserMedia.mockResolvedValue(makeStreamWithTrack(track));
+        enumerateDevices.mockResolvedValue([
+            { deviceId: 'device-1', kind: 'videoinput', label: 'Camera 1' },
+        ]);
+
+        const { result } = renderHook(() => useCamera());
+
+        await act(async () => {
+            await result.current.start();
+        });
+
+        expect(result.current.stream).not.toBeNull();
+        expect(result.current.error).toBeNull();
+
+        act(() => {
+            track.dispatchEnded();
+        });
+
+        await waitFor(() => expect(result.current.error).toBe('disconnected'));
+        expect(result.current.stream).toBeNull();
+        expect(track.stop).toHaveBeenCalled();
+
+        // Reconnecting in place retries start() and clears the error.
+        const reconnectedTrack = makeTrack('device-1');
+        getUserMedia.mockResolvedValue(makeStreamWithTrack(reconnectedTrack));
+
+        await act(async () => {
+            await result.current.start();
+        });
+
+        expect(result.current.error).toBeNull();
+        expect(result.current.stream).not.toBeNull();
     });
 });
