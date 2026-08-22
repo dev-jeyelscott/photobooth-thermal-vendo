@@ -60,7 +60,9 @@ class DemoSeeder extends Seeder
     public function run(): void
     {
         if (! in_array(app()->environment(), ['local', 'testing', 'demo'], true)) {
-            $this->command?->warn('ThermaSnap demo seeding is disabled outside local, testing, and demo environments.');
+            if (isset($this->command)) {
+                $this->command->warn('ThermaSnap demo seeding is disabled outside local, testing, and demo environments.');
+            }
 
             return;
         }
