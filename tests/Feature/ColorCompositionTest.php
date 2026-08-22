@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Processing\ComposeColorPhoto;
 use App\Enums\PhotoboothSessionStatus;
 use App\Jobs\ProcessPrintJob;
 use App\Models\CapturedMedia;
@@ -70,6 +71,45 @@ test('composing the final color photo advances the session and persists the colo
 
     expect($composite->width())->toBeGreaterThan(0)
         ->and($composite->height())->toBeGreaterThan(0);
+});
+
+test('a second worker racing on a stale in-memory session does not create a duplicate captured media row or print job', function () {
+    Storage::fake('public');
+    Queue::fake([ProcessPrintJob::class]);
+
+    $template = PhotoTemplate::factory()->create([
+        'photo_slots' => 2,
+        'layout_config' => [
+            'slots' => [
+                ['slot' => 1, 'x' => 0, 'y' => 0, 'width' => 50, 'height' => 50],
+                ['slot' => 2, 'x' => 50, 'y' => 0, 'width' => 50, 'height' => 50],
+            ],
+        ],
+        'print_width_mm' => 100,
+        'print_height_mm' => 50,
+    ]);
+
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Customizing,
+        'photo_template_id' => $template->id,
+    ]);
+
+    // Two "workers" load the session before either has processed it, so both
+    // hold an in-memory copy still reporting the pre-processing status.
+    $workerASession = PhotoboothSession::find($session->id);
+    $workerBSession = PhotoboothSession::find($session->id);
+
+    $photo = imagecreatetruecolorPng();
+    $composeColorPhoto = app(ComposeColorPhoto::class);
+
+    $first = $composeColorPhoto->handle($workerASession, [$photo, $photo]);
+    $second = $composeColorPhoto->handle($workerBSession, [$photo, $photo]);
+
+    expect($first)->not->toBeNull()
+        ->and($second)->not->toBeNull()
+        ->and($second->id)->toBe($first->id)
+        ->and(CapturedMedia::where('photobooth_session_id', $session->id)->count())->toBe(1)
+        ->and($session->fresh()->printJob()->count())->toBe(1);
 });
 
 test('composing the final color photo accepts stored frame path references', function () {

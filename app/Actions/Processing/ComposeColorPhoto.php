@@ -64,6 +64,21 @@ class ComposeColorPhoto
         Storage::disk('public')->put($gifPath, (string) $gif);
 
         return DB::transaction(function () use ($session, $colorPath, $bwPath, $gifPath): CapturedMedia {
+            $session = PhotoboothSession::whereKey($session->id)->lockForUpdate()->first();
+
+            $existingMedia = $session->capturedMedia()->first();
+
+            $stillComposable = in_array($session->status, [
+                PhotoboothSessionStatus::TemplateSelected,
+                PhotoboothSessionStatus::Capturing,
+                PhotoboothSessionStatus::Customizing,
+                PhotoboothSessionStatus::Processing,
+            ], true);
+
+            if ($existingMedia !== null && ! $stillComposable) {
+                return $existingMedia;
+            }
+
             while ($session->status !== PhotoboothSessionStatus::Processing) {
                 $session->transitionTo($session->status->next());
             }

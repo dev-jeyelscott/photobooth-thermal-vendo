@@ -190,6 +190,35 @@ test('each print attempt records a started_at timestamp independently of complet
         ->and($printJob->completed_at)->not->toBeNull();
 });
 
+test('a second worker that observes a job already claimed as printing does not send to the printer again', function () {
+    Storage::fake('public');
+    $printJob = makePrintableSession();
+
+    $printJob->fresh()->update([
+        'status' => PrintJobStatus::Printing,
+        'attempt_count' => 1,
+        'started_at' => now(),
+    ]);
+
+    $countingDriver = new class implements PrinterDriver
+    {
+        public int $sendCount = 0;
+
+        public function send(PrintJob $job, string $imagePath): void
+        {
+            $this->sendCount++;
+        }
+    };
+
+    (new ProcessPrintJob($printJob))->handle($countingDriver, app(ReceiptRenderer::class));
+
+    $printJob->refresh();
+
+    expect($countingDriver->sendCount)->toBe(0)
+        ->and($printJob->status)->toBe(PrintJobStatus::Printing)
+        ->and($printJob->attempt_count)->toBe(1);
+});
+
 test('retrying a print job that is not failed is rejected', function () {
     Storage::fake('public');
     $printJob = makePrintableSession();

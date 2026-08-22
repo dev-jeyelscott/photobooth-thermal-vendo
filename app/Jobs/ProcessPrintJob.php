@@ -30,15 +30,27 @@ class ProcessPrintJob implements ShouldQueue
 
     public function handle(PrinterDriver $printerDriver, ReceiptRenderer $receiptRenderer): void
     {
-        if ($this->printJob->fresh()->status === PrintJobStatus::Printed) {
+        $claimed = DB::transaction(function (): bool {
+            $printJob = PrintJob::whereKey($this->printJob->id)->lockForUpdate()->first();
+
+            if (! in_array($printJob->status, [PrintJobStatus::Pending, PrintJobStatus::Failed], true)) {
+                return false;
+            }
+
+            $printJob->update([
+                'status' => PrintJobStatus::Printing,
+                'attempt_count' => $printJob->attempt_count + 1,
+                'started_at' => now(),
+            ]);
+
+            return true;
+        });
+
+        if (! $claimed) {
             return;
         }
 
-        $this->printJob->update([
-            'status' => PrintJobStatus::Printing,
-            'attempt_count' => $this->printJob->attempt_count + 1,
-            'started_at' => now(),
-        ]);
+        $this->printJob->refresh();
 
         try {
             $capturedMedia = $this->printJob->photoboothSession->capturedMedia()->firstOrFail();
