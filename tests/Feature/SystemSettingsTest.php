@@ -123,6 +123,33 @@ test('admin cannot save a negative or zero session price', function () {
     expect(ApplicationSetting::where('key', 'session_price')->exists())->toBeFalse();
 });
 
+test('admin cannot persist a maya secret via the settings update endpoint', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->put(route('admin.settings.update'), [
+        'session_price' => 20,
+        'currency' => 'PHP',
+        'countdown_seconds' => 3,
+        'capture_shot_count' => 3,
+        'capture_countdown_seconds' => 3,
+        'retake_limit' => 3,
+        'kiosk_idle_timeout_seconds' => 60,
+        'session_timeout_seconds' => 600,
+        'gallery_expiration_hours' => 72,
+        'gif_frame_duration_ms' => 750,
+        'default_printer' => 'network_printer',
+        'booth_display_name' => 'Downtown Booth',
+        'maintenance_mode' => false,
+        'maya_secret_key' => 'sk_live_should_not_be_persisted',
+        'maya_webhook_secret' => 'whsec_should_not_be_persisted',
+    ]);
+
+    $response->assertRedirect(route('admin.settings.edit'));
+
+    expect(ApplicationSetting::where('key', 'maya_secret_key')->exists())->toBeFalse()
+        ->and(ApplicationSetting::where('key', 'maya_webhook_secret')->exists())->toBeFalse();
+});
+
 test('admin cannot enable maintenance mode without a message', function () {
     $user = User::factory()->create();
 

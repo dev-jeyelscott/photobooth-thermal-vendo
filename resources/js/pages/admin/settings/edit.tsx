@@ -27,6 +27,15 @@ type Settings = {
     maintenance_message: string | null;
 };
 
+function FutureSessionsNote() {
+    return (
+        <p className="text-muted-foreground text-xs">
+            Applies to sessions started after this change; in-progress and
+            historical sessions keep their original value.
+        </p>
+    );
+}
+
 export default function SettingsEdit({ settings }: { settings: Settings }) {
     setLayoutProps({
         breadcrumbs: [{ title: 'Settings', href: edit() }],
@@ -63,6 +72,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     defaultValue={settings.session_price}
                                 />
                                 <InputError message={errors.session_price} />
+                                <FutureSessionsNote />
                             </div>
 
                             <div className="grid gap-2">
@@ -95,6 +105,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                 <InputError
                                     message={errors.countdown_seconds}
                                 />
+                                <FutureSessionsNote />
                             </div>
 
                             <div className="grid gap-2">
@@ -113,6 +124,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                 <InputError
                                     message={errors.capture_shot_count}
                                 />
+                                <FutureSessionsNote />
                             </div>
 
                             <div className="grid gap-2">
@@ -135,6 +147,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                         errors.capture_countdown_seconds
                                     }
                                 />
+                                <FutureSessionsNote />
                             </div>
 
                             <div className="grid gap-2">
@@ -150,6 +163,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                     defaultValue={settings.retake_limit}
                                 />
                                 <InputError message={errors.retake_limit} />
+                                <FutureSessionsNote />
                             </div>
 
                             <div className="grid gap-2">
@@ -171,6 +185,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                         errors.kiosk_idle_timeout_seconds
                                     }
                                 />
+                                <FutureSessionsNote />
                             </div>
 
                             <div className="grid gap-2">
@@ -190,6 +205,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                 <InputError
                                     message={errors.session_timeout_seconds}
                                 />
+                                <FutureSessionsNote />
                             </div>
 
                             <div className="grid gap-2">
@@ -209,6 +225,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                 <InputError
                                     message={errors.gallery_expiration_hours}
                                 />
+                                <FutureSessionsNote />
                             </div>
 
                             <div className="grid gap-2">
@@ -228,6 +245,7 @@ export default function SettingsEdit({ settings }: { settings: Settings }) {
                                 <InputError
                                     message={errors.gif_frame_duration_ms}
                                 />
+                                <FutureSessionsNote />
                             </div>
 
                             <div className="grid gap-2">
