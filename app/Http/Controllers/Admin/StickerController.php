@@ -8,6 +8,8 @@ use App\Http\Requests\Admin\UpdateStickerRequest;
 use App\Models\PhotoTemplate;
 use App\Models\StickerDesign;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -54,7 +56,7 @@ class StickerController extends Controller
                 ? $request->file('thumbnail')->store('stickers/thumbnails', 'public')
                 : null,
             'active' => $request->boolean('active', true),
-            'sort_order' => $validated['sort_order'] ?? 0,
+            'sort_order' => $validated['sort_order'] ?? ((int) StickerDesign::max('sort_order') + 1),
             'placement' => isset($validated['placement'])
                 ? json_decode($validated['placement'], true)
                 : null,
@@ -121,6 +123,25 @@ class StickerController extends Controller
     public function toggle(StickerDesign $sticker): RedirectResponse
     {
         $sticker->update(['active' => ! $sticker->active]);
+
+        return to_route('admin.stickers.index');
+    }
+
+    /**
+     * Persist a new display order for the given sticker designs.
+     */
+    public function reorder(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ordered_ids' => ['required', 'array'],
+            'ordered_ids.*' => ['integer', 'exists:sticker_designs,id'],
+        ]);
+
+        DB::transaction(function () use ($validated) {
+            foreach ($validated['ordered_ids'] as $position => $id) {
+                StickerDesign::whereKey($id)->update(['sort_order' => $position]);
+            }
+        });
 
         return to_route('admin.stickers.index');
     }

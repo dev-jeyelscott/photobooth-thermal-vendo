@@ -102,6 +102,31 @@ test('admin can toggle a template active flag', function () {
     expect($template->fresh()->active)->toBeFalse();
 });
 
+test('admin can reorder templates and the new order affects public selection', function () {
+    $user = User::factory()->create();
+    $first = PhotoTemplate::factory()->create(['name' => 'First', 'sort_order' => 0]);
+    $second = PhotoTemplate::factory()->create(['name' => 'Second', 'sort_order' => 1]);
+
+    $response = $this->actingAs($user)->patch(route('admin.templates.reorder'), [
+        'ordered_ids' => [$second->id, $first->id],
+    ]);
+
+    $response->assertRedirect(route('admin.templates.index'));
+
+    expect($second->fresh()->sort_order)->toBe(0)
+        ->and($first->fresh()->sort_order)->toBe(1);
+
+    $adminIndex = $this->actingAs($user)->get(route('admin.templates.index'));
+    $adminIndex->assertInertia(fn ($page) => $page
+        ->where('templates.0.id', $second->id)
+        ->where('templates.1.id', $first->id)
+    );
+
+    $publicIndex = $this->getJson(route('templates.index'));
+    $publicIndex->assertJsonPath('templates.0.id', $second->id);
+    $publicIndex->assertJsonPath('templates.1.id', $first->id);
+});
+
 test('admin can delete a template without associated sessions', function () {
     Storage::fake('public');
     $user = User::factory()->create();

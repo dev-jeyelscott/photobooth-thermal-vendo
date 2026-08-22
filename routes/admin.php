@@ -11,9 +11,11 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
+    Route::patch('templates/reorder', [TemplateController::class, 'reorder'])->name('templates.reorder');
     Route::resource('templates', TemplateController::class)->except(['show']);
     Route::patch('templates/{template}/toggle', [TemplateController::class, 'toggle'])->name('templates.toggle');
 
+    Route::patch('stickers/reorder', [StickerController::class, 'reorder'])->name('stickers.reorder');
     Route::resource('stickers', StickerController::class)->except(['show']);
     Route::patch('stickers/{sticker}/toggle', [StickerController::class, 'toggle'])->name('stickers.toggle');
 

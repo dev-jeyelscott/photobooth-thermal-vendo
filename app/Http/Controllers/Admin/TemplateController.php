@@ -7,6 +7,8 @@ use App\Http\Requests\Admin\StoreTemplateRequest;
 use App\Http\Requests\Admin\UpdateTemplateRequest;
 use App\Models\PhotoTemplate;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -56,7 +58,7 @@ class TemplateController extends Controller
             'print_width_mm' => $validated['print_width_mm'],
             'print_height_mm' => $validated['print_height_mm'],
             'active' => $request->boolean('active', true),
-            'sort_order' => $validated['sort_order'] ?? 0,
+            'sort_order' => $validated['sort_order'] ?? ((int) PhotoTemplate::max('sort_order') + 1),
             'printer_compatibility' => isset($validated['printer_compatibility'])
                 ? json_decode($validated['printer_compatibility'], true)
                 : null,
@@ -123,6 +125,25 @@ class TemplateController extends Controller
     public function toggle(PhotoTemplate $template): RedirectResponse
     {
         $template->update(['active' => ! $template->active]);
+
+        return to_route('admin.templates.index');
+    }
+
+    /**
+     * Persist a new display order for the given templates.
+     */
+    public function reorder(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ordered_ids' => ['required', 'array'],
+            'ordered_ids.*' => ['integer', 'exists:photo_templates,id'],
+        ]);
+
+        DB::transaction(function () use ($validated) {
+            foreach ($validated['ordered_ids'] as $position => $id) {
+                PhotoTemplate::whereKey($id)->update(['sort_order' => $position]);
+            }
+        });
 
         return to_route('admin.templates.index');
     }

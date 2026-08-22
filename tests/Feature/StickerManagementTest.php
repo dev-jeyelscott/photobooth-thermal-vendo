@@ -134,6 +134,31 @@ test('admin can toggle a sticker active flag', function () {
     expect($sticker->fresh()->active)->toBeFalse();
 });
 
+test('admin can reorder stickers and the new order affects public selection', function () {
+    $user = User::factory()->create();
+    $first = StickerDesign::factory()->create(['name' => 'First', 'sort_order' => 0]);
+    $second = StickerDesign::factory()->create(['name' => 'Second', 'sort_order' => 1]);
+
+    $response = $this->actingAs($user)->patch(route('admin.stickers.reorder'), [
+        'ordered_ids' => [$second->id, $first->id],
+    ]);
+
+    $response->assertRedirect(route('admin.stickers.index'));
+
+    expect($second->fresh()->sort_order)->toBe(0)
+        ->and($first->fresh()->sort_order)->toBe(1);
+
+    $adminIndex = $this->actingAs($user)->get(route('admin.stickers.index'));
+    $adminIndex->assertInertia(fn ($page) => $page
+        ->where('stickers.0.id', $second->id)
+        ->where('stickers.1.id', $first->id)
+    );
+
+    $publicIndex = $this->getJson(route('stickers.index'));
+    $publicIndex->assertJsonPath('stickers.0.id', $second->id);
+    $publicIndex->assertJsonPath('stickers.1.id', $first->id);
+});
+
 test('admin can delete a sticker without associated sessions', function () {
     Storage::fake('public');
     $user = User::factory()->create();

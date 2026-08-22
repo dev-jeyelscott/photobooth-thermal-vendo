@@ -1,4 +1,4 @@
-import { Form, Head, Link, setLayoutProps } from '@inertiajs/react';
+import { Form, Head, Link, router, setLayoutProps } from '@inertiajs/react';
 import StickerController from '@/actions/App/Http/Controllers/Admin/StickerController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,11 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import { create, index as stickersIndex } from '@/routes/admin/stickers';
+import {
+    create,
+    index as stickersIndex,
+    reorder,
+} from '@/routes/admin/stickers';
 
 type Sticker = {
     id: number;
@@ -26,6 +30,26 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
     setLayoutProps({
         breadcrumbs: [{ title: 'Stickers', href: stickersIndex() }],
     });
+
+    function move(index: number, direction: -1 | 1) {
+        const targetIndex = index + direction;
+
+        if (targetIndex < 0 || targetIndex >= stickers.length) {
+            return;
+        }
+
+        const reordered = [...stickers];
+        [reordered[index], reordered[targetIndex]] = [
+            reordered[targetIndex],
+            reordered[index],
+        ];
+
+        router.patch(
+            reorder.url(),
+            { ordered_ids: reordered.map((sticker) => sticker.id) },
+            { preserveScroll: true },
+        );
+    }
 
     return (
         <>
@@ -50,7 +74,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                         </p>
                     )}
 
-                    {stickers.map((sticker) => (
+                    {stickers.map((sticker, index) => (
                         <div
                             key={sticker.id}
                             className="flex flex-col gap-3 rounded-xl border border-sidebar-border/70 p-4 dark:border-sidebar-border"
@@ -77,6 +101,24 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                             </div>
 
                             <div className="flex items-center justify-end gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={index === 0}
+                                    onClick={() => move(index, -1)}
+                                >
+                                    Move up
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={index === stickers.length - 1}
+                                    onClick={() => move(index, 1)}
+                                >
+                                    Move down
+                                </Button>
+
                                 <Button asChild variant="outline" size="sm">
                                     <Link
                                         href={StickerController.edit(

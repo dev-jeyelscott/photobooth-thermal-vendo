@@ -1,4 +1,4 @@
-import { Form, Head, Link, setLayoutProps } from '@inertiajs/react';
+import { Form, Head, Link, router, setLayoutProps } from '@inertiajs/react';
 import TemplateController from '@/actions/App/Http/Controllers/Admin/TemplateController';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,11 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import { create, index as templatesIndex } from '@/routes/admin/templates';
+import {
+    create,
+    index as templatesIndex,
+    reorder,
+} from '@/routes/admin/templates';
 
 type Template = {
     id: number;
@@ -37,6 +41,26 @@ export default function TemplatesIndex({
     setLayoutProps({
         breadcrumbs: [{ title: 'Templates', href: templatesIndex() }],
     });
+
+    function move(index: number, direction: -1 | 1) {
+        const targetIndex = index + direction;
+
+        if (targetIndex < 0 || targetIndex >= templates.length) {
+            return;
+        }
+
+        const reordered = [...templates];
+        [reordered[index], reordered[targetIndex]] = [
+            reordered[targetIndex],
+            reordered[index],
+        ];
+
+        router.patch(
+            reorder.url(),
+            { ordered_ids: reordered.map((template) => template.id) },
+            { preserveScroll: true },
+        );
+    }
 
     return (
         <>
@@ -78,7 +102,7 @@ export default function TemplatesIndex({
                                 </tr>
                             )}
 
-                            {templates.map((template) => (
+                            {templates.map((template, index) => (
                                 <tr
                                     key={template.id}
                                     className="border-t border-sidebar-border/70 dark:border-sidebar-border"
@@ -102,6 +126,27 @@ export default function TemplatesIndex({
                                     </td>
                                     <td className="p-3">
                                         <div className="flex items-center justify-end gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={index === 0}
+                                                onClick={() => move(index, -1)}
+                                            >
+                                                Move up
+                                            </Button>
+
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={
+                                                    index ===
+                                                    templates.length - 1
+                                                }
+                                                onClick={() => move(index, 1)}
+                                            >
+                                                Move down
+                                            </Button>
+
                                             <Button
                                                 asChild
                                                 variant="outline"
