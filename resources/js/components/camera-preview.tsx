@@ -99,7 +99,7 @@ export function CameraPreview({
                 >
                     <SelectTrigger
                         data-testid="camera-preview-device-select"
-                        className="w-full"
+                        className="w-full data-[size=default]:h-10"
                     >
                         <SelectValue placeholder="Choose a camera" />
                     </SelectTrigger>
@@ -108,6 +108,7 @@ export function CameraPreview({
                             <SelectItem
                                 key={device.deviceId}
                                 value={device.deviceId}
+                                className="min-h-10"
                             >
                                 {device.label || `Camera ${index + 1}`}
                             </SelectItem>
