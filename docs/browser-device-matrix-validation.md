@@ -2,13 +2,30 @@
 
 ## Environment constraint
 
-This validation was performed in a headless CI-style sandbox with no attached
-camera hardware, no iPadOS/Android devices, no external USB webcam, and no
-permitted browser-automation tooling for driving a real browser UI. Live
-manual pass/fail execution across the target device matrix could not be
-performed from this environment. The sections below record what **was**
-verified here, and what remains outstanding for a operator with physical
-access to the target devices.
+This validation was performed from a Linux CLI sandbox with no display
+server (`$DISPLAY` unset, no X/Wayland session) and no operator present to
+drive touch/mouse UI interactions. A physical inventory of this environment
+was taken:
+
+- A USB webcam (`GENERAL WEBCAM`, `/dev/video0`/`/dev/video1`) and
+  Google Chrome 151 (Linux) are present, but the device node is owned by the
+  `video` group, which the sandbox user is not a member of, and there is no
+  display to render/drive a real browser UI against it.
+- There is no Safari, no Edge, no iPadOS device, and no Android tablet
+  reachable from this Linux sandbox — Safari and Edge are not distributed for
+  this OS, and no mobile/tablet hardware is attached.
+- The task constraints prohibit introducing a new browser-automation
+  framework (Playwright/Cypress/Puppeteer) without explicit approval, so
+  scripted UI-driving against the one camera that is physically present is
+  also out of scope here.
+
+None of the six required device/browser combinations can therefore be
+genuinely exercised end-to-end (permission prompt, enumeration, switching,
+capture, upload, full-screen kiosk UX) from this environment. Fabricating
+pass/fail outcomes would violate the explicit no-fabrication constraint for
+this task. The sections below record what **was** verified here, and flag
+the manual matrix as a blocker requiring an operator with physical access to
+the target devices.
 
 ## What was verified in this environment
 
@@ -39,11 +56,12 @@ No vendor-prefixed or non-standard camera/browser API was found in the kiosk
 capture path. This satisfies the "no vendor-specific API" acceptance
 criterion independent of live device execution.
 
-## Manual device/browser matrix — NOT executed (outstanding)
+## Manual device/browser matrix — BLOCKED, requires operator with physical access
 
-The matrix below could not be exercised here and must be completed by an
-operator with access to the physical devices/browsers before this task can
-be closed out with real pass/fail evidence:
+The matrix below could not be exercised here (see "Environment constraint"
+above) and must be completed by an operator with access to the physical
+devices/browsers before this task can be closed out with real pass/fail
+evidence:
 
 | Device / Browser | Permission | Enumeration | Switching | Capture | Upload | Full-screen kiosk UX |
 |---|---|---|---|---|---|---|
