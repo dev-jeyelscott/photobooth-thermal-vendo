@@ -245,9 +245,18 @@ describe('Kiosk', () => {
             await screen.findByTestId('kiosk-pay-via-qr'),
         ).toBeInTheDocument();
 
-        expect(
-            await screen.findByTestId('kiosk-payment-checkout-link'),
-        ).toHaveAttribute('href', 'https://pay.example.test/checkout');
+        const checkoutLink = await screen.findByTestId(
+            'kiosk-payment-checkout-link',
+        );
+
+        expect(checkoutLink).toHaveAttribute(
+            'href',
+            'https://pay.example.test/checkout',
+        );
+        // The checkout action must use the large touch-target Button
+        // treatment, not a plain text link, to stay touch-first.
+        expect(checkoutLink).toHaveAttribute('data-slot', 'button');
+        expect(checkoutLink.className).toContain('h-10');
 
         await act(async () => {
             vi.advanceTimersByTime(3000);
@@ -589,6 +598,138 @@ describe('Kiosk', () => {
         expect(
             await screen.findByTestId('kiosk-error-print-failure'),
         ).toBeInTheDocument();
+    });
+
+    it('keeps explicit printing feedback visible when the print job is still unresolved after the poll budget is exhausted', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        const user = userEvent.setup({
+            advanceTimers: vi.advanceTimersByTime,
+        });
+
+        let galleryPublished = false;
+
+        global.fetch = vi.fn(
+            async (input: string | URL, init?: RequestInit) => {
+                const method = (init?.method ?? 'get').toLowerCase();
+                const { pathname } = new URL(String(input), 'http://localhost');
+
+                if (
+                    method === 'get' &&
+                    /^\/kiosk\/sessions\/[^/]+$/.test(pathname)
+                ) {
+                    if (!galleryPublished) {
+                        galleryPublished = true;
+
+                        return jsonResponse(200, {
+                            sessionToken: SESSION_TOKEN,
+                            status: 'complete',
+                            startedAt: new Date().toISOString(),
+                            expiresAt: new Date(
+                                Date.now() + 60_000,
+                            ).toISOString(),
+                            paymentStatus: 'succeeded',
+                            printJobStatus: null,
+                            requiredCaptureCount: 3,
+                            galleryToken: 'gallery-token-xyz',
+                        }) as unknown as Response;
+                    }
+
+                    // The print job never reaches a terminal status within
+                    // the local poll budget, e.g. because the printer is
+                    // still spooling a long queue.
+                    return jsonResponse(200, {
+                        sessionToken: SESSION_TOKEN,
+                        status: 'complete',
+                        startedAt: new Date().toISOString(),
+                        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                        paymentStatus: 'succeeded',
+                        printJobStatus: null,
+                        requiredCaptureCount: 3,
+                        galleryToken: 'gallery-token-xyz',
+                    }) as unknown as Response;
+                }
+
+                const route = baseRoutes.find(
+                    (candidate) =>
+                        candidate.method === method &&
+                        candidate.pattern.test(pathname),
+                );
+
+                if (!route) {
+                    throw new Error(
+                        `Unhandled request: ${method.toUpperCase()} ${pathname}`,
+                    );
+                }
+
+                const { status, body } = route.handler();
+
+                return jsonResponse(status, body) as unknown as Response;
+            },
+        ) as unknown as typeof fetch;
+
+        render(<Kiosk idleTimeoutSeconds={9999} />);
+
+        await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
+        await user.type(screen.getByTestId('kiosk-voucher-input'), 'FREE-2026');
+        await user.click(
+            screen.getByRole('button', { name: 'Redeem Voucher' }),
+        );
+
+        await user.click(await screen.findByTestId('kiosk-template-1'));
+
+        await user.click(
+            await screen.findByRole('button', { name: 'complete capture' }),
+        );
+
+        await user.click(
+            screen.getByRole('button', { name: 'Choose a Sticker' }),
+        );
+
+        const stickerOption = await screen.findByTestId('kiosk-sticker-1');
+        await user.click(stickerOption);
+
+        await waitFor(() => {
+            expect(
+                screen.getByRole('button', { name: 'Continue' }),
+            ).toBeEnabled();
+        });
+
+        await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+        await user.click(
+            await screen.findByRole('button', { name: 'Confirm' }),
+        );
+
+        await act(async () => {
+            vi.advanceTimersByTime(2000);
+        });
+
+        expect(
+            await screen.findByTestId('kiosk-gallery-qr-code'),
+        ).toBeInTheDocument();
+
+        // Advance past the local print-poll attempt budget (5 polls at
+        // 3000ms each) without the print job ever reaching a terminal
+        // status.
+        for (let i = 0; i < 6; i += 1) {
+            await act(async () => {
+                vi.advanceTimersByTime(3000);
+            });
+        }
+
+        const printingStatus = await screen.findByTestId(
+            'kiosk-printing-status',
+        );
+
+        // Feedback must stay explicit and non-ambiguous instead of
+        // silently disappearing once the poll budget is exhausted.
+        expect(printingStatus).toHaveTextContent(
+            'Your receipt is taking longer than expected to print.',
+        );
+        expect(
+            screen.queryByTestId('kiosk-error-print-failure'),
+        ).not.toBeInTheDocument();
     });
 
     it('resets an idle payment session back to the welcome screen', async () => {

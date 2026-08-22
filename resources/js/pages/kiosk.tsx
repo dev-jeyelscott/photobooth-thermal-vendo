@@ -83,6 +83,7 @@ export default function Kiosk({
     const [paymentAttempt, setPaymentAttempt] = useState(0);
     const [printFailed, setPrintFailed] = useState(false);
     const [isPrinting, setIsPrinting] = useState(true);
+    const [printDelayed, setPrintDelayed] = useState(false);
     const [kioskError, setKioskError] = useState<KioskErrorKind | null>(null);
     const [kioskErrorMessage, setKioskErrorMessage] = useState<string | null>(
         null,
@@ -147,6 +148,7 @@ export default function Kiosk({
         setCheckoutUrl(null);
         setPrintFailed(false);
         setIsPrinting(true);
+        setPrintDelayed(false);
         clearKioskError();
         resetTimer();
     };
@@ -481,7 +483,11 @@ export default function Kiosk({
             } else if (attempts < PRINT_POLL_ATTEMPTS) {
                 schedulePoll(PRINT_POLL_INTERVAL_MS);
             } else {
-                setIsPrinting(false);
+                // The print job is still unresolved after the local poll
+                // budget is exhausted; keep explicit feedback visible
+                // instead of silently clearing it, since the receipt may
+                // still be printing on the device.
+                setPrintDelayed(true);
             }
         };
 
@@ -630,13 +636,18 @@ export default function Kiosk({
                                     idle.
                                 </p>
                                 {checkoutUrl && (
-                                    <a
-                                        data-testid="kiosk-payment-checkout-link"
-                                        href={checkoutUrl}
-                                        className="text-sm text-blue-300 underline"
+                                    <Button
+                                        asChild
+                                        size="lg"
+                                        className="w-full"
                                     >
-                                        Open Payment Page
-                                    </a>
+                                        <a
+                                            data-testid="kiosk-payment-checkout-link"
+                                            href={checkoutUrl}
+                                        >
+                                            Open Payment Page
+                                        </a>
+                                    </Button>
                                 )}
                                 <Button
                                     type="button"
@@ -880,7 +891,9 @@ export default function Kiosk({
                                         data-testid="kiosk-printing-status"
                                         className="text-sm text-neutral-300 sm:text-base"
                                     >
-                                        Printing your photo receipt…
+                                        {printDelayed
+                                            ? 'Your receipt is taking longer than expected to print. Please wait a moment — your digital photos are already available above.'
+                                            : 'Printing your photo receipt…'}
                                     </p>
                                 )}
                                 {printFailed && (
