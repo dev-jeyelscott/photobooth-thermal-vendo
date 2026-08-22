@@ -93,3 +93,15 @@ combinations exists in this sandbox, so the matrix above remains genuinely
 unexecuted rather than fabricated. This record still requires an operator
 with physical device access to fill in real pass/fail results before the
 task can be closed.
+
+## Re-check (2026-08-23)
+
+Same environment state confirmed again: `$DISPLAY` unset, sandbox user
+still not a member of the `video` group, `/dev/video0`/`/dev/video1` still
+present but inaccessible for a driven UI session, and still no
+Safari/Edge/iPadOS/Android reachable from this host. `npm run build`
+succeeded and `php artisan test --filter=KioskTest` passed (11 passed, 88
+assertions). No genuine pass/fail evidence for the six-device matrix can be
+produced from this sandbox; fabricating outcomes would violate the
+no-fabrication constraint, so the matrix remains blocked pending an
+operator with physical access to the target devices.
