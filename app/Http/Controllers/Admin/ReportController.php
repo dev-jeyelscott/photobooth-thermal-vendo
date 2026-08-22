@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
@@ -91,6 +92,10 @@ class ReportController extends Controller
 
         return response()->streamDownload(function () use ($start, $end) {
             $handle = fopen('php://output', 'w');
+
+            if ($handle === false) {
+                throw new RuntimeException('Unable to open the CSV output stream.');
+            }
 
             fputcsv($handle, [
                 'session_token',

@@ -73,7 +73,11 @@ class DashboardController extends Controller
      * Build the recent-activity feed from the latest sessions, payments, voucher redemptions,
      * and failed print jobs, sorted by recency and capped to a bounded total size.
      *
-     * @return Collection<int, array{type: string, label: string, occurredAt: string|null}>
+     * @return Collection<int, array{
+     *     type: 'session'|'payment'|'voucher'|'print_failure',
+     *     label: string,
+     *     occurredAt: string|null
+     * }>
      */
     private function recentActivity(): Collection
     {
