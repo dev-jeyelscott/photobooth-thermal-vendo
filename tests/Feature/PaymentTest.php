@@ -7,8 +7,10 @@ use App\Enums\PhotoboothSessionStatus;
 use App\Models\ApplicationSetting;
 use App\Models\Payment;
 use App\Models\PhotoboothSession;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use RuntimeException;
 
 beforeEach(function () {
@@ -234,4 +236,87 @@ test('multiple pending payments without a maya reference can coexist', function 
     ]);
 
     expect(Payment::count())->toBe(2);
+});
+
+test('admin payment index requires authentication', function () {
+    $this->get(route('admin.payments.index'))->assertRedirect(route('login'));
+});
+
+test('admin can view a paginated list of payments with evidence fields', function () {
+    $user = User::factory()->create();
+    $session = PhotoboothSession::factory()->create();
+    $payment = Payment::factory()->for($session, 'photoboothSession')->success()->create([
+        'maya_payment_id' => 'payment-visible',
+        'maya_checkout_id' => 'checkout-visible',
+    ]);
+
+    $response = $this->actingAs($user)->get(route('admin.payments.index'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('admin/payments/index')
+        ->where('payments.data.0.sessionToken', $session->session_token)
+        ->where('payments.data.0.method', $payment->method->value)
+        ->where('payments.data.0.status', PaymentStatus::Success->value)
+        ->where('payments.data.0.mayaPaymentId', 'payment-visible')
+        ->where('payments.data.0.mayaCheckoutId', 'checkout-visible')
+        ->where('payments.data.0.amount', $payment->amount)
+    );
+});
+
+test('admin can filter payments by status', function () {
+    $user = User::factory()->create();
+    $matching = Payment::factory()->success()->create();
+    Payment::factory()->create(['status' => PaymentStatus::Pending]);
+
+    $response = $this->actingAs($user)->get(route('admin.payments.index', ['status' => 'success']));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('admin/payments/index')
+        ->has('payments.data', 1)
+        ->where('payments.data.0.mayaCheckoutId', $matching->maya_checkout_id)
+    );
+});
+
+test('admin can filter payments by date range', function () {
+    $user = User::factory()->create();
+    $inRange = Payment::factory()->create(['created_at' => now()->subDays(1)]);
+    Payment::factory()->create(['created_at' => now()->subDays(10)]);
+
+    $response = $this->actingAs($user)->get(route('admin.payments.index', [
+        'from' => now()->subDays(2)->toDateString(),
+        'to' => now()->toDateString(),
+    ]));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('admin/payments/index')
+        ->has('payments.data', 1)
+        ->where('payments.data.0.mayaCheckoutId', $inRange->maya_checkout_id)
+    );
+});
+
+test('the admin payment response never exposes maya secret credentials', function () {
+    config(['services.maya.secret_key' => 'sk_super_secret_value']);
+
+    $user = User::factory()->create();
+    Payment::factory()->success()->create();
+
+    $response = $this->actingAs($user)->get(route('admin.payments.index'));
+
+    $response->assertOk();
+    $response->assertDontSee('sk_super_secret_value');
+});
+
+test('no admin route exists that can mutate a payment status', function () {
+    $adminPaymentRoutes = collect(Route::getRoutes())
+        ->filter(fn ($route) => str_starts_with($route->getName() ?? '', 'admin.payments.'));
+
+    expect($adminPaymentRoutes)->toHaveCount(1);
+
+    $indexRoute = $adminPaymentRoutes->first();
+
+    expect($indexRoute->getName())->toBe('admin.payments.index')
+        ->and($indexRoute->methods())->toEqualCanonicalizing(['GET', 'HEAD']);
 });
