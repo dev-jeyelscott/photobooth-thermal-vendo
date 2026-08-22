@@ -172,6 +172,8 @@ test('a maya checkout snapshots the currency application setting rather than a h
     $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
 
     expect($session->fresh()->currency)->toBe('USD');
+
+    Http::assertSent(fn ($request) => $request['totalAmount']['currency'] === 'USD');
 });
 
 test('changing the session price setting after checkout does not alter an already snapshotted session', function () {

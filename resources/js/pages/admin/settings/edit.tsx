@@ -30,9 +30,10 @@ type Settings = {
 function FutureSessionsNote() {
     return (
         <p className="text-muted-foreground text-xs">
-            Snapshotted onto each session when it starts; only applies to
-            sessions started after this change, and does not retroactively
-            alter in-progress or historical sessions.
+            Applies to any session that has not yet been paid for or
+            redeemed with a voucher. Once a session reaches checkout, this
+            value is locked onto that session and further changes here will
+            not retroactively alter it.
         </p>
     );
 }

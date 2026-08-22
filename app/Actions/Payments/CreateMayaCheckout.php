@@ -23,6 +23,7 @@ class CreateMayaCheckout
     public function handle(PhotoboothSession $session): array
     {
         $amount = $session->price !== null ? (string) $session->price : $this->resolveSessionPrice();
+        $currency = $session->currency ?? (string) Settings::get('currency');
         $referenceNumber = (string) Str::uuid();
 
         $response = Http::baseUrl(config('services.maya.base_url'))
@@ -31,7 +32,7 @@ class CreateMayaCheckout
             ->post('/checkout/v1/checkouts', [
                 'totalAmount' => [
                     'value' => $amount,
-                    'currency' => 'PHP',
+                    'currency' => $currency,
                 ],
                 'requestReferenceNumber' => $referenceNumber,
                 'redirectUrl' => [
@@ -47,7 +48,7 @@ class CreateMayaCheckout
 
         $checkoutId = $response->json('checkoutId');
 
-        $payment = DB::transaction(function () use ($session, $amount, $checkoutId): Payment {
+        $payment = DB::transaction(function () use ($session, $amount, $currency, $checkoutId): Payment {
             $lockedSession = PhotoboothSession::whereKey($session->id)->lockForUpdate()->first();
 
             $hasActivePayment = $lockedSession->payment()
@@ -69,7 +70,7 @@ class CreateMayaCheckout
             if ($lockedSession->price === null) {
                 $lockedSession->update([
                     'price' => $amount,
-                    'currency' => Settings::get('currency'),
+                    'currency' => $currency,
                     'payment_method' => PaymentMethod::Maya,
                     'required_capture_count' => Settings::get('capture_shot_count'),
                 ]);
