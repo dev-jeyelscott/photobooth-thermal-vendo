@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateVoucherRequest;
 use App\Models\PhotoboothSession;
 use App\Models\Voucher;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -70,13 +71,13 @@ class VoucherController extends Controller
     }
 
     /**
-     * Update an existing voucher's expiration and usage limit.
+     * Update an existing voucher's configurable fields.
      */
     public function update(UpdateVoucherRequest $request, Voucher $voucher): RedirectResponse
     {
         $validated = $request->validated();
 
-        $voucher->update([
+        $voucher->updateOrFail([
             'code' => $validated['code'],
             'valid_from' => $validated['valid_from'] ?? null,
             'expires_at' => $validated['expires_at'] ?? null,
@@ -94,17 +95,43 @@ class VoucherController extends Controller
      */
     public function toggle(Voucher $voucher): RedirectResponse
     {
-        $voucher->update(['active' => ! $voucher->active]);
+        $active = ! $voucher->active;
+
+        $voucher->updateOrFail(['active' => $active]);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $active ? __('Voucher enabled.') : __('Voucher disabled.'),
+        ]);
 
         return to_route('admin.vouchers.index');
     }
 
     /**
-     * Delete a voucher.
+     * Delete an unused voucher while preserving redemption history.
      */
     public function destroy(Voucher $voucher): RedirectResponse
     {
-        $voucher->delete();
+        $deleted = DB::transaction(function () use ($voucher): bool {
+            $lockedVoucher = Voucher::query()
+                ->whereKey($voucher->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedVoucher->photoboothSessions()->exists()) {
+                return false;
+            }
+
+            $lockedVoucher->deleteOrFail();
+
+            return true;
+        });
+
+        if (! $deleted) {
+            return back()->withErrors([
+                'voucher' => __('This voucher cannot be deleted because it has associated photobooth sessions.'),
+            ]);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Voucher deleted.')]);
 

@@ -22,6 +22,9 @@ type Voucher = {
     redemptions: Redemption[];
 };
 
+/**
+ * Render the create/edit voucher form using the supplied Wayfinder form contract.
+ */
 export default function VoucherForm({
     form,
     voucher,
@@ -106,13 +109,16 @@ export default function VoucherForm({
                     )}
 
                     <div className="flex items-center space-x-3">
+                        <input type="hidden" name="active" value="0" />
                         <Checkbox
                             id="active"
                             name="active"
+                            value="1"
                             defaultChecked={voucher?.active ?? true}
                         />
                         <Label htmlFor="active">Active</Label>
                     </div>
+                    <InputError message={errors.active} />
 
                     <Button type="submit" disabled={processing}>
                         {voucher ? 'Save changes' : 'Create voucher'}
@@ -123,6 +129,9 @@ export default function VoucherForm({
     );
 }
 
+/**
+ * Render immutable photobooth sessions that redeemed the voucher.
+ */
 export function VoucherRedemptionHistory({
     redemptions,
 }: {

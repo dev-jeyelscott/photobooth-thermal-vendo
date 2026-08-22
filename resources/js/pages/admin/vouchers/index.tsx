@@ -3,6 +3,15 @@ import VoucherController from '@/actions/App/Http/Controllers/Admin/VoucherContr
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { create, index as vouchersIndex } from '@/routes/admin/vouchers';
 
 type Redemption = {
@@ -21,6 +30,9 @@ type Voucher = {
     redemptions: Redemption[];
 };
 
+/**
+ * Render voucher records and their route-backed administration actions.
+ */
 export default function VouchersIndex({ vouchers }: { vouchers: Voucher[] }) {
     setLayoutProps({
         breadcrumbs: [{ title: 'Vouchers', href: vouchersIndex() }],
@@ -170,6 +182,78 @@ export default function VouchersIndex({ vouchers }: { vouchers: Voucher[] }) {
                                                     </Button>
                                                 )}
                                             </Form>
+
+                                            <Dialog>
+                                                <DialogTrigger asChild>
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                </DialogTrigger>
+
+                                                <DialogContent>
+                                                    <DialogTitle>
+                                                        Delete "{voucher.code}"?
+                                                    </DialogTitle>
+
+                                                    <DialogDescription>
+                                                        This cannot be undone.
+                                                        Vouchers that have been
+                                                        redeemed by photobooth
+                                                        sessions cannot be
+                                                        deleted.
+                                                    </DialogDescription>
+
+                                                    <Form
+                                                        {...VoucherController.destroy.form(
+                                                            voucher.id,
+                                                        )}
+                                                        options={{
+                                                            preserveScroll: true,
+                                                        }}
+                                                    >
+                                                        {({
+                                                            processing,
+                                                            errors,
+                                                        }) => (
+                                                            <>
+                                                                {errors.voucher && (
+                                                                    <p className="text-sm text-destructive">
+                                                                        {
+                                                                            errors.voucher
+                                                                        }
+                                                                    </p>
+                                                                )}
+
+                                                                <DialogFooter className="gap-2">
+                                                                    <DialogClose
+                                                                        asChild
+                                                                    >
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="secondary"
+                                                                        >
+                                                                            Cancel
+                                                                        </Button>
+                                                                    </DialogClose>
+
+                                                                    <Button
+                                                                        type="submit"
+                                                                        variant="destructive"
+                                                                        disabled={
+                                                                            processing
+                                                                        }
+                                                                    >
+                                                                        Delete
+                                                                    </Button>
+                                                                </DialogFooter>
+                                                            </>
+                                                        )}
+                                                    </Form>
+                                                </DialogContent>
+                                            </Dialog>
                                         </div>
                                     </td>
                                 </tr>
