@@ -80,3 +80,16 @@ closing this record.
 
 - `npm run build` — succeeded.
 - `php artisan test --filter=KioskTest` — 11 passed, 88 assertions.
+
+## Re-check (2026-08-22)
+
+Re-verified the environment constraint still holds: no `$DISPLAY`, sandbox
+user (`john-leward-escote`) is not in the `video` group (`id -nG` shows
+`adm cdrom sudo dip plugdev users lpadmin lxd docker`, no `video`), and no
+Safari/Edge/iPadOS/Android hardware is reachable from this host. `npm run
+build` and `php artisan test --filter=KioskTest` were re-run and both still
+pass. No new capability to physically drive the six required device/browser
+combinations exists in this sandbox, so the matrix above remains genuinely
+unexecuted rather than fabricated. This record still requires an operator
+with physical device access to fill in real pass/fail results before the
+task can be closed.
