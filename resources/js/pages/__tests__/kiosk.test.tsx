@@ -229,6 +229,106 @@ describe('Kiosk', () => {
         ).toBeInTheDocument();
     });
 
+    it('recovers from a transient network failure during payment polling without re-issuing the checkout', async () => {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        paymentStatusState.status = 'pending';
+
+        let sessionPollCount = 0;
+        const paymentPostCalls: string[] = [];
+
+        global.fetch = vi.fn(async (input: string | URL, init?: RequestInit) => {
+            const method = (init?.method ?? 'get').toLowerCase();
+            const { pathname } = new URL(String(input), 'http://localhost');
+
+            if (
+                method === 'post' &&
+                /^\/kiosk\/sessions\/[^/]+\/payments$/.test(pathname)
+            ) {
+                paymentPostCalls.push(pathname);
+
+                return jsonResponse(200, {
+                    checkoutUrl: 'https://pay.example.test/checkout',
+                }) as unknown as Response;
+            }
+
+            if (
+                method === 'get' &&
+                /^\/kiosk\/sessions\/[^/]+$/.test(pathname)
+            ) {
+                sessionPollCount += 1;
+
+                // The very first poll after checkout creation fails
+                // transiently (e.g. a dropped connection).
+                if (sessionPollCount === 1) {
+                    throw new TypeError('Failed to fetch');
+                }
+
+                if (sessionPollCount >= 3) {
+                    paymentStatusState.status = 'paid';
+                    paymentStatusState.paymentStatus = 'succeeded';
+                }
+
+                return jsonResponse(200, {
+                    sessionToken: SESSION_TOKEN,
+                    status: paymentStatusState.status,
+                    startedAt: new Date().toISOString(),
+                    expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                    paymentStatus: paymentStatusState.paymentStatus,
+                    printJobStatus: null,
+                }) as unknown as Response;
+            }
+
+            const route = baseRoutes.find(
+                (candidate) =>
+                    candidate.method === method &&
+                    candidate.pattern.test(pathname),
+            );
+
+            if (!route) {
+                throw new Error(
+                    `Unhandled request: ${method.toUpperCase()} ${pathname}`,
+                );
+            }
+
+            const { status, body } = route.handler();
+
+            return jsonResponse(status, body) as unknown as Response;
+        }) as unknown as typeof fetch;
+
+        render(<Kiosk paymentTimeoutSeconds={30} />);
+
+        await user.click(screen.getByRole('button', { name: 'Pay via QR' }));
+
+        expect(
+            await screen.findByTestId('kiosk-payment-checkout-link'),
+        ).toBeInTheDocument();
+
+        // First poll fails transiently; the kiosk keeps waiting instead of
+        // surfacing a hard error immediately.
+        await act(async () => {
+            vi.advanceTimersByTime(3000);
+        });
+        expect(
+            screen.queryByTestId('kiosk-error-network-interruption'),
+        ).not.toBeInTheDocument();
+
+        // Subsequent polls succeed once connectivity returns, and the
+        // session advances once payment is confirmed.
+        for (let i = 0; i < 5; i += 1) {
+            await act(async () => {
+                vi.advanceTimersByTime(3000);
+            });
+        }
+
+        expect(
+            await screen.findByTestId('kiosk-select-template'),
+        ).toBeInTheDocument();
+
+        expect(paymentPostCalls).toHaveLength(1);
+    });
+
     it('resets an idle payment session back to the welcome screen', async () => {
         const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
         vi.useFakeTimers({ shouldAdvanceTime: true });

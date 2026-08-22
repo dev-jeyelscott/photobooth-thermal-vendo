@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 export type KioskErrorKind =
     | 'no-camera-permission'
     | 'camera-unavailable'
+    | 'camera-stream-lost'
     | 'payment-timeout'
     | 'payment-failed'
     | 'invalid-voucher'
@@ -27,6 +28,12 @@ const ERROR_CONFIG: Record<
         message:
             'The camera could not be started. Please check the connection and try again.',
         retryLabel: 'Try Again',
+    },
+    'camera-stream-lost': {
+        title: 'Camera Disconnected',
+        message:
+            'The camera connection was lost. Your shots so far are safe — reconnect to keep capturing.',
+        retryLabel: 'Reconnect Camera',
     },
     'payment-timeout': {
         title: 'Payment Timed Out',

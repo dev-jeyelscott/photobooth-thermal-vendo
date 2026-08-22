@@ -12,10 +12,17 @@ import {
 import type { CameraErrorReason } from '@/hooks/use-camera';
 import { useCamera } from '@/hooks/use-camera';
 
-const cameraErrorKind = (reason: CameraErrorReason): KioskErrorKind =>
-    reason === 'permission-denied'
-        ? 'no-camera-permission'
-        : 'camera-unavailable';
+const cameraErrorKind = (reason: CameraErrorReason): KioskErrorKind => {
+    if (reason === 'permission-denied') {
+        return 'no-camera-permission';
+    }
+
+    if (reason === 'disconnected') {
+        return 'camera-stream-lost';
+    }
+
+    return 'camera-unavailable';
+};
 
 /**
  * Live camera preview backed by useCamera. Starts the stream on mount and
@@ -59,9 +66,10 @@ export function CameraPreview({
     }, [stream, videoRef]);
 
     if (error) {
-        // 'disconnected' is only set once the active camera drops with no
-        // fallback device available (see useCamera's devicechange handler),
-        // making it the sole unrecoverable case that should offer a full exit.
+        // 'disconnected' is only set once the active camera drops mid-session
+        // with no fallback device available (see useCamera's devicechange
+        // handler). Reconnecting still retries start(), so an already-plugged
+        // camera keeps working; Back to Start is offered as a fallback exit.
         const isUnrecoverable = error === 'disconnected';
 
         return (

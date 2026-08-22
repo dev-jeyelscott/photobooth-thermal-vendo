@@ -38,8 +38,12 @@ const DEFAULT_CAPTURE_RETAKE_LIMIT = 2;
 const DEFAULT_CAPTURE_COUNTDOWN_SECONDS = 3;
 const DEFAULT_PAYMENT_TIMEOUT_SECONDS = 120;
 const PAYMENT_POLL_INTERVAL_MS = 3000;
+const PAYMENT_POLL_MAX_BACKOFF_MS = 15000;
+const PAYMENT_POLL_MAX_CONSECUTIVE_FAILURES = 5;
 const PRINT_POLL_INTERVAL_MS = 3000;
+const PRINT_POLL_MAX_BACKOFF_MS = 15000;
 const PRINT_POLL_ATTEMPTS = 5;
+const PRINT_POLL_MAX_CONSECUTIVE_FAILURES = 5;
 const PROCESSING_POLL_INTERVAL_MS = 2000;
 const PROCESSING_POLL_ATTEMPTS = 30;
 
@@ -234,22 +238,25 @@ export default function Kiosk({
 
     // Creates a Maya checkout for the pay-via-qr step and polls the session
     // until payment succeeds, fails, or the configured timeout elapses.
+    // Once a checkout has been created, transient poll failures never
+    // re-issue a checkout request; they only back off and retry the poll so
+    // a single Maya checkout stays authoritative for the session.
     useEffect(() => {
         if (step !== 'pay-via-qr') {
             return;
         }
 
         let cancelled = false;
-        let pollHandle: ReturnType<typeof setInterval> | undefined;
-        let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+        let pollTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
+        let paymentTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
         const stopPolling = () => {
-            if (pollHandle) {
-                clearInterval(pollHandle);
+            if (pollTimeoutHandle) {
+                clearTimeout(pollTimeoutHandle);
             }
 
-            if (timeoutHandle) {
-                clearTimeout(timeoutHandle);
+            if (paymentTimeoutHandle) {
+                clearTimeout(paymentTimeoutHandle);
             }
         };
 
@@ -282,12 +289,47 @@ export default function Kiosk({
 
             setCheckoutUrl(result.checkoutUrl);
 
-            pollHandle = setInterval(async () => {
+            let consecutiveFailures = 0;
+
+            const resumePolling = () => {
+                clearKioskError();
+                consecutiveFailures = 0;
+                schedulePoll(PAYMENT_POLL_INTERVAL_MS);
+            };
+
+            const poll = async () => {
                 const refreshed = await refreshSessionRef.current();
 
-                if (cancelled || !refreshed) {
+                if (cancelled) {
                     return;
                 }
+
+                if (!refreshed) {
+                    consecutiveFailures += 1;
+
+                    if (
+                        consecutiveFailures >=
+                        PAYMENT_POLL_MAX_CONSECUTIVE_FAILURES
+                    ) {
+                        raiseKioskError('network-interruption', {
+                            retry: resumePolling,
+                        });
+
+                        return;
+                    }
+
+                    schedulePoll(
+                        Math.min(
+                            PAYMENT_POLL_INTERVAL_MS *
+                                2 ** consecutiveFailures,
+                            PAYMENT_POLL_MAX_BACKOFF_MS,
+                        ),
+                    );
+
+                    return;
+                }
+
+                consecutiveFailures = 0;
 
                 if (
                     refreshed.paymentStatus === 'failed' ||
@@ -300,10 +342,20 @@ export default function Kiosk({
                     clearKioskError();
                     setStep('select-template');
                     resetTimer();
+                } else {
+                    schedulePoll(PAYMENT_POLL_INTERVAL_MS);
                 }
-            }, PAYMENT_POLL_INTERVAL_MS);
+            };
 
-            timeoutHandle = setTimeout(() => {
+            function schedulePoll(delayMs: number) {
+                pollTimeoutHandle = setTimeout(() => {
+                    void poll();
+                }, delayMs);
+            }
+
+            schedulePoll(PAYMENT_POLL_INTERVAL_MS);
+
+            paymentTimeoutHandle = setTimeout(() => {
                 stopPolling();
                 raiseKioskError('payment-timeout', { retry: retryPayment });
             }, paymentTimeoutSeconds * 1000);
@@ -376,6 +428,9 @@ export default function Kiosk({
 
     // Advisory poll for print-job failures once the receipt has been queued;
     // this never blocks the customer, who already has their digital gallery.
+    // Transient network failures don't count against the attempt budget, so
+    // a brief connectivity drop still resolves to the real terminal PrintJob
+    // state instead of the poll silently stopping mid-flight.
     useEffect(() => {
         if (step !== 'complete') {
             return;
@@ -383,30 +438,62 @@ export default function Kiosk({
 
         let cancelled = false;
         let attempts = 0;
+        let consecutiveFailures = 0;
+        let pollHandle: ReturnType<typeof setTimeout> | undefined;
 
-        const pollHandle = setInterval(async () => {
-            attempts += 1;
+        const schedulePoll = (delayMs: number) => {
+            pollHandle = setTimeout(() => {
+                void poll();
+            }, delayMs);
+        };
 
+        const poll = async () => {
             const refreshed = await refreshSessionRef.current();
 
-            if (cancelled || !refreshed) {
+            if (cancelled) {
                 return;
             }
 
+            if (!refreshed) {
+                consecutiveFailures += 1;
+
+                if (
+                    consecutiveFailures >= PRINT_POLL_MAX_CONSECUTIVE_FAILURES
+                ) {
+                    return;
+                }
+
+                schedulePoll(
+                    Math.min(
+                        PRINT_POLL_INTERVAL_MS * 2 ** consecutiveFailures,
+                        PRINT_POLL_MAX_BACKOFF_MS,
+                    ),
+                );
+
+                return;
+            }
+
+            consecutiveFailures = 0;
+            attempts += 1;
+
             if (refreshed.printJobStatus === 'failed') {
                 setPrintFailed(true);
-                clearInterval(pollHandle);
             } else if (
-                refreshed.printJobStatus === 'printed' ||
-                attempts >= PRINT_POLL_ATTEMPTS
+                refreshed.printJobStatus !== 'printed' &&
+                attempts < PRINT_POLL_ATTEMPTS
             ) {
-                clearInterval(pollHandle);
+                schedulePoll(PRINT_POLL_INTERVAL_MS);
             }
-        }, PRINT_POLL_INTERVAL_MS);
+        };
+
+        schedulePoll(PRINT_POLL_INTERVAL_MS);
 
         return () => {
             cancelled = true;
-            clearInterval(pollHandle);
+
+            if (pollHandle) {
+                clearTimeout(pollHandle);
+            }
         };
     }, [step]);
 
