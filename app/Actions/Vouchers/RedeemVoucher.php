@@ -60,7 +60,7 @@ class RedeemVoucher
             $session->update([
                 'voucher_id' => $voucher->id,
                 'price' => '0.00',
-                'currency' => 'PHP',
+                'currency' => Settings::get('currency'),
                 'payment_method' => PaymentMethod::Voucher,
                 'required_capture_count' => Settings::get('capture_shot_count'),
             ]);

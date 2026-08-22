@@ -69,7 +69,7 @@ class CreateMayaCheckout
             if ($lockedSession->price === null) {
                 $lockedSession->update([
                     'price' => $amount,
-                    'currency' => 'PHP',
+                    'currency' => Settings::get('currency'),
                     'payment_method' => PaymentMethod::Maya,
                     'required_capture_count' => Settings::get('capture_shot_count'),
                 ]);

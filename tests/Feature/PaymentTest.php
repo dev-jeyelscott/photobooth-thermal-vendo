@@ -157,6 +157,23 @@ test('a maya checkout snapshots the price, currency, payment method, and require
         ->and($session->required_capture_count)->toBe(4);
 });
 
+test('a maya checkout snapshots the currency application setting rather than a hardcoded value', function () {
+    ApplicationSetting::updateOrCreate(['key' => 'currency'], ['value' => 'USD']);
+
+    Http::fake([
+        '*/checkout/v1/checkouts' => Http::response([
+            'checkoutId' => 'checkout-123',
+            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
+        ], 200),
+    ]);
+
+    $session = PhotoboothSession::factory()->create();
+
+    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+
+    expect($session->fresh()->currency)->toBe('USD');
+});
+
 test('changing the session price setting after checkout does not alter an already snapshotted session', function () {
     Http::fake([
         '*/checkout/v1/checkouts' => Http::response([
