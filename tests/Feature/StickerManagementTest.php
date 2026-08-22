@@ -4,6 +4,7 @@ use App\Models\PhotoboothSession;
 use App\Models\StickerDesign;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 test('sticker management routes require authentication', function () {
@@ -179,4 +180,10 @@ test('deleting a sticker with associated sessions is rejected', function () {
 
     $response->assertSessionHasErrors('sticker');
     expect(StickerDesign::find($sticker->id))->not->toBeNull();
+});
+
+test('sticker_designs sort_order column is indexed', function () {
+    $indexes = collect(Schema::getIndexes('sticker_designs'));
+
+    expect($indexes->contains(fn ($index) => $index['columns'] === ['sort_order']))->toBeTrue();
 });

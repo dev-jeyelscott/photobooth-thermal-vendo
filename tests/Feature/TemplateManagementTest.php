@@ -4,6 +4,7 @@ use App\Models\PhotoboothSession;
 use App\Models\PhotoTemplate;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 test('template management routes require authentication', function () {
@@ -147,4 +148,10 @@ test('deleting a template with associated sessions is rejected', function () {
 
     $response->assertSessionHasErrors('template');
     expect(PhotoTemplate::find($template->id))->not->toBeNull();
+});
+
+test('photo_templates sort_order column is indexed', function () {
+    $indexes = collect(Schema::getIndexes('photo_templates'));
+
+    expect($indexes->contains(fn ($index) => $index['columns'] === ['sort_order']))->toBeTrue();
 });
