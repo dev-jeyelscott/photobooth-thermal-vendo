@@ -156,6 +156,40 @@ test('re-dispatching an already-printed job does not attempt to print again or r
         ->and($printJob->completed_at)->toEqual($firstCompletedAt);
 });
 
+test('each print attempt records a started_at timestamp independently of completed_at', function () {
+    Storage::fake('public');
+    $printJob = makePrintableSession();
+
+    $failingDriver = new class implements PrinterDriver
+    {
+        public function send(PrintJob $job, string $imagePath): void
+        {
+            throw new RuntimeException('Printer offline');
+        }
+    };
+
+    (new ProcessPrintJob($printJob))->handle($failingDriver, app(ReceiptRenderer::class));
+
+    $printJob->refresh();
+    $firstStartedAt = $printJob->started_at;
+
+    expect($firstStartedAt)->not->toBeNull()
+        ->and($printJob->completed_at)->toBeNull();
+
+    Queue::fake();
+    Artisan::call('print-jobs:retry', ['printJob' => $printJob->id]);
+
+    (new ProcessPrintJob($printJob))->handle(app(PrinterDriver::class), app(ReceiptRenderer::class));
+
+    $printJob->refresh();
+
+    expect($printJob->status)->toBe(PrintJobStatus::Printed)
+        ->and($printJob->attempt_count)->toBe(2)
+        ->and($printJob->started_at)->not->toBeNull()
+        ->and($printJob->started_at->ne($firstStartedAt))->toBeTrue()
+        ->and($printJob->completed_at)->not->toBeNull();
+});
+
 test('retrying a print job that is not failed is rejected', function () {
     Storage::fake('public');
     $printJob = makePrintableSession();

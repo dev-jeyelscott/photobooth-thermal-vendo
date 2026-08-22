@@ -24,6 +24,7 @@ class PrintJobFactory extends Factory
             'status' => PrintJobStatus::Pending,
             'attempt_count' => 0,
             'last_error' => null,
+            'started_at' => null,
             'completed_at' => null,
         ];
     }

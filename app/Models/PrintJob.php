@@ -16,11 +16,12 @@ use Illuminate\Support\Carbon;
  * @property PrintJobStatus $status
  * @property int $attempt_count
  * @property string|null $last_error
+ * @property Carbon|null $started_at
  * @property Carbon|null $completed_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['photobooth_session_id', 'status', 'attempt_count', 'last_error', 'completed_at'])]
+#[Fillable(['photobooth_session_id', 'status', 'attempt_count', 'last_error', 'started_at', 'completed_at'])]
 class PrintJob extends Model
 {
     /** @use HasFactory<PrintJobFactory> */
@@ -36,6 +37,7 @@ class PrintJob extends Model
         return [
             'status' => PrintJobStatus::class,
             'attempt_count' => 'integer',
+            'started_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
     }

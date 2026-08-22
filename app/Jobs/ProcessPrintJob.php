@@ -37,6 +37,7 @@ class ProcessPrintJob implements ShouldQueue
         $this->printJob->update([
             'status' => PrintJobStatus::Printing,
             'attempt_count' => $this->printJob->attempt_count + 1,
+            'started_at' => now(),
         ]);
 
         try {
