@@ -23,11 +23,16 @@ class RedeemVoucher
      */
     public function handle(PhotoboothSession $session, string $code): ?Voucher
     {
+        $normalizedCode = Str::of($code)->trim()->upper()->value();
+
         if ($session->expireIfPast()) {
+            Log::warning('Voucher redemption failed: session expired.', [
+                'voucher_code' => $normalizedCode,
+                'session_token' => $session->session_token,
+            ]);
+
             return null;
         }
-
-        $normalizedCode = Str::of($code)->trim()->upper()->value();
 
         return DB::transaction(function () use ($session, $normalizedCode) {
             $session = PhotoboothSession::whereKey($session->id)->lockForUpdate()->first();

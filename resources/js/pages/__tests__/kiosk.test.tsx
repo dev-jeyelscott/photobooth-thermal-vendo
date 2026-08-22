@@ -443,9 +443,7 @@ describe('Kiosk', () => {
 
         // Recovering from the timeout must resume polling the existing
         // checkout, not create a second one.
-        await user.click(
-            screen.getByRole('button', { name: 'Retry Payment' }),
-        );
+        await user.click(screen.getByRole('button', { name: 'Retry Payment' }));
 
         expect(paymentPostCount).toBe(1);
 

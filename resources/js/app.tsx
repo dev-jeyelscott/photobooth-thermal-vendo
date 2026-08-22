@@ -11,11 +11,13 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
+
+    // Select the persistent application shell for each Inertia page.
     layout: (name) => {
         switch (true) {
             case name === 'welcome':
                 return null;
-            case name === 'kiosk':
+            case name === 'kiosk' || name === 'gallery':
                 return KioskLayout;
             case name.startsWith('auth/'):
                 return AuthLayout;
@@ -28,6 +30,8 @@ createInertiaApp({
         }
     },
     strictMode: true,
+
+    // Wrap every Inertia page with application-wide UI providers.
     withApp(app) {
         return (
             <TooltipProvider delayDuration={0}>
@@ -41,5 +45,5 @@ createInertiaApp({
     },
 });
 
-// This will set light / dark mode on load...
+// This will set light / dark mode on load.
 initializeTheme();

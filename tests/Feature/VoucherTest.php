@@ -124,6 +124,26 @@ test('an unknown voucher code logs a warning with the code and session token', f
             && $context['session_token'] === $session->session_token);
 });
 
+test('a redemption attempt against an expired session logs a warning with the code and session token', function () {
+    Log::spy();
+
+    $voucher = Voucher::factory()->create(['usage_limit' => 1, 'usage_count' => 0]);
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::New,
+        'expires_at' => now()->subMinute(),
+    ]);
+
+    $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        'code' => $voucher->code,
+    ])->assertStatus(422);
+
+    Log::shouldHaveReceived('warning')
+        ->once()
+        ->withArgs(fn (string $message, array $context) => str_contains($message, 'session expired')
+            && $context['voucher_code'] === strtoupper($voucher->code)
+            && $context['session_token'] === $session->session_token);
+});
+
 test('a voucher code with an invalid format is rejected', function () {
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 

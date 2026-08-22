@@ -63,17 +63,27 @@ export function useCamera() {
     const streamRef = useRef<MediaStream | null>(null);
     const hasPermissionRef = useRef(false);
     const selectedDeviceIdRef = useRef<string | null>(null);
-    const handleTrackEndedRef = useRef<((this: MediaStreamTrack, event: Event) => void) | null>(null);
+    const handleTrackEndedRef = useRef<
+        ((this: MediaStreamTrack, event: Event) => void) | null
+    >(null);
 
-    const detachTrackEndedListeners = useCallback((mediaStream: MediaStream) => {
-        if (!handleTrackEndedRef.current) {
-            return;
-        }
+    const detachTrackEndedListeners = useCallback(
+        (mediaStream: MediaStream) => {
+            if (!handleTrackEndedRef.current) {
+                return;
+            }
 
-        mediaStream
-            .getTracks()
-            .forEach((track) => track.removeEventListener('ended', handleTrackEndedRef.current!));
-    }, []);
+            mediaStream
+                .getTracks()
+                .forEach((track) =>
+                    track.removeEventListener(
+                        'ended',
+                        handleTrackEndedRef.current!,
+                    ),
+                );
+        },
+        [],
+    );
 
     const stop = useCallback(() => {
         if (streamRef.current) {
@@ -85,73 +95,76 @@ export function useCamera() {
         setStream(null);
     }, [detachTrackEndedListeners]);
 
-    const start = useCallback(async (deviceId?: string) => {
-        if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
-            setError('unknown');
+    const start = useCallback(
+        async (deviceId?: string) => {
+            if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
+                setError('unknown');
 
-            return;
-        }
+                return;
+            }
 
-        if (streamRef.current) {
-            detachTrackEndedListeners(streamRef.current);
-            streamRef.current.getTracks().forEach((track) => track.stop());
-        }
+            if (streamRef.current) {
+                detachTrackEndedListeners(streamRef.current);
+                streamRef.current.getTracks().forEach((track) => track.stop());
+            }
 
-        streamRef.current = null;
-        setStream(null);
-        setIsStarting(true);
-        setError(null);
-
-        try {
-            let mediaStream: MediaStream;
+            streamRef.current = null;
+            setStream(null);
+            setIsStarting(true);
+            setError(null);
 
             try {
-                mediaStream = await navigator.mediaDevices.getUserMedia({
-                    video: buildVideoConstraints(deviceId),
-                });
-            } catch (constraintError) {
-                if (
-                    !(constraintError instanceof DOMException) ||
-                    constraintError.name !== 'OverconstrainedError'
-                ) {
-                    throw constraintError;
+                let mediaStream: MediaStream;
+
+                try {
+                    mediaStream = await navigator.mediaDevices.getUserMedia({
+                        video: buildVideoConstraints(deviceId),
+                    });
+                } catch (constraintError) {
+                    if (
+                        !(constraintError instanceof DOMException) ||
+                        constraintError.name !== 'OverconstrainedError'
+                    ) {
+                        throw constraintError;
+                    }
+
+                    mediaStream = await navigator.mediaDevices.getUserMedia({
+                        video: buildRelaxedVideoConstraints(deviceId),
+                    });
                 }
 
-                mediaStream = await navigator.mediaDevices.getUserMedia({
-                    video: buildRelaxedVideoConstraints(deviceId),
-                });
+                streamRef.current = mediaStream;
+                setStream(mediaStream);
+                hasPermissionRef.current = true;
+
+                const activeDeviceId =
+                    mediaStream.getVideoTracks()[0]?.getSettings().deviceId ??
+                    deviceId ??
+                    null;
+                selectedDeviceIdRef.current = activeDeviceId;
+                setSelectedDeviceId(activeDeviceId);
+
+                const videoInputDevices = await listVideoInputDevices();
+                setDevices(videoInputDevices);
+
+                if (handleTrackEndedRef.current) {
+                    mediaStream
+                        .getTracks()
+                        .forEach((track) =>
+                            track.addEventListener(
+                                'ended',
+                                handleTrackEndedRef.current!,
+                            ),
+                        );
+                }
+            } catch (caughtError) {
+                setError(resolveErrorReason(caughtError));
+            } finally {
+                setIsStarting(false);
             }
-
-            streamRef.current = mediaStream;
-            setStream(mediaStream);
-            hasPermissionRef.current = true;
-
-            const activeDeviceId =
-                mediaStream.getVideoTracks()[0]?.getSettings().deviceId ??
-                deviceId ??
-                null;
-            selectedDeviceIdRef.current = activeDeviceId;
-            setSelectedDeviceId(activeDeviceId);
-
-            const videoInputDevices = await listVideoInputDevices();
-            setDevices(videoInputDevices);
-
-            if (handleTrackEndedRef.current) {
-                mediaStream
-                    .getTracks()
-                    .forEach((track) =>
-                        track.addEventListener(
-                            'ended',
-                            handleTrackEndedRef.current!,
-                        ),
-                    );
-            }
-        } catch (caughtError) {
-            setError(resolveErrorReason(caughtError));
-        } finally {
-            setIsStarting(false);
-        }
-    }, [detachTrackEndedListeners]);
+        },
+        [detachTrackEndedListeners],
+    );
 
     const selectDevice = useCallback(
         (deviceId: string) => {

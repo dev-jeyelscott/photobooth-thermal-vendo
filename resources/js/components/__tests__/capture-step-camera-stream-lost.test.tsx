@@ -58,9 +58,15 @@ describe('CaptureStep camera stream loss recovery', () => {
             configurable: true,
             value: {
                 getUserMedia,
-                enumerateDevices: vi.fn().mockResolvedValue([
-                    { deviceId: 'device-1', kind: 'videoinput', label: 'Camera 1' },
-                ]),
+                enumerateDevices: vi
+                    .fn()
+                    .mockResolvedValue([
+                        {
+                            deviceId: 'device-1',
+                            kind: 'videoinput',
+                            label: 'Camera 1',
+                        },
+                    ]),
                 addEventListener: vi.fn(),
                 removeEventListener: vi.fn(),
             },
