@@ -9,6 +9,7 @@ use App\Models\PrintJob;
 use App\Models\User;
 use App\Models\Voucher;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 test('the daily report requires authentication', function () {
     $this->get(route('admin.reports.daily'))->assertRedirect(route('login'));
@@ -447,6 +448,55 @@ test('admin can export the date range report as a streamed csv', function () {
         'SAVE10',
         '',
     ]);
+});
+
+test('the report export eager loads relations without per-row lazy loading', function () {
+    $user = User::factory()->create();
+    $day = now()->subDays(2)->startOfDay();
+
+    $sessions = collect(range(1, 5))->map(function (int $i) use ($day) {
+        $session = PhotoboothSession::factory()->create([
+            'status' => PhotoboothSessionStatus::Completed,
+            'payment_method' => PaymentMethod::Maya,
+            'started_at' => $day->copy()->setTime(8 + $i, 0),
+            'updated_at' => $day->copy()->setTime(8 + $i, 0),
+        ]);
+        Payment::factory()->for($session, 'photoboothSession')->success()->create([
+            'amount' => '100.00',
+            'updated_at' => $day->copy()->setTime(8 + $i, 0),
+        ]);
+        PrintJob::factory()->for($session, 'photoboothSession')->printed()->create();
+
+        return $session;
+    });
+
+    DB::enableQueryLog();
+
+    $response = $this->actingAs($user)->get(route('admin.reports.export', [
+        'start' => $day->toDateString(),
+        'end' => $day->copy()->endOfDay()->toDateString(),
+    ]));
+
+    $rows = array_map('str_getcsv', explode("\n", trim($response->streamedContent())));
+    array_shift($rows);
+
+    $queryCount = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($rows)->toHaveCount($sessions->count());
+
+    // Eager loading via lazy() keeps the query count independent of the exported row
+    // count (one query per relation per batch), rather than growing per-session (N+1).
+    expect($queryCount)->toBeLessThan($sessions->count() * 3);
+
+    foreach ($sessions as $session) {
+        $row = collect($rows)->first(fn ($row) => $row[0] === $session->session_token);
+
+        expect($row[2])->toBe('maya')
+            ->and($row[3])->toBe('success')
+            ->and($row[4])->toBe('100.00')
+            ->and($row[6])->toBe('printed');
+    }
 });
 
 test('the report export rejects an inverted date range', function () {

@@ -106,7 +106,7 @@ class ReportController extends Controller
                 ->with(['payment', 'voucher', 'printJob'])
                 ->whereBetween('updated_at', [$start, $end])
                 ->orderBy('updated_at')
-                ->cursor()
+                ->lazy()
                 ->each(function (PhotoboothSession $session) use ($handle) {
                     fputcsv($handle, [
                         $session->session_token,
