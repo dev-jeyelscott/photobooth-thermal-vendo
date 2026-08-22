@@ -50,8 +50,9 @@ class ReportController extends Controller
             'month' => ['sometimes', 'integer', 'min:1', 'max:12'],
         ]);
 
-        $year = $request->integer('year', Carbon::now()->year);
-        $month = $request->integer('month', Carbon::now()->month);
+        $now = Carbon::now();
+        $year = $request->integer('year', $now->year);
+        $month = $request->integer('month', $now->month);
 
         $start = Carbon::create($year, $month, 1)->startOfMonth();
         $end = $start->copy()->endOfMonth();

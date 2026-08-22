@@ -8,6 +8,7 @@ use App\Models\PhotoboothSession;
 use App\Models\PrintJob;
 use App\Models\User;
 use App\Models\Voucher;
+use Illuminate\Support\Carbon;
 
 test('the daily report requires authentication', function () {
     $this->get(route('admin.reports.daily'))->assertRedirect(route('login'));
@@ -210,6 +211,25 @@ test('an invalid month parameter is rejected', function () {
     $response = $this->actingAs($user)->get(route('admin.reports.monthly', ['month' => 13]));
 
     $response->assertSessionHasErrors('month');
+});
+
+test('the monthly report defaults to the current year and month using a single point in time', function () {
+    $user = User::factory()->create();
+
+    // Simulate the request occurring right at the January year boundary; the default
+    // year and month must both come from the same instant, not drift between two calls.
+    Carbon::setTestNow(Carbon::create(2026, 1, 1, 0, 0, 0));
+
+    $response = $this->actingAs($user)->get(route('admin.reports.monthly'));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('admin/reports/monthly')
+        ->where('year', 2026)
+        ->where('month', 1)
+    );
+
+    Carbon::setTestNow();
 });
 
 test('the range report requires authentication', function () {
