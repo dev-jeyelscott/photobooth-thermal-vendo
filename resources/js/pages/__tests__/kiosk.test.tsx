@@ -60,12 +60,19 @@ type Route = {
     handler: () => { status: number; body: unknown };
 };
 
+/**
+ * Creates the minimal Response-compatible JSON object used by kiosk fetch mocks.
+ */
 const jsonResponse = (status: number, body: unknown) => ({
     ok: status >= 200 && status < 300,
     status,
     json: async () => body,
 });
 
+/**
+ * Creates a deterministic fetch mock that dispatches requests to matching
+ * method and pathname handlers.
+ */
 const createFetchMock = (routes: Route[]) =>
     vi.fn(async (input: string | URL, init?: RequestInit) => {
         const method = (init?.method ?? 'get').toLowerCase();
@@ -92,6 +99,14 @@ const paymentStatusState = {
     paymentStatus: 'succeeded' as string | null,
 };
 
+/**
+ * Simulates the durable session state updated asynchronously by the queued
+ * captured-media processing job.
+ */
+const processingState = {
+    galleryToken: null as string | null,
+};
+
 const baseRoutes: Route[] = [
     {
         method: 'post',
@@ -105,6 +120,8 @@ const baseRoutes: Route[] = [
                 expiresAt: new Date(Date.now() + 60_000).toISOString(),
                 paymentStatus: null,
                 printJobStatus: null,
+                requiredCaptureCount: 3,
+                galleryToken: null,
             },
         }),
     },
@@ -136,6 +153,8 @@ const baseRoutes: Route[] = [
                 expiresAt: new Date(Date.now() + 60_000).toISOString(),
                 paymentStatus: paymentStatusState.paymentStatus,
                 printJobStatus: 'printed',
+                requiredCaptureCount: 3,
+                galleryToken: processingState.galleryToken,
             },
         }),
     },
@@ -167,10 +186,17 @@ const baseRoutes: Route[] = [
     {
         method: 'post',
         pattern: /^\/kiosk\/sessions\/[^/]+\/color-output$/,
-        handler: () => ({
-            status: 200,
-            body: { status: 'complete', galleryToken: 'gallery-token-xyz' },
-        }),
+        handler: () => {
+            processingState.galleryToken = 'gallery-token-xyz';
+
+            return {
+                status: 202,
+                body: {
+                    status: 'processing',
+                    processing: true,
+                },
+            };
+        },
     },
 ];
 
@@ -178,6 +204,8 @@ describe('Kiosk', () => {
     beforeEach(() => {
         paymentStatusState.status = 'paid';
         paymentStatusState.paymentStatus = 'succeeded';
+        processingState.galleryToken = null;
+
         global.fetch = createFetchMock(baseRoutes) as unknown as typeof fetch;
     });
 
@@ -262,7 +290,7 @@ describe('Kiosk', () => {
                     sessionPollCount += 1;
 
                     // The very first poll after checkout creation fails
-                    // transiently (e.g. a dropped connection).
+                    // transiently, such as a dropped connection.
                     if (sessionPollCount === 1) {
                         throw new TypeError('Failed to fetch');
                     }
@@ -279,6 +307,8 @@ describe('Kiosk', () => {
                         expiresAt: new Date(Date.now() + 60_000).toISOString(),
                         paymentStatus: paymentStatusState.paymentStatus,
                         printJobStatus: null,
+                        requiredCaptureCount: 3,
+                        galleryToken: null,
                     }) as unknown as Response;
                 }
 
@@ -308,11 +338,12 @@ describe('Kiosk', () => {
             await screen.findByTestId('kiosk-payment-checkout-link'),
         ).toBeInTheDocument();
 
-        // First poll fails transiently; the kiosk keeps waiting instead of
+        // First poll fails transiently. The kiosk keeps waiting instead of
         // surfacing a hard error immediately.
         await act(async () => {
             vi.advanceTimersByTime(3000);
         });
+
         expect(
             screen.queryByTestId('kiosk-error-network-interruption'),
         ).not.toBeInTheDocument();
@@ -356,7 +387,11 @@ describe('Kiosk', () => {
     });
 
     it('runs the full happy-path session through to the QR gallery screen', async () => {
-        const user = userEvent.setup();
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        const user = userEvent.setup({
+            advanceTimers: vi.advanceTimersByTime,
+        });
 
         render(<Kiosk />);
 
@@ -371,15 +406,18 @@ describe('Kiosk', () => {
         const templateOption = await screen.findByTestId('kiosk-template-1');
         await user.click(templateOption);
 
-        // Phase 4: capture workflow (component under test elsewhere; stubbed here).
+        // Phase 4: capture workflow. The component is tested separately and
+        // stubbed here so this test can focus on the complete kiosk state flow.
         expect(
             await screen.findByTestId('kiosk-capture-stub'),
         ).toBeInTheDocument();
+
         await user.click(
             screen.getByRole('button', { name: 'complete capture' }),
         );
 
         expect(await screen.findByTestId('kiosk-captured')).toBeInTheDocument();
+
         await user.click(
             screen.getByRole('button', { name: 'Choose a Sticker' }),
         );
@@ -387,20 +425,33 @@ describe('Kiosk', () => {
         // Phase 5: sticker selection.
         const stickerOption = await screen.findByTestId('kiosk-sticker-1');
         await user.click(stickerOption);
+
         await waitFor(() => {
             expect(
                 screen.getByRole('button', { name: 'Continue' }),
             ).toBeEnabled();
         });
+
         await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-        // Preview confirmation kicks off processing.
+        // Preview confirmation queues final composition and enters processing.
         await user.click(
             await screen.findByRole('button', { name: 'Confirm' }),
         );
 
-        // Phase 6: processing state, then Phase 7: QR result screen.
+        expect(
+            await screen.findByTestId('kiosk-processing'),
+        ).toBeInTheDocument();
+
+        // The real kiosk polls durable session state every two seconds until
+        // the queued composition job publishes its gallery token.
+        await act(async () => {
+            vi.advanceTimersByTime(2000);
+        });
+
+        // Phase 7: the session poll exposes the generated gallery token.
         const galleryQr = await screen.findByTestId('kiosk-gallery-qr-code');
+
         expect(galleryQr.getAttribute('src')).toContain('gallery-token-xyz');
     });
 
@@ -416,6 +467,7 @@ describe('Kiosk', () => {
         );
 
         await user.click(await screen.findByTestId('kiosk-template-1'));
+
         await user.click(
             await screen.findByRole('button', { name: 'complete capture' }),
         );
@@ -430,6 +482,7 @@ describe('Kiosk', () => {
         // Voucher input state was cleared, so restarting the enter-voucher
         // flow starts from a blank field rather than the previous code.
         await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
+
         expect(screen.getByTestId('kiosk-voucher-input')).toHaveValue('');
     });
 });
