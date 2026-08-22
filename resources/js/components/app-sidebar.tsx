@@ -1,6 +1,8 @@
 import { Link } from '@inertiajs/react';
 import {
+    BarChart3,
     BookOpen,
+    CreditCard,
     FolderGit2,
     Images,
     LayoutGrid,
@@ -23,6 +25,8 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes/admin';
+import { index as paymentsIndex } from '@/routes/admin/payments';
+import { daily as reportsDaily } from '@/routes/admin/reports';
 import { index as sessionsIndex } from '@/routes/admin/sessions';
 import { edit as settingsEdit } from '@/routes/admin/settings';
 import { index as stickersIndex } from '@/routes/admin/stickers';
@@ -61,6 +65,18 @@ export const adminNavigationItems: NavItem[] = [
         matches: 'prefix',
     },
     {
+        title: 'Payments',
+        href: paymentsIndex(),
+        icon: CreditCard,
+        matches: 'prefix',
+    },
+    {
+        title: 'Reports',
+        href: reportsDaily(),
+        icon: BarChart3,
+        matches: 'prefix',
+    },
+    {
         title: 'System settings',
         href: settingsEdit(),
         icon: Settings,
@@ -81,6 +97,9 @@ const footerNavItems: NavItem[] = [
     },
 ];
 
+/**
+ * Renders the authenticated admin navigation shell.
+ */
 export function AppSidebar() {
     return (
         <Sidebar collapsible="icon" variant="inset">

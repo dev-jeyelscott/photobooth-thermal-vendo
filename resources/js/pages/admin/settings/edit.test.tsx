@@ -18,7 +18,9 @@ vi.mock('@inertiajs/react', () => ({
             errors: Record<string, string>;
         }) => ReactNode;
     }) => (
-        <form>{children({ processing: false, errors: formErrors.current })}</form>
+        <form>
+            {children({ processing: false, errors: formErrors.current })}
+        </form>
     ),
 }));
 

@@ -273,10 +273,7 @@ describe('sticker form accessibility', () => {
             name: 'Compatible templates (none selected means all templates)',
         });
         expect(group).toHaveAttribute('aria-invalid', 'true');
-        expect(group).toHaveAttribute(
-            'aria-describedby',
-            'template_ids-error',
-        );
+        expect(group).toHaveAttribute('aria-describedby', 'template_ids-error');
 
         const classic = screen.getByLabelText('Classic');
         const party = screen.getByLabelText('Party');
@@ -285,10 +282,7 @@ describe('sticker form accessibility', () => {
             'template_ids-error',
         );
         expect(classic).toHaveAttribute('aria-invalid', 'true');
-        expect(party).toHaveAttribute(
-            'aria-describedby',
-            'template_ids-error',
-        );
+        expect(party).toHaveAttribute('aria-describedby', 'template_ids-error');
         expect(party).toHaveAttribute('aria-invalid', 'true');
 
         const message = screen.getByText(
