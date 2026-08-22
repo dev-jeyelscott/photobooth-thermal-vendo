@@ -237,6 +237,7 @@ export function CaptureStep({
                         <Button
                             type="button"
                             variant="outline"
+                            size="lg"
                             disabled={retakesRemaining <= 0 || isSaving}
                             onClick={retakeShot}
                         >
@@ -244,6 +245,7 @@ export function CaptureStep({
                         </Button>
                         <Button
                             type="button"
+                            size="lg"
                             disabled={isSaving}
                             onClick={keepShot}
                         >

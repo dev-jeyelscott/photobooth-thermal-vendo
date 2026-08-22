@@ -82,6 +82,7 @@ export default function Kiosk({
     const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
     const [paymentAttempt, setPaymentAttempt] = useState(0);
     const [printFailed, setPrintFailed] = useState(false);
+    const [isPrinting, setIsPrinting] = useState(true);
     const [kioskError, setKioskError] = useState<KioskErrorKind | null>(null);
     const [kioskErrorMessage, setKioskErrorMessage] = useState<string | null>(
         null,
@@ -145,6 +146,7 @@ export default function Kiosk({
         setGalleryToken(null);
         setCheckoutUrl(null);
         setPrintFailed(false);
+        setIsPrinting(true);
         clearKioskError();
         resetTimer();
     };
@@ -473,11 +475,13 @@ export default function Kiosk({
 
             if (refreshed.printJobStatus === 'failed') {
                 setPrintFailed(true);
-            } else if (
-                refreshed.printJobStatus !== 'printed' &&
-                attempts < PRINT_POLL_ATTEMPTS
-            ) {
+                setIsPrinting(false);
+            } else if (refreshed.printJobStatus === 'printed') {
+                setIsPrinting(false);
+            } else if (attempts < PRINT_POLL_ATTEMPTS) {
                 schedulePoll(PRINT_POLL_INTERVAL_MS);
+            } else {
+                setIsPrinting(false);
             }
         };
 
@@ -871,6 +875,14 @@ export default function Kiosk({
                                     alt="QR code linking to your photo gallery"
                                     className="h-64 w-64 rounded-xl bg-white p-4 shadow-lg"
                                 />
+                                {isPrinting && !printFailed && (
+                                    <p
+                                        data-testid="kiosk-printing-status"
+                                        className="text-sm text-neutral-300 sm:text-base"
+                                    >
+                                        Printing your photo receipt…
+                                    </p>
+                                )}
                                 {printFailed && (
                                     <KioskErrorState
                                         kind="print-failure"
