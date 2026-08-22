@@ -50,9 +50,7 @@ export default function VouchersIndex({ vouchers }: { vouchers: Voucher[] }) {
                                 <th className="p-3 font-medium">Usage</th>
                                 <th className="p-3 font-medium">Expires</th>
                                 <th className="p-3 font-medium">Status</th>
-                                <th className="p-3 font-medium">
-                                    Redemptions
-                                </th>
+                                <th className="p-3 font-medium">Redemptions</th>
                                 <th className="p-3 text-right font-medium">
                                     Actions
                                 </th>
@@ -115,11 +113,20 @@ export default function VouchersIndex({ vouchers }: { vouchers: Voucher[] }) {
                                                             key={
                                                                 redemption.sessionToken
                                                             }
-                                                            className="font-mono text-xs"
+                                                            className="flex flex-col text-xs"
                                                         >
-                                                            {
-                                                                redemption.sessionToken
-                                                            }
+                                                            <span className="font-mono">
+                                                                {
+                                                                    redemption.sessionToken
+                                                                }
+                                                            </span>
+                                                            <span className="text-muted-foreground">
+                                                                {redemption.startedAt
+                                                                    ? new Date(
+                                                                          redemption.startedAt,
+                                                                      ).toLocaleString()
+                                                                    : 'Not started'}
+                                                            </span>
                                                         </li>
                                                     ),
                                                 )}

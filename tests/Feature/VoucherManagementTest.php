@@ -157,6 +157,16 @@ test('admin voucher edit view lists sessions that redeemed the voucher', functio
     $response->assertInertia(fn ($page) => $page
         ->component('admin/vouchers/edit')
         ->where('voucher.redemptions.0.sessionToken', $redeemingSession->session_token)
+        ->where('voucher.redemptions.0.startedAt', $redeemingSession->started_at?->toIso8601String())
+    );
+
+    $indexResponse = $this->actingAs($user)->get(route('admin.vouchers.index'));
+
+    $indexResponse->assertOk();
+    $indexResponse->assertInertia(fn ($page) => $page
+        ->component('admin/vouchers/index')
+        ->where('vouchers.0.redemptions.0.sessionToken', $redeemingSession->session_token)
+        ->where('vouchers.0.redemptions.0.startedAt', $redeemingSession->started_at?->toIso8601String())
     );
 });
 
