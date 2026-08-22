@@ -5,6 +5,20 @@ use App\Models\PhotoboothSession;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
+test('session creation is rate limited per client', function () {
+    config(['photobooth.rate_limits.session_creation_attempts_per_minute' => 2]);
+
+    for ($attempt = 0; $attempt < 3; $attempt++) {
+        $response = $this->postJson(route('kiosk.sessions.store'));
+
+        if ($attempt < 2) {
+            $response->assertCreated();
+        } else {
+            $response->assertTooManyRequests();
+        }
+    }
+});
+
 test('payment creation is rate limited per client', function () {
     config(['photobooth.rate_limits.payment_attempts_per_minute' => 2]);
 

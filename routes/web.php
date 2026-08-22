@@ -25,7 +25,9 @@ Route::inertia('kiosk', 'kiosk', [
     'maintenanceMessage' => fn () => Settings::get('maintenance_message'),
 ])->name('kiosk');
 
-Route::post('kiosk/sessions', [PhotoboothSessionController::class, 'store'])->name('kiosk.sessions.store');
+Route::post('kiosk/sessions', [PhotoboothSessionController::class, 'store'])
+    ->middleware('throttle:session-creation')
+    ->name('kiosk.sessions.store');
 Route::get('kiosk/sessions/{sessionToken}', [PhotoboothSessionController::class, 'show'])
     ->whereUuid('sessionToken')
     ->name('kiosk.sessions.show');

@@ -72,6 +72,10 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
+        RateLimiter::for('session-creation', fn (Request $request): Limit => Limit::perMinute(
+            (int) config('photobooth.rate_limits.session_creation_attempts_per_minute'),
+        )->by($request->ip()));
+
         RateLimiter::for('payment-creation', fn (Request $request): Limit => Limit::perMinute(
             (int) config('photobooth.rate_limits.payment_attempts_per_minute'),
         )->by($request->ip()));

@@ -133,3 +133,25 @@ test('an abandoned session is unrecoverable', function () {
 
     $response->assertStatus(410);
 });
+
+test('a session cannot be resumed using another session numeric id in place of its token', function () {
+    $ownSession = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+    $otherSession = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::PaymentPending]);
+
+    $response = $this->getJson(route('kiosk.sessions.show', (string) $otherSession->id));
+
+    $response->assertNotFound();
+
+    expect($ownSession->fresh()->status)->toBe(PhotoboothSessionStatus::New);
+});
+
+test('resuming a session with another session token does not expose the other session captured media', function () {
+    $sessionA = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Completed]);
+    $sessionB = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Completed]);
+    $mediaB = CapturedMedia::factory()->for($sessionB, 'photoboothSession')->create();
+
+    $response = $this->getJson(route('kiosk.sessions.show', $sessionA->session_token));
+
+    $response->assertOk();
+    $response->assertJsonMissing(['galleryToken' => $mediaB->public_token]);
+});

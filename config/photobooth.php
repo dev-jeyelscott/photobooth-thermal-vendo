@@ -262,6 +262,7 @@ return [
     */
 
     'rate_limits' => [
+        'session_creation_attempts_per_minute' => env('PHOTOBOOTH_SESSION_CREATION_RATE_LIMIT_PER_MINUTE', 20),
         'payment_attempts_per_minute' => env('PHOTOBOOTH_PAYMENT_RATE_LIMIT_PER_MINUTE', 10),
         'voucher_attempts_per_minute' => env('PHOTOBOOTH_VOUCHER_RATE_LIMIT_PER_MINUTE', 10),
     ],
