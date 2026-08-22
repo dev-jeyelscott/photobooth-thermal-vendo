@@ -16,6 +16,7 @@ use App\Models\StickerDesign;
 use App\Models\User;
 use App\Models\Voucher;
 use Carbon\CarbonInterface;
+use Illuminate\Console\Command;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -60,9 +61,16 @@ class DemoSeeder extends Seeder
     public function run(): void
     {
         if (! in_array(app()->environment(), ['local', 'testing', 'demo'], true)) {
-            if (isset($this->command)) {
-                $this->command->warn('ThermaSnap demo seeding is disabled outside local, testing, and demo environments.');
-            }
+            /**
+             * Laravel's Seeder::$command PHPDoc declares Command, but the
+             * property can remain null when the seeder is invoked without
+             * an Artisan seeding command.
+             *
+             * @var Command|null $command
+             */
+            $command = $this->command;
+
+            $command?->warn('ThermaSnap demo seeding is disabled outside local, testing, and demo environments.');
 
             return;
         }
@@ -224,6 +232,7 @@ class DemoSeeder extends Seeder
     private function seedVouchers(): array
     {
         $now = now();
+
         $definitions = [
             'single' => ['THERMA-DEMO-1', true, $now->subDay(), $now->addMonth(), 1, 0],
             'friends' => ['THERMA-FRIENDS', true, $now->subMonth(), $now->addMonth(), 10, 2],
@@ -391,13 +400,20 @@ class DemoSeeder extends Seeder
     /**
      * Create a deterministic synthetic Maya payment without contacting Maya.
      */
-    private function createMayaPayment(PhotoboothSession $session, PaymentStatus $status, int $sequence, CarbonInterface $createdAt, CarbonInterface $updatedAt): void
-    {
+    private function createMayaPayment(
+        PhotoboothSession $session,
+        PaymentStatus $status,
+        int $sequence,
+        CarbonInterface $createdAt,
+        CarbonInterface $updatedAt,
+    ): void {
         Payment::factory()->for($session, 'photoboothSession')->create([
             'method' => PaymentMethod::Maya,
             'status' => $status,
             'maya_checkout_id' => sprintf('10000000-0000-4000-8000-%012d', $sequence),
-            'maya_payment_id' => $status === PaymentStatus::Pending ? null : sprintf('20000000-0000-4000-8000-%012d', $sequence),
+            'maya_payment_id' => $status === PaymentStatus::Pending
+                ? null
+                : sprintf('20000000-0000-4000-8000-%012d', $sequence),
             'amount' => '50.00',
             'created_at' => $createdAt,
             'updated_at' => $updatedAt,
@@ -411,6 +427,7 @@ class DemoSeeder extends Seeder
     {
         $disk = Storage::disk('public');
         $prefix = 'captures/demo/'.$session->session_token;
+
         $paths = [
             'color_path' => $prefix.'-color.jpg',
             'bw_path' => $prefix.'-bw.jpg',
@@ -433,8 +450,13 @@ class DemoSeeder extends Seeder
     /**
      * Create a print record that remains consistent with the current print lifecycle.
      */
-    private function createPrintJob(PhotoboothSession $session, PrintJobStatus $status, int $attempts, ?string $error, CarbonInterface $occurredAt): void
-    {
+    private function createPrintJob(
+        PhotoboothSession $session,
+        PrintJobStatus $status,
+        int $attempts,
+        ?string $error,
+        CarbonInterface $occurredAt,
+    ): void {
         PrintJob::factory()->for($session, 'photoboothSession')->create([
             'status' => $status,
             'attempt_count' => $attempts,
@@ -471,6 +493,7 @@ class DemoSeeder extends Seeder
     private function seedAssets(): void
     {
         $disk = Storage::disk('public');
+
         $disk->deleteDirectory('demo');
         $disk->deleteDirectory('captures/demo');
 
@@ -482,8 +505,19 @@ class DemoSeeder extends Seeder
         ];
 
         foreach ($templateAssets as [$slug, $width, $height, $background]) {
-            $this->writePng("demo/templates/{$slug}-layout.png", $width, $height, $background);
-            $this->writePng("demo/templates/{$slug}-thumbnail.png", max(200, intdiv($width, 2)), max(200, intdiv($height, 2)), $background);
+            $this->writePng(
+                "demo/templates/{$slug}-layout.png",
+                $width,
+                $height,
+                $background,
+            );
+
+            $this->writePng(
+                "demo/templates/{$slug}-thumbnail.png",
+                max(200, intdiv($width, 2)),
+                max(200, intdiv($height, 2)),
+                $background,
+            );
         }
 
         foreach ([
@@ -493,7 +527,12 @@ class DemoSeeder extends Seeder
             ['archived-star', '#94a3b8'],
         ] as [$slug, $background]) {
             $this->writePng("demo/stickers/{$slug}.png", 256, 256, $background);
-            $this->writePng("demo/stickers/thumbnails/{$slug}.png", 128, 128, $background);
+            $this->writePng(
+                "demo/stickers/thumbnails/{$slug}.png",
+                128,
+                128,
+                $background,
+            );
         }
 
         $this->writeJpeg('demo/media/sample-color.jpg', 1200, 1600, '#fde68a');
@@ -506,7 +545,10 @@ class DemoSeeder extends Seeder
      */
     private function writePng(string $path, int $width, int $height, string $background): void
     {
-        $image = app(ImageManager::class)->createImage($width, $height)->fill($background);
+        $image = app(ImageManager::class)
+            ->createImage($width, $height)
+            ->fill($background);
+
         $this->put($path, (string) $image->encode(new PngEncoder));
     }
 
@@ -515,8 +557,14 @@ class DemoSeeder extends Seeder
      */
     private function writeJpeg(string $path, int $width, int $height, string $background): void
     {
-        $image = app(ImageManager::class)->createImage($width, $height)->fill($background);
-        $this->put($path, (string) $image->encode(new JpegEncoder(quality: 88)));
+        $image = app(ImageManager::class)
+            ->createImage($width, $height)
+            ->fill($background);
+
+        $this->put(
+            $path,
+            (string) $image->encode(new JpegEncoder(quality: 88)),
+        );
     }
 
     /**
@@ -524,7 +572,10 @@ class DemoSeeder extends Seeder
      */
     private function writeGif(string $path, int $width, int $height, string $background): void
     {
-        $image = app(ImageManager::class)->createImage($width, $height)->fill($background);
+        $image = app(ImageManager::class)
+            ->createImage($width, $height)
+            ->fill($background);
+
         $this->put($path, (string) $image->encode(new GifEncoder));
     }
 
