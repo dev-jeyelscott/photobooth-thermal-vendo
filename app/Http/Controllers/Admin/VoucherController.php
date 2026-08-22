@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreVoucherRequest;
 use App\Http\Requests\Admin\UpdateVoucherRequest;
+use App\Models\PhotoboothSession;
 use App\Models\Voucher;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -18,6 +19,7 @@ class VoucherController extends Controller
     public function index(): Response
     {
         $vouchers = Voucher::query()
+            ->with('photoboothSessions')
             ->orderByDesc('created_at')
             ->get()
             ->map(fn (Voucher $voucher) => $this->presentVoucher($voucher));
@@ -44,6 +46,7 @@ class VoucherController extends Controller
 
         Voucher::create([
             'code' => $validated['code'],
+            'valid_from' => $validated['valid_from'] ?? null,
             'expires_at' => $validated['expires_at'] ?? null,
             'usage_limit' => $validated['usage_limit'],
             'active' => $request->boolean('active', true),
@@ -59,6 +62,8 @@ class VoucherController extends Controller
      */
     public function edit(Voucher $voucher): Response
     {
+        $voucher->load('photoboothSessions');
+
         return Inertia::render('admin/vouchers/edit', [
             'voucher' => $this->presentVoucher($voucher),
         ]);
@@ -73,6 +78,7 @@ class VoucherController extends Controller
 
         $voucher->update([
             'code' => $validated['code'],
+            'valid_from' => $validated['valid_from'] ?? null,
             'expires_at' => $validated['expires_at'] ?? null,
             'usage_limit' => $validated['usage_limit'],
             'active' => $request->boolean('active'),
@@ -116,9 +122,17 @@ class VoucherController extends Controller
             'id' => $voucher->id,
             'code' => $voucher->code,
             'active' => $voucher->active,
+            'validFrom' => $voucher->valid_from?->toIso8601String(),
             'expiresAt' => $voucher->expires_at?->toIso8601String(),
             'usageLimit' => $voucher->usage_limit,
             'usageCount' => $voucher->usage_count,
+            'redemptions' => $voucher->photoboothSessions
+                ->map(fn (PhotoboothSession $session) => [
+                    'sessionToken' => $session->session_token,
+                    'startedAt' => $session->started_at?->toIso8601String(),
+                ])
+                ->values()
+                ->all(),
         ];
     }
 }

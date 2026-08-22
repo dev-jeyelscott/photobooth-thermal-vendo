@@ -96,6 +96,70 @@ test('admin can update a voucher expiration and usage limit without editing usag
         ->and($voucher->usage_count)->toBe(1);
 });
 
+test('admin can create a voucher with a valid_from date not after expires_at', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post(route('admin.vouchers.store'), [
+        'code' => 'EARLY-BIRD',
+        'valid_from' => now()->addDay()->toDateTimeString(),
+        'expires_at' => now()->addMonth()->toDateTimeString(),
+        'usage_limit' => 3,
+    ]);
+
+    $response->assertRedirect(route('admin.vouchers.index'));
+
+    $voucher = Voucher::where('code', 'EARLY-BIRD')->sole();
+    expect($voucher->valid_from)->not->toBeNull();
+});
+
+test('admin cannot set a valid_from date after expires_at', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post(route('admin.vouchers.store'), [
+        'code' => 'BAD-WINDOW',
+        'valid_from' => now()->addMonth()->toDateTimeString(),
+        'expires_at' => now()->addWeek()->toDateTimeString(),
+        'usage_limit' => 1,
+    ]);
+
+    $response->assertSessionHasErrors('valid_from');
+    expect(Voucher::where('code', 'BAD-WINDOW')->exists())->toBeFalse();
+});
+
+test('admin can update a voucher valid_from date', function () {
+    $user = User::factory()->create();
+    $voucher = Voucher::factory()->create(['expires_at' => now()->addMonth()]);
+
+    $response = $this->actingAs($user)->put(route('admin.vouchers.update', $voucher), [
+        'code' => $voucher->code,
+        'valid_from' => now()->addDay()->toDateTimeString(),
+        'expires_at' => now()->addMonth()->toDateTimeString(),
+        'usage_limit' => $voucher->usage_limit,
+        'active' => '1',
+    ]);
+
+    $response->assertRedirect(route('admin.vouchers.index'));
+    expect($voucher->fresh()->valid_from)->not->toBeNull();
+});
+
+test('admin voucher edit view lists sessions that redeemed the voucher', function () {
+    $user = User::factory()->create();
+    $voucher = Voucher::factory()->create();
+    $redeemingSession = PhotoboothSession::factory()->create([
+        'voucher_id' => $voucher->id,
+        'session_token' => 'REDEEMED-TOKEN',
+    ]);
+    PhotoboothSession::factory()->create();
+
+    $response = $this->actingAs($user)->get(route('admin.vouchers.edit', $voucher));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('admin/vouchers/edit')
+        ->where('voucher.redemptions.0.sessionToken', $redeemingSession->session_token)
+    );
+});
+
 test('admin can toggle a voucher active flag', function () {
     $user = User::factory()->create();
     $voucher = Voucher::factory()->create(['active' => true]);

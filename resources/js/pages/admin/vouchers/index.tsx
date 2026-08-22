@@ -5,13 +5,20 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { create, index as vouchersIndex } from '@/routes/admin/vouchers';
 
+type Redemption = {
+    sessionToken: string;
+    startedAt: string | null;
+};
+
 type Voucher = {
     id: number;
     code: string;
     active: boolean;
+    validFrom: string | null;
     expiresAt: string | null;
     usageLimit: number;
     usageCount: number;
+    redemptions: Redemption[];
 };
 
 export default function VouchersIndex({ vouchers }: { vouchers: Voucher[] }) {
@@ -43,6 +50,9 @@ export default function VouchersIndex({ vouchers }: { vouchers: Voucher[] }) {
                                 <th className="p-3 font-medium">Usage</th>
                                 <th className="p-3 font-medium">Expires</th>
                                 <th className="p-3 font-medium">Status</th>
+                                <th className="p-3 font-medium">
+                                    Redemptions
+                                </th>
                                 <th className="p-3 text-right font-medium">
                                     Actions
                                 </th>
@@ -52,7 +62,7 @@ export default function VouchersIndex({ vouchers }: { vouchers: Voucher[] }) {
                             {vouchers.length === 0 && (
                                 <tr>
                                     <td
-                                        colSpan={5}
+                                        colSpan={6}
                                         className="p-3 text-center text-muted-foreground"
                                     >
                                         No vouchers yet.
@@ -91,6 +101,30 @@ export default function VouchersIndex({ vouchers }: { vouchers: Voucher[] }) {
                                                 ? 'Active'
                                                 : 'Inactive'}
                                         </Badge>
+                                    </td>
+                                    <td className="p-3">
+                                        {voucher.redemptions.length === 0 ? (
+                                            <span className="text-muted-foreground">
+                                                None
+                                            </span>
+                                        ) : (
+                                            <ul className="space-y-1">
+                                                {voucher.redemptions.map(
+                                                    (redemption) => (
+                                                        <li
+                                                            key={
+                                                                redemption.sessionToken
+                                                            }
+                                                            className="font-mono text-xs"
+                                                        >
+                                                            {
+                                                                redemption.sessionToken
+                                                            }
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
+                                        )}
                                     </td>
                                     <td className="p-3">
                                         <div className="flex items-center justify-end gap-2">

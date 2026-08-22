@@ -6,13 +6,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { RouteFormDefinition } from '@/wayfinder';
 
+type Redemption = {
+    sessionToken: string;
+    startedAt: string | null;
+};
+
 type Voucher = {
     id: number;
     code: string;
     active: boolean;
+    validFrom: string | null;
     expiresAt: string | null;
     usageLimit: number;
     usageCount: number;
+    redemptions: Redemption[];
 };
 
 export default function VoucherForm({
@@ -40,6 +47,19 @@ export default function VoucherForm({
                             placeholder="VCH-ABCD-1234"
                         />
                         <InputError message={errors.code} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="valid_from">
+                            Valid from (optional)
+                        </Label>
+                        <Input
+                            id="valid_from"
+                            name="valid_from"
+                            type="datetime-local"
+                            defaultValue={voucher?.validFrom?.slice(0, 16)}
+                        />
+                        <InputError message={errors.valid_from} />
                     </div>
 
                     <div className="grid gap-2">
@@ -100,5 +120,43 @@ export default function VoucherForm({
                 </>
             )}
         </Form>
+    );
+}
+
+export function VoucherRedemptionHistory({
+    redemptions,
+}: {
+    redemptions: Redemption[];
+}) {
+    return (
+        <div className="max-w-xl space-y-2">
+            <h2 className="text-sm font-medium">Redemption history</h2>
+
+            {redemptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                    This voucher has not been redeemed by any session yet.
+                </p>
+            ) : (
+                <ul className="divide-y divide-sidebar-border/70 rounded-xl border border-sidebar-border/70 text-sm dark:divide-sidebar-border dark:border-sidebar-border">
+                    {redemptions.map((redemption) => (
+                        <li
+                            key={redemption.sessionToken}
+                            className="flex items-center justify-between p-3"
+                        >
+                            <span className="font-mono">
+                                {redemption.sessionToken}
+                            </span>
+                            <span className="text-muted-foreground">
+                                {redemption.startedAt
+                                    ? new Date(
+                                          redemption.startedAt,
+                                      ).toLocaleString()
+                                    : 'Not started'}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
     );
 }

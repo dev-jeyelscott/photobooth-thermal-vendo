@@ -17,6 +17,7 @@ class StoreVoucherRequest extends FormRequest
     {
         return [
             'code' => ['required', 'string', 'max:255', Rule::unique('vouchers', 'code')],
+            'valid_from' => ['nullable', 'date', 'before_or_equal:expires_at'],
             'expires_at' => ['nullable', 'date', 'after:now'],
             'usage_limit' => ['required', 'integer', 'min:1'],
             'active' => ['sometimes', 'boolean'],

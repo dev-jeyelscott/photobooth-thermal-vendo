@@ -2,15 +2,22 @@ import { Head, setLayoutProps } from '@inertiajs/react';
 import VoucherController from '@/actions/App/Http/Controllers/Admin/VoucherController';
 import Heading from '@/components/heading';
 import { index } from '@/routes/admin/vouchers';
-import VoucherForm from './voucher-form';
+import VoucherForm, { VoucherRedemptionHistory } from './voucher-form';
+
+type Redemption = {
+    sessionToken: string;
+    startedAt: string | null;
+};
 
 type Voucher = {
     id: number;
     code: string;
     active: boolean;
+    validFrom: string | null;
     expiresAt: string | null;
     usageLimit: number;
     usageCount: number;
+    redemptions: Redemption[];
 };
 
 export default function VouchersEdit({ voucher }: { voucher: Voucher }) {
@@ -38,6 +45,8 @@ export default function VouchersEdit({ voucher }: { voucher: Voucher }) {
                     form={VoucherController.update.form(voucher.id)}
                     voucher={voucher}
                 />
+
+                <VoucherRedemptionHistory redemptions={voucher.redemptions} />
             </div>
         </>
     );
