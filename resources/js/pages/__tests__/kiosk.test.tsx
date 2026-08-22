@@ -363,6 +363,106 @@ describe('Kiosk', () => {
         expect(paymentPostCalls).toHaveLength(1);
     });
 
+    it('resumes polling the pending checkout after a payment timeout instead of re-issuing a new checkout', async () => {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        paymentStatusState.status = 'pending';
+
+        let paymentPostCount = 0;
+
+        global.fetch = vi.fn(
+            async (input: string | URL, init?: RequestInit) => {
+                const method = (init?.method ?? 'get').toLowerCase();
+                const { pathname } = new URL(String(input), 'http://localhost');
+
+                if (
+                    method === 'post' &&
+                    /^\/kiosk\/sessions\/[^/]+\/payments$/.test(pathname)
+                ) {
+                    paymentPostCount += 1;
+
+                    return jsonResponse(200, {
+                        checkoutUrl: 'https://pay.example.test/checkout',
+                    }) as unknown as Response;
+                }
+
+                if (
+                    method === 'get' &&
+                    /^\/kiosk\/sessions\/[^/]+$/.test(pathname)
+                ) {
+                    return jsonResponse(200, {
+                        sessionToken: SESSION_TOKEN,
+                        status: paymentStatusState.status,
+                        startedAt: new Date().toISOString(),
+                        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                        paymentStatus: paymentStatusState.paymentStatus,
+                        printJobStatus: null,
+                        requiredCaptureCount: 3,
+                        galleryToken: null,
+                    }) as unknown as Response;
+                }
+
+                const route = baseRoutes.find(
+                    (candidate) =>
+                        candidate.method === method &&
+                        candidate.pattern.test(pathname),
+                );
+
+                if (!route) {
+                    throw new Error(
+                        `Unhandled request: ${method.toUpperCase()} ${pathname}`,
+                    );
+                }
+
+                const { status, body } = route.handler();
+
+                return jsonResponse(status, body) as unknown as Response;
+            },
+        ) as unknown as typeof fetch;
+
+        render(<Kiosk paymentTimeoutSeconds={30} />);
+
+        await user.click(screen.getByRole('button', { name: 'Pay via QR' }));
+
+        expect(
+            await screen.findByTestId('kiosk-payment-checkout-link'),
+        ).toBeInTheDocument();
+
+        // The session remains pending until after the client-side payment
+        // timeout elapses, e.g. because a connectivity gap delayed the
+        // paid-session response.
+        await act(async () => {
+            vi.advanceTimersByTime(30_000);
+        });
+
+        expect(
+            await screen.findByTestId('kiosk-error-payment-timeout'),
+        ).toBeInTheDocument();
+        expect(paymentPostCount).toBe(1);
+
+        // Recovering from the timeout must resume polling the existing
+        // checkout, not create a second one.
+        await user.click(
+            screen.getByRole('button', { name: 'Retry Payment' }),
+        );
+
+        expect(paymentPostCount).toBe(1);
+
+        paymentStatusState.status = 'paid';
+        paymentStatusState.paymentStatus = 'succeeded';
+
+        await act(async () => {
+            vi.advanceTimersByTime(3000);
+        });
+
+        expect(
+            await screen.findByTestId('kiosk-select-template'),
+        ).toBeInTheDocument();
+
+        expect(paymentPostCount).toBe(1);
+    });
+
     it('resumes the print-status poll after five consecutive transient failures and reports the terminal failed state', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
 

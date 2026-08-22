@@ -355,7 +355,10 @@ export default function Kiosk({
 
             paymentTimeoutHandle = setTimeout(() => {
                 stopPolling();
-                raiseKioskError('payment-timeout', { retry: retryPayment });
+                // The checkout already created for this session is still
+                // pending, so recovering from the timeout must resume
+                // polling that same checkout rather than issue a new one.
+                raiseKioskError('payment-timeout', { retry: resumePolling });
             }, paymentTimeoutSeconds * 1000);
         };
 
