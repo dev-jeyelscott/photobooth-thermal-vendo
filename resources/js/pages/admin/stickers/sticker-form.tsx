@@ -213,20 +213,21 @@ export default function StickerForm({
                         />
                     </div>
 
-                    <fieldset className="grid gap-2">
+                    <fieldset
+                        className="grid gap-2"
+                        aria-invalid={!!errors.template_ids}
+                        aria-describedby={
+                            errors.template_ids
+                                ? 'template_ids-error'
+                                : undefined
+                        }
+                    >
                         <legend className="text-sm leading-none font-medium">
                             Compatible templates (none selected means all
                             templates)
                         </legend>
 
-                        <div
-                            className="flex flex-col gap-2"
-                            aria-describedby={
-                                errors.template_ids
-                                    ? 'template_ids-error'
-                                    : undefined
-                            }
-                        >
+                        <div className="flex flex-col gap-2">
                             {templates.map((template) => (
                                 <div
                                     key={template.id}
@@ -239,6 +240,12 @@ export default function StickerForm({
                                         defaultChecked={sticker?.templateIds.includes(
                                             template.id,
                                         )}
+                                        aria-invalid={!!errors.template_ids}
+                                        aria-describedby={
+                                            errors.template_ids
+                                                ? 'template_ids-error'
+                                                : undefined
+                                        }
                                     />
 
                                     <Label htmlFor={`template_${template.id}`}>

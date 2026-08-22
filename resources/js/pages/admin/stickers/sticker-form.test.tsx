@@ -256,4 +256,46 @@ describe('sticker form accessibility', () => {
             }),
         ).toBeInTheDocument();
     });
+
+    it('associates a template_ids validation error with the group and each checkbox', () => {
+        formErrors.current = {
+            template_ids: 'The selected template ids are invalid.',
+        };
+
+        render(
+            <StickerForm
+                form={{ action: '/admin/stickers', method: 'post' }}
+                templates={templates}
+            />,
+        );
+
+        const group = screen.getByRole('group', {
+            name: 'Compatible templates (none selected means all templates)',
+        });
+        expect(group).toHaveAttribute('aria-invalid', 'true');
+        expect(group).toHaveAttribute(
+            'aria-describedby',
+            'template_ids-error',
+        );
+
+        const classic = screen.getByLabelText('Classic');
+        const party = screen.getByLabelText('Party');
+        expect(classic).toHaveAttribute(
+            'aria-describedby',
+            'template_ids-error',
+        );
+        expect(classic).toHaveAttribute('aria-invalid', 'true');
+        expect(party).toHaveAttribute(
+            'aria-describedby',
+            'template_ids-error',
+        );
+        expect(party).toHaveAttribute('aria-invalid', 'true');
+
+        const message = screen.getByText(
+            'The selected template ids are invalid.',
+        );
+        expect(message).toHaveAttribute('id', 'template_ids-error');
+
+        formErrors.current = {};
+    });
 });
