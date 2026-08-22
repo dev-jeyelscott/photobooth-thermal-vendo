@@ -21,16 +21,22 @@ import {
 type Sticker = {
     id: number;
     name: string;
-    assetPath: string;
-    thumbnailPath: string | null;
+    assetUrl: string;
+    thumbnailUrl: string | null;
     active: boolean;
 };
 
+/**
+ * Renders the admin sticker list and exposes each dedicated management action.
+ */
 export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
     setLayoutProps({
         breadcrumbs: [{ title: 'Stickers', href: stickersIndex() }],
     });
 
+    /**
+     * Moves a sticker one position and persists the resulting ordering.
+     */
     function move(index: number, direction: -1 | 1) {
         const targetIndex = index + direction;
 
@@ -39,6 +45,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
         }
 
         const reordered = [...stickers];
+
         [reordered[index], reordered[targetIndex]] = [
             reordered[targetIndex],
             reordered[index],
@@ -81,7 +88,9 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                         >
                             <div className="flex items-center justify-center rounded-md bg-muted/50 p-4">
                                 <img
-                                    src={`/storage/${sticker.thumbnailPath ?? sticker.assetPath}`}
+                                    src={
+                                        sticker.thumbnailUrl ?? sticker.assetUrl
+                                    }
                                     alt={sticker.name}
                                     className="h-24 w-24 object-contain"
                                 />
@@ -91,6 +100,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                                 <span className="font-medium">
                                     {sticker.name}
                                 </span>
+
                                 <Badge
                                     variant={
                                         sticker.active ? 'default' : 'secondary'
@@ -155,10 +165,12 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                                             Delete
                                         </Button>
                                     </DialogTrigger>
+
                                     <DialogContent>
                                         <DialogTitle>
                                             Delete "{sticker.name}"?
                                         </DialogTitle>
+
                                         <DialogDescription>
                                             This cannot be undone. Stickers that
                                             are still referenced by photobooth
@@ -183,7 +195,10 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
 
                                                     <DialogFooter className="gap-2">
                                                         <DialogClose asChild>
-                                                            <Button variant="secondary">
+                                                            <Button
+                                                                type="button"
+                                                                variant="secondary"
+                                                            >
                                                                 Cancel
                                                             </Button>
                                                         </DialogClose>
