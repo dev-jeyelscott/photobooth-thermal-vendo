@@ -15,7 +15,8 @@ use Inertia\Response;
 class VoucherController extends Controller
 {
     /**
-     * List all vouchers for management.
+     * List all vouchers for management using server time as the authoritative
+     * reference for time-sensitive availability presentation.
      */
     public function index(): Response
     {
@@ -27,6 +28,7 @@ class VoucherController extends Controller
 
         return Inertia::render('admin/vouchers/index', [
             'vouchers' => $vouchers,
+            'serverNow' => now()->toIso8601String(),
         ]);
     }
 
@@ -53,7 +55,10 @@ class VoucherController extends Controller
             'active' => $request->boolean('active', true),
         ]);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Voucher created.')]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Voucher created.'),
+        ]);
 
         return to_route('admin.vouchers.index');
     }
@@ -73,8 +78,10 @@ class VoucherController extends Controller
     /**
      * Update an existing voucher's configurable fields.
      */
-    public function update(UpdateVoucherRequest $request, Voucher $voucher): RedirectResponse
-    {
+    public function update(
+        UpdateVoucherRequest $request,
+        Voucher $voucher,
+    ): RedirectResponse {
         $validated = $request->validated();
 
         $voucher->updateOrFail([
@@ -85,7 +92,10 @@ class VoucherController extends Controller
             'active' => $request->boolean('active'),
         ]);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Voucher updated.')]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Voucher updated.'),
+        ]);
 
         return to_route('admin.vouchers.index');
     }
@@ -101,7 +111,9 @@ class VoucherController extends Controller
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => $active ? __('Voucher enabled.') : __('Voucher disabled.'),
+            'message' => $active
+                ? __('Voucher enabled.')
+                : __('Voucher disabled.'),
         ]);
 
         return to_route('admin.vouchers.index');
@@ -129,17 +141,22 @@ class VoucherController extends Controller
 
         if (! $deleted) {
             return back()->withErrors([
-                'voucher' => __('This voucher cannot be deleted because it has associated photobooth sessions.'),
+                'voucher' => __(
+                    'This voucher cannot be deleted because it has associated photobooth sessions.',
+                ),
             ]);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Voucher deleted.')]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Voucher deleted.'),
+        ]);
 
         return to_route('admin.vouchers.index');
     }
 
     /**
-     * Present a voucher for the frontend.
+     * Present a voucher using the existing frontend domain contract.
      *
      * @return array<string, mixed>
      */
