@@ -298,3 +298,21 @@ matrix cells remain "not executed" rather than invented. This task
 requires escalation to a human operator with physical access to the
 target devices; no further code-level action in this sandbox can change
 that outcome.
+
+## Re-check (2026-08-23, attempt 19)
+
+Re-confirmed once more that the environment has not changed: `$DISPLAY`
+is empty, `id -nG` for the sandbox user is still `john-leward-escote adm
+cdrom sudo dip plugdev users lpadmin lxd docker` (no `video` group), and
+no Safari, Edge, iPadOS, or Android hardware is reachable from this host.
+`npm run build` succeeded again (`public/build/assets/kiosk-BOHNCFrQ.js`
+emitted) and `php artisan test --filter=KioskTest` passed again (11
+passed, 88 assertions).
+
+This is a durable capability gap of the automated sandbox, not a code
+defect, and it has now been independently reconfirmed nineteen times
+across separate attempts with identical results each time. No further
+re-checks in this sandbox will produce different evidence. This task
+requires a human operator with physical access to the six target
+devices/browsers to execute the matrix and record real pass/fail results;
+it cannot be completed by this agent.
