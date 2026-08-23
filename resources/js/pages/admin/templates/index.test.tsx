@@ -180,6 +180,35 @@ describe('templates index page', () => {
         ).toBeInTheDocument();
     });
 
+    it('uses refreshed server props directly without effect synchronization', () => {
+        const { rerender } = render(<TemplatesIndex templates={templates} />);
+
+        const refreshedTemplates = templates.map((template) =>
+            template.id === 1
+                ? {
+                      ...template,
+                      active: false,
+                  }
+                : template,
+        );
+
+        rerender(<TemplatesIndex templates={refreshedTemplates} />);
+
+        expect(
+            within(screen.getByLabelText('Active')).getByText('2'),
+        ).toBeInTheDocument();
+
+        expect(
+            within(screen.getByLabelText('Inactive')).getByText('2'),
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByRole('switch', {
+                name: 'Enable ThermaSnap Classic Strip',
+            }),
+        ).toBeInTheDocument();
+    });
+
     it('filters the visible template rows from the search box', async () => {
         const user = userEvent.setup();
 
@@ -237,6 +266,7 @@ describe('templates index page', () => {
             },
             expect.objectContaining({
                 preserveScroll: true,
+                onSuccess: expect.any(Function),
                 onError: expect.any(Function),
                 onFinish: expect.any(Function),
             }),

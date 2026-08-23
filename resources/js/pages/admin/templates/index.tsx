@@ -31,7 +31,7 @@ import {
     Search,
     Trash2,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import TemplateController from '@/actions/App/Http/Controllers/Admin/TemplateController';
 import { Badge } from '@/components/ui/badge';
@@ -460,14 +460,17 @@ export default function TemplatesIndex({
         breadcrumbs: [{ title: 'Templates', href: templatesIndex() }],
     });
 
-    const [orderedTemplates, setOrderedTemplates] =
-        useState<Template[]>(templates);
+    const [optimisticTemplates, setOptimisticTemplates] = useState<
+        Template[] | null
+    >(null);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] =
         useState<TemplateStatusFilter>('all');
     const [sortOption, setSortOption] =
         useState<TemplateSortOption>('priority');
     const [reordering, setReordering] = useState(false);
+
+    const orderedTemplates = optimisticTemplates ?? templates;
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -479,10 +482,6 @@ export default function TemplatesIndex({
             coordinateGetter: sortableKeyboardCoordinates,
         }),
     );
-
-    useEffect(() => {
-        setOrderedTemplates(templates);
-    }, [templates]);
 
     const summary = useMemo(
         () => getTemplateSummary(orderedTemplates),
@@ -507,12 +506,11 @@ export default function TemplatesIndex({
 
     /**
      * Persist a complete ordered ID list through the existing backend reorder
-     * contract and roll back the optimistic UI if validation fails.
+     * contract. The server payload remains authoritative after success or
+     * failure, while this local override provides immediate optimistic feedback.
      */
     function persistOrder(nextTemplates: Template[]): void {
-        const previousTemplates = orderedTemplates;
-
-        setOrderedTemplates(nextTemplates);
+        setOptimisticTemplates(nextTemplates);
         setReordering(true);
 
         router.patch(
@@ -522,8 +520,11 @@ export default function TemplatesIndex({
             },
             {
                 preserveScroll: true,
+                onSuccess: () => {
+                    setOptimisticTemplates(null);
+                },
                 onError: () => {
-                    setOrderedTemplates(previousTemplates);
+                    setOptimisticTemplates(null);
                 },
                 onFinish: () => {
                     setReordering(false);

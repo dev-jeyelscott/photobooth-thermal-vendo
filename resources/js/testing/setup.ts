@@ -7,6 +7,29 @@ afterEach(() => {
     window.sessionStorage.clear();
 });
 
+// jsdom does not implement ResizeObserver. Radix UI uses it to measure
+// primitives such as Select, so provide the minimal browser contract required
+// by component tests without changing production component behavior.
+class MockResizeObserver {
+    /**
+     * Begin observing an element. No measurement callback is required for the
+     * current component tests because layout itself is not under test.
+     */
+    observe(): void {}
+
+    /**
+     * Stop observing an element.
+     */
+    unobserve(): void {}
+
+    /**
+     * Stop all observations owned by this observer.
+     */
+    disconnect(): void {}
+}
+
+vi.stubGlobal('ResizeObserver', MockResizeObserver);
+
 // jsdom does not implement the canvas 2D API; stub it out so components that
 // draw previews (capture, sticker overlay, print preview) don't crash.
 HTMLCanvasElement.prototype.getContext = vi.fn() as never;
@@ -21,6 +44,9 @@ class MockImage {
     onerror: (() => void) | null = null;
     crossOrigin: string | null = null;
 
+    /**
+     * Simulate a successfully loaded image on the next event-loop turn.
+     */
     set src(_value: string) {
         setTimeout(() => this.onload?.(), 0);
     }
