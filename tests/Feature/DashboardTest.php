@@ -29,7 +29,7 @@ test('authenticated users can visit the dashboard', function () {
         );
 });
 
-test('dashboard exposes operator focused sales session and issue aggregates', function () {
+test('dashboard exposes operator focused aggregates and real period comparisons', function () {
     $this->travelTo(Carbon::parse('2026-08-23 12:00:00'));
 
     $user = User::factory()->create();
@@ -83,6 +83,38 @@ test('dashboard exposes operator focused sales session and issue aggregates', fu
         'updated_at' => now()->subDays(5),
     ]);
 
+    $yesterdaySession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Maya,
+        'started_at' => now()->subDay()->subHour(),
+        'created_at' => now()->subDay()->subHour(),
+        'updated_at' => now()->subDay()->subHour(),
+    ]);
+
+    Payment::factory()->success()->create([
+        'photobooth_session_id' => $yesterdaySession->id,
+        'method' => PaymentMethod::Maya,
+        'amount' => '80.00',
+        'created_at' => now()->subDay()->subHour(),
+        'updated_at' => now()->subDay()->subHour(),
+    ]);
+
+    $previousMonthSession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Maya,
+        'started_at' => Carbon::parse('2026-07-10 10:00:00'),
+        'created_at' => Carbon::parse('2026-07-10 10:00:00'),
+        'updated_at' => Carbon::parse('2026-07-10 10:00:00'),
+    ]);
+
+    Payment::factory()->success()->create([
+        'photobooth_session_id' => $previousMonthSession->id,
+        'method' => PaymentMethod::Maya,
+        'amount' => '120.00',
+        'created_at' => Carbon::parse('2026-07-10 10:00:00'),
+        'updated_at' => Carbon::parse('2026-07-10 10:00:00'),
+    ]);
+
     Payment::factory()->create([
         'status' => PaymentStatus::Failed,
         'amount' => '20.00',
@@ -117,8 +149,11 @@ test('dashboard exposes operator focused sales session and issue aggregates', fu
                 ->where('currency', 'PHP')
                 ->where('summary.today.count', 2)
                 ->where('summary.today.salesTotal', '100.00')
-                ->where('summary.thisMonth.count', 3)
-                ->where('summary.thisMonth.salesTotal', '150.00')
+                ->where('summary.thisMonth.count', 4)
+                ->where('summary.thisMonth.salesTotal', '230.00')
+                ->where('summary.comparison.todaySalesVsYesterday', 25)
+                ->where('summary.comparison.todaySessionsVsYesterday', 100)
+                ->where('summary.comparison.monthSalesVsPreviousPeriod', 91.7)
                 ->where('summary.needsAttention.failedPayments', 1)
                 ->where('summary.needsAttention.pendingPayments', 1)
                 ->where('summary.needsAttention.failedPrintJobs', 1)
@@ -137,5 +172,36 @@ test('dashboard exposes operator focused sales session and issue aggregates', fu
                 ->has('recentActivity', 5)
                 ->where('recentActivity.0.type', 'print_failure')
                 ->where('recentActivity.0.title', 'Print job failed'),
+        );
+});
+
+test('dashboard does not fabricate percentage comparisons without a prior baseline', function () {
+    $this->travelTo(Carbon::parse('2026-08-23 12:00:00'));
+
+    $user = User::factory()->create();
+
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'payment_method' => PaymentMethod::Maya,
+        'created_at' => now()->subHour(),
+        'updated_at' => now()->subHour(),
+    ]);
+
+    Payment::factory()->success()->create([
+        'photobooth_session_id' => $session->id,
+        'method' => PaymentMethod::Maya,
+        'amount' => '100.00',
+        'created_at' => now()->subHour(),
+        'updated_at' => now()->subHour(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('admin.dashboard'))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('summary.comparison.todaySalesVsYesterday', null)
+                ->where('summary.comparison.todaySessionsVsYesterday', null)
+                ->where('summary.comparison.monthSalesVsPreviousPeriod', null),
         );
 });

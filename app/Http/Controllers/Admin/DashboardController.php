@@ -29,27 +29,55 @@ class DashboardController extends Controller
     private const int TREND_DAYS = 7;
 
     /**
-     * Show the non-technical admin operational dashboard.
+     * Show the operator-focused administration dashboard.
      */
     public function index(): Response
     {
+        $now = Carbon::now();
+
         $today = [
-            Carbon::now()->startOfDay(),
-            Carbon::now()->endOfDay(),
+            $now->copy()->startOfDay(),
+            $now->copy()->endOfDay(),
+        ];
+
+        $yesterday = [
+            $now->copy()->subDay()->startOfDay(),
+            $now->copy()->subDay()->endOfDay(),
         ];
 
         $month = [
-            Carbon::now()->startOfMonth(),
-            Carbon::now()->endOfMonth(),
+            $now->copy()->startOfMonth(),
+            $now->copy()->endOfMonth(),
         ];
+
+        $todayStats = $this->completedSessionStats($today);
+        $yesterdayStats = $this->completedSessionStats($yesterday);
+        $monthStats = $this->completedSessionStats($month);
+        $previousMonthStats = $this->completedSessionStats(
+            $this->previousMonthComparableRange($now),
+        );
 
         $printJobCounts = $this->printJobCounts();
 
         return Inertia::render('admin/dashboard', [
             'currency' => (string) Settings::get('currency'),
             'summary' => [
-                'today' => $this->completedSessionStats($today),
-                'thisMonth' => $this->completedSessionStats($month),
+                'today' => $todayStats,
+                'thisMonth' => $monthStats,
+                'comparison' => [
+                    'todaySalesVsYesterday' => $this->percentageChange(
+                        (float) $todayStats['salesTotal'],
+                        (float) $yesterdayStats['salesTotal'],
+                    ),
+                    'todaySessionsVsYesterday' => $this->percentageChange(
+                        $todayStats['count'],
+                        $yesterdayStats['count'],
+                    ),
+                    'monthSalesVsPreviousPeriod' => $this->percentageChange(
+                        (float) $monthStats['salesTotal'],
+                        (float) $previousMonthStats['salesTotal'],
+                    ),
+                ],
                 'needsAttention' => $this->needsAttention(
                     $printJobCounts['failed'],
                 ),
@@ -87,6 +115,39 @@ class DashboardController extends Controller
             'count' => $count,
             'salesTotal' => number_format((float) $salesTotal, 2, '.', ''),
         ];
+    }
+
+    /**
+     * Build the comparable previous-month date range for month-to-date reporting.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function previousMonthComparableRange(Carbon $now): array
+    {
+        $previousStart = $now->copy()->subMonthNoOverflow()->startOfMonth();
+
+        $previousEnd = $previousStart
+            ->copy()
+            ->addDays($now->day - 1)
+            ->endOfDay();
+
+        if ($previousEnd->month !== $previousStart->month) {
+            $previousEnd = $previousStart->copy()->endOfMonth();
+        }
+
+        return [$previousStart, $previousEnd];
+    }
+
+    /**
+     * Calculate percentage change while avoiding fabricated infinite comparisons.
+     */
+    private function percentageChange(float|int $current, float|int $previous): ?float
+    {
+        if ($previous <= 0) {
+            return null;
+        }
+
+        return round((($current - $previous) / $previous) * 100, 1);
     }
 
     /**
@@ -181,7 +242,7 @@ class DashboardController extends Controller
 
             $trend[] = [
                 'date' => $day,
-                'label' => $cursor->format('M j'),
+                'label' => $cursor->format('D M j'),
                 'sales' => (float) ($revenuePerDay[$day] ?? 0),
                 'sessions' => (int) ($sessionsPerDay[$day] ?? 0),
             ];

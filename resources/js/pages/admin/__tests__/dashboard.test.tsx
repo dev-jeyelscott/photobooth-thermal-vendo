@@ -24,18 +24,15 @@ vi.mock('recharts', () => ({
     ResponsiveContainer: ({ children }: { children: ReactNode }) => (
         <div>{children}</div>
     ),
-    LineChart: ({ children }: { children: ReactNode }) => (
+    ComposedChart: ({ children }: { children: ReactNode }) => (
         <div data-testid="sales-sessions-trend">{children}</div>
     ),
+    Bar: () => null,
     Line: () => null,
     CartesianGrid: () => null,
     XAxis: () => null,
     YAxis: () => null,
     Tooltip: () => null,
-    PieChart: ({ children }: { children: ReactNode }) => (
-        <div data-testid="payment-methods-chart">{children}</div>
-    ),
-    Pie: () => null,
 }));
 
 import Dashboard from '../dashboard';
@@ -51,6 +48,11 @@ const baseProps: ComponentProps<typeof Dashboard> = {
             count: 9,
             salesTotal: '250.00',
         },
+        comparison: {
+            todaySalesVsYesterday: 25,
+            todaySessionsVsYesterday: 20,
+            monthSalesVsPreviousPeriod: 18,
+        },
         needsAttention: {
             failedPayments: 1,
             pendingPayments: 1,
@@ -61,43 +63,43 @@ const baseProps: ComponentProps<typeof Dashboard> = {
     trend: [
         {
             date: '2026-08-17',
-            label: 'Aug 17',
+            label: 'Mon Aug 17',
             sales: 80,
             sessions: 3,
         },
         {
             date: '2026-08-18',
-            label: 'Aug 18',
+            label: 'Tue Aug 18',
             sales: 120,
             sessions: 4,
         },
         {
             date: '2026-08-19',
-            label: 'Aug 19',
+            label: 'Wed Aug 19',
             sales: 60,
             sessions: 2,
         },
         {
             date: '2026-08-20',
-            label: 'Aug 20',
+            label: 'Thu Aug 20',
             sales: 100,
             sessions: 4,
         },
         {
             date: '2026-08-21',
-            label: 'Aug 21',
+            label: 'Fri Aug 21',
             sales: 110,
             sessions: 5,
         },
         {
             date: '2026-08-22',
-            label: 'Aug 22',
+            label: 'Sat Aug 22',
             sales: 130,
             sessions: 5,
         },
         {
             date: '2026-08-23',
-            label: 'Aug 23',
+            label: 'Sun Aug 23',
             sales: 150,
             sessions: 6,
         },
@@ -131,26 +133,51 @@ const baseProps: ComponentProps<typeof Dashboard> = {
 };
 
 describe('admin dashboard', () => {
-    it('renders the operator metrics, charts, issues, and quick actions', () => {
+    it('renders the reference-oriented dashboard using real operator data', () => {
         render(<Dashboard {...baseProps} />);
 
         expect(
             screen.getByRole('heading', { name: 'Dashboard' }),
         ).toBeInTheDocument();
 
+        expect(
+            screen.getByText('Your booth performance at a glance'),
+        ).toBeInTheDocument();
+
         expect(screen.getByText("Today's Sales")).toBeInTheDocument();
-        expect(screen.getByText('₱150.00')).toBeInTheDocument();
+        expect(screen.getByText('₱150')).toBeInTheDocument();
+
         expect(
             screen.getByText('Completed Sessions Today'),
         ).toBeInTheDocument();
+
+        expect(screen.getByText('Monthly Sales')).toBeInTheDocument();
         expect(screen.getByText('Needs Attention')).toBeInTheDocument();
 
-        expect(screen.getByTestId('sales-sessions-trend')).toBeInTheDocument();
-        expect(screen.getByTestId('payment-methods-chart')).toBeInTheDocument();
+        expect(screen.getByText('25%')).toBeInTheDocument();
+        expect(screen.getAllByText('vs yesterday')).toHaveLength(2);
 
-        expect(screen.getByText('Booth Status')).toBeInTheDocument();
+        expect(
+            screen.getByText('vs previous month to date'),
+        ).toBeInTheDocument();
+
+        expect(screen.getByTestId('sales-sessions-trend')).toBeInTheDocument();
+
+        expect(
+            screen.getByRole('img', {
+                name: 'Session mix today: 4 Maya sessions, 2 voucher sessions',
+            }),
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByText('Booth Status / Operations'),
+        ).toBeInTheDocument();
+
         expect(screen.getByText('Recent Activity')).toBeInTheDocument();
-        expect(screen.getByText('Quick Actions')).toBeInTheDocument();
+
+        expect(
+            screen.getByRole('link', { name: /Open Kiosk/i }),
+        ).toHaveAttribute('href', '/kiosk');
 
         expect(
             screen.getByRole('link', { name: /Create Voucher/i }),
@@ -161,14 +188,14 @@ describe('admin dashboard', () => {
         ).toHaveAttribute('href', '/admin/templates');
 
         expect(
-            screen.getByRole('link', { name: /Review issues/i }),
+            screen.getByRole('link', { name: /View Issues/i }),
         ).toHaveAttribute(
             'href',
             expect.stringContaining('print_status=failed'),
         );
     });
 
-    it('renders safe empty states when there is no dashboard activity', () => {
+    it('renders safe empty and comparison states when activity is unavailable', () => {
         render(
             <Dashboard
                 {...baseProps}
@@ -180,6 +207,11 @@ describe('admin dashboard', () => {
                     thisMonth: {
                         count: 0,
                         salesTotal: '0.00',
+                    },
+                    comparison: {
+                        todaySalesVsYesterday: null,
+                        todaySessionsVsYesterday: null,
+                        monthSalesVsPreviousPeriod: null,
                     },
                     needsAttention: {
                         failedPayments: 0,
@@ -205,11 +237,20 @@ describe('admin dashboard', () => {
             />,
         );
 
-        expect(screen.getByText('System healthy')).toBeInTheDocument();
+        expect(screen.getAllByText('No prior-period comparison')).toHaveLength(
+            3,
+        );
+
         expect(screen.getByText('No trend data yet.')).toBeInTheDocument();
+
         expect(
             screen.getByText('No completed sessions today.'),
         ).toBeInTheDocument();
+
+        expect(
+            screen.getByText('No operator action is required'),
+        ).toBeInTheDocument();
+
         expect(screen.getByText('No recent activity yet.')).toBeInTheDocument();
     });
 });
