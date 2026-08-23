@@ -203,3 +203,18 @@ changes were made to `resources/js/pages/kiosk.tsx` or
 operator with physical access to the target devices to produce genuine
 results; no further automated re-check in this sandbox is expected to
 change this conclusion.
+
+## Re-check (2026-08-23, attempt 13)
+
+Re-confirmed the environment is unchanged: `$DISPLAY` is empty, `id -nG`
+still lacks `video`, only `/usr/bin/google-chrome` is present (no Safari, no
+Edge, no iPadOS/Android hardware), and `/dev/video0`/`/dev/video1` remain
+present but inaccessible without a display or `video` group membership.
+`npm run build` succeeded again and `php artisan test --filter=KioskTest`
+passed again (11 passed, 88 assertions). This is a durable capability gap of
+the CLI sandbox this agent runs in, not a transient condition, so repeating
+this exact automated re-check on further attempts will not change the
+outcome. Completing the six-row matrix requires an operator with physical
+Safari/iPadOS, Chrome/Android tablet, Chrome desktop, Edge desktop, a laptop
+webcam, and a supported external USB webcam to actually run the kiosk
+capture flow and record real pass/fail results.
