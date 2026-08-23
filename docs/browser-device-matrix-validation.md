@@ -358,3 +358,18 @@ escalation to a human operator with physical access to recent Safari on
 iPadOS, Chrome on an Android tablet, Chrome desktop, Edge desktop, a
 laptop webcam, and a supported external USB webcam to produce genuine
 results.
+
+## Re-check (2026-08-23, attempt 30) — no change, escalation still required
+
+Re-confirmed identically to attempt 24: `$DISPLAY` is empty, `id -nG` still
+lacks `video`, `/dev/video0`/`/dev/video1` are present but not accessible for
+a driven UI session, and no Safari/Edge/iPadOS/Android hardware is reachable
+from this host. `npm run build` succeeded
+(`public/build/assets/kiosk-BOHNCFrQ.js` emitted) and
+`php artisan test --filter=KioskTest` passed (11 passed, 88 assertions). No
+code change was made in this attempt, since the blocker is environmental,
+not a defect in `resources/js/pages/kiosk.tsx` or
+`resources/js/components/capture-step.tsx`. This task cannot progress past
+this point without a human operator executing the live matrix on the actual
+target devices/browsers; further automated re-checks of this same sandbox
+are not expected to change the outcome.
