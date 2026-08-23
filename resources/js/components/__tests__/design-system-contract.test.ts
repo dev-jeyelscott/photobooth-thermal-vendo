@@ -1,16 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const appCssPath = fileURLToPath(
-    new URL('../../../css/app.css', import.meta.url),
-);
-const designSystemPath = fileURLToPath(
-    new URL('../../../../design-system.html', import.meta.url),
-);
-const adminRulePath = fileURLToPath(
-    new URL('../../../../.ai/rules/admin.md', import.meta.url),
-);
+const projectRoot = process.cwd();
+const appCssPath = resolve(projectRoot, 'resources/css/app.css');
+const designSystemPath = resolve(projectRoot, 'design-system.html');
+const adminRulePath = resolve(projectRoot, '.ai/rules/admin.md');
 
 const appCss = readFileSync(appCssPath, 'utf8');
 const designSystem = readFileSync(designSystemPath, 'utf8');
