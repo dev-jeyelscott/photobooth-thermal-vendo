@@ -159,3 +159,26 @@ than invented pass/fail outcomes, and no changes were made to
 `resources/js/pages/kiosk.tsx` or `resources/js/components/capture-step.tsx`.
 This task remains blocked on an operator with physical access to the target
 devices; it cannot be completed from this sandbox.
+
+## Re-check (2026-08-23, attempt 11)
+
+Re-inspected the environment once more, immediately after the previous
+re-check: `$DISPLAY` is still unset, `id -nG` for the sandbox user still
+shows `john-leward-escote adm cdrom sudo dip plugdev users lpadmin lxd
+docker` (no `video` group), and `/dev/video0`/`/dev/video1` are still
+present but owned by `root:video` with no display to drive a real browser
+session against them. Only `google-chrome` is installed on this host; `which`
+finds no `chromium`, `chromium-browser`, `safari`, or `msedge`, and no
+iPadOS/Android hardware is reachable. `npm run build` was re-run and
+completed successfully (`public/build/assets/kiosk-BOHNCFrQ.js` emitted),
+and `php artisan test --filter=KioskTest` passed (11 passed, 88 assertions).
+No new capability to physically exercise the six required device/browser
+combinations exists in this sandbox across eleven attempts. Consistent with
+the explicit no-fabrication constraint, the matrix cells remain `not
+executed` rather than invented pass/fail outcomes, and no changes were made
+to `resources/js/pages/kiosk.tsx` or `resources/js/components/capture-step.tsx`.
+This task cannot be completed by an automated coding agent in this sandbox;
+it requires handoff to a human operator with physical access to Safari on
+iPadOS, Chrome on an Android tablet, Chrome desktop, Edge desktop, a laptop
+webcam, and a supported external USB webcam to record genuine pass/fail
+results and, if needed, file follow-up defect tickets.
