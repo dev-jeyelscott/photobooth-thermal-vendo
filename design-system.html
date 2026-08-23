@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>ThermaSnap: Canonical Admin UI Contract</title>
+  <style>
+    :root {
+      --background: oklch(1 0 0);
+      --foreground: oklch(0.145 0 0);
+      --card: oklch(1 0 0);
+      --card-foreground: oklch(0.145 0 0);
+      --popover: oklch(1 0 0);
+      --popover-foreground: oklch(0.145 0 0);
+      --primary: oklch(0.205 0 0);
+      --primary-foreground: oklch(0.985 0 0);
+      --secondary: oklch(0.97 0 0);
+      --secondary-foreground: oklch(0.205 0 0);
+      --muted: oklch(0.97 0 0);
+      --muted-foreground: oklch(0.556 0 0);
+      --accent: oklch(0.97 0 0);
+      --accent-foreground: oklch(0.205 0 0);
+      --destructive: oklch(0.577 0.245 27.325);
+      --destructive-foreground: oklch(0.577 0.245 27.325);
+      --success: oklch(0.52 0.15 150);
+      --success-foreground: oklch(0.24 0.06 150);
+      --success-subtle: oklch(0.96 0.035 150);
+      --warning: oklch(0.67 0.16 70);
+      --warning-foreground: oklch(0.3 0.08 60);
+      --warning-subtle: oklch(0.97 0.04 85);
+      --info: oklch(0.56 0.19 255);
+      --info-foreground: oklch(0.25 0.08 255);
+      --info-subtle: oklch(0.96 0.035 255);
+      --border: oklch(0.922 0 0);
+      --input: oklch(0.922 0 0);
+      --ring: oklch(0.87 0 0);
+      --chart-1: oklch(0.646 0.222 41.116);
+      --chart-2: oklch(0.6 0.118 184.704);
+      --chart-3: oklch(0.398 0.07 227.392);
+      --chart-4: oklch(0.828 0.189 84.429);
+      --chart-5: oklch(0.769 0.188 70.08);
+      --sidebar: oklch(0.985 0 0);
+      --sidebar-foreground: oklch(0.145 0 0);
+      --sidebar-primary: oklch(0.205 0 0);
+      --sidebar-primary-foreground: oklch(0.985 0 0);
+      --sidebar-accent: oklch(0.97 0 0);
+      --sidebar-accent-foreground: oklch(0.205 0 0);
+      --sidebar-border: oklch(0.922 0 0);
+      --sidebar-ring: oklch(0.87 0 0);
+      --radius: 0.625rem;
+      --radius-sm: calc(var(--radius) - 4px);
+      --radius-md: calc(var(--radius) - 2px);
+      --radius-lg: var(--radius);
+      --radius-xl: 0.75rem;
+      --radius-2xl: 1rem;
+      --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --spacing-page: 1rem;
+      --spacing-page-desktop: 1.5rem;
+      --spacing-section: 1.5rem;
+      --spacing-card: 1.5rem;
+      --spacing-form: 1.5rem;
+      --spacing-field: 0.5rem;
+      --spacing-inline: 0.5rem;
+      --spacing-toolbar: 0.75rem;
+      --spacing-table-x: 1rem;
+      --spacing-table-y: 0.75rem;
+      --spacing-dialog: 1.5rem;
+      --spacing-control-sm: 2rem;
+      --spacing-control-md: 2.25rem;
+      --spacing-control-lg: 2.5rem;
+      --spacing-touch-target: 2.75rem;
+      --spacing-icon-sm: 0.875rem;
+      --spacing-icon-md: 1rem;
+      --spacing-icon-lg: 1.25rem;
+      --spacing-avatar-sm: 1.75rem;
+      --spacing-avatar-md: 2.25rem;
+      --spacing-avatar-lg: 3rem;
+      --spacing-sidebar: 16rem;
+      --spacing-sidebar-mobile: 18rem;
+      --spacing-sidebar-icon: 3rem;
+      --container-content: 80rem;
+      --container-dialog-sm: 24rem;
+      --container-dialog-md: 32rem;
+      --container-dialog-lg: 42rem;
+      --duration-fast: 120ms;
+      --duration-default: 180ms;
+      --duration-slow: 260ms;
+      --ease-standard: cubic-bezier(.2,.8,.2,1);
+      --ease-enter: cubic-bezier(.16,1,.3,1);
+      --ease-exit: cubic-bezier(.4,0,1,1);
+    }
+
+    html.dark {
+      --background: oklch(0.145 0 0);
+      --foreground: oklch(0.985 0 0);
+      --card: oklch(0.145 0 0);
+      --card-foreground: oklch(0.985 0 0);
+      --popover: oklch(0.145 0 0);
+      --popover-foreground: oklch(0.985 0 0);
+      --primary: oklch(0.985 0 0);
+      --primary-foreground: oklch(0.205 0 0);
+      --secondary: oklch(0.269 0 0);
+      --secondary-foreground: oklch(0.985 0 0);
+      --muted: oklch(0.269 0 0);
+      --muted-foreground: oklch(0.708 0 0);
+      --accent: oklch(0.269 0 0);
+      --accent-foreground: oklch(0.985 0 0);
+      --destructive: oklch(0.396 0.141 25.723);
+      --destructive-foreground: oklch(0.637 0.237 25.331);
+      --success: oklch(0.72 0.16 150);
+      --success-foreground: oklch(0.19 0.05 150);
+      --success-subtle: oklch(0.23 0.045 150);
+      --warning: oklch(0.78 0.16 80);
+      --warning-foreground: oklch(0.21 0.06 70);
+      --warning-subtle: oklch(0.25 0.045 80);
+      --info: oklch(0.7 0.16 255);
+      --info-foreground: oklch(0.18 0.05 255);
+      --info-subtle: oklch(0.23 0.045 255);
+      --border: oklch(0.269 0 0);
+      --input: oklch(0.269 0 0);
+      --ring: oklch(0.439 0 0);
+      --chart-1: oklch(0.488 0.243 264.376);
+      --chart-2: oklch(0.696 0.17 162.48);
+      --chart-3: oklch(0.769 0.188 70.08);
+      --chart-4: oklch(0.627 0.265 303.9);
+      --chart-5: oklch(0.645 0.246 16.439);
+      --sidebar: oklch(0.205 0 0);
+      --sidebar-foreground: oklch(0.985 0 0);
+      --sidebar-primary: oklch(0.985 0 0);
+      --sidebar-primary-foreground: oklch(0.985 0 0);
+      --sidebar-accent: oklch(0.269 0 0);
+      --sidebar-accent-foreground: oklch(0.985 0 0);
+      --sidebar-border: oklch(0.269 0 0);
+      --sidebar-ring: oklch(0.439 0 0);
+    }
+
+    * { box-sizing: border-box; border-color: var(--border); }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+      font-size: 14px;
+      line-height: 1.5;
+      text-rendering: optimizeLegibility;
+    }
+    button, input, select, textarea { font: inherit; }
+    a { color: inherit; }
+    code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; }
+    :focus-visible { outline: 3px solid color-mix(in oklch, var(--ring) 55%, transparent); outline-offset: 2px; }
+    ::selection { background: var(--primary); color: var(--primary-foreground); }
+
+    .app { min-height: 100vh; display: grid; grid-template-columns: 17rem minmax(0,1fr); }
+    .side {
+      position: sticky; top: 0; height: 100vh; overflow: auto; padding: 1rem;
+      background: var(--sidebar); color: var(--sidebar-foreground); border-right: 1px solid var(--sidebar-border);
+    }
+    .brand { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; padding: .5rem; }
+    .brand-mark { width: 2rem; height: 2rem; border-radius: .6rem; background: var(--sidebar-primary); color: var(--sidebar-primary-foreground); display:grid; place-items:center; font-weight:800; }
+    .brand strong { display:block; font-size:.9rem; }
+    .brand small { color: var(--muted-foreground); }
+    .nav-group-title { margin: 1rem .5rem .4rem; color: var(--muted-foreground); font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .nav { display:grid; gap:.15rem; }
+    .nav a { display:flex; align-items:center; gap:.55rem; padding:.48rem .6rem; border-radius:var(--radius-md); text-decoration:none; color:var(--muted-foreground); font-weight:500; }
+    .nav a:hover, .nav a.active { background:var(--sidebar-accent); color:var(--sidebar-accent-foreground); }
+    .nav-dot { width:.42rem; height:.42rem; border-radius:999px; background:currentColor; opacity:.7; }
+    .main { min-width:0; }
+    .topbar { position:sticky; top:0; z-index:20; min-height:3.5rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.65rem 1rem; border-bottom:1px solid var(--border); background:color-mix(in oklch,var(--background) 92%,transparent); backdrop-filter:blur(12px); }
+    .crumbs { color:var(--muted-foreground); font-size:.82rem; }
+    .top-actions { display:flex; align-items:center; gap:.5rem; }
+    .content { width:100%; max-width:var(--container-content); margin-inline:auto; padding:1rem; }
+    .hero { display:flex; justify-content:space-between; gap:1.5rem; align-items:flex-start; margin-bottom:1.5rem; }
+    .eyebrow { color:var(--muted-foreground); font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    h1 { margin:.25rem 0 0; font-size:1.5rem; line-height:1.2; letter-spacing:-.025em; }
+    .hero p { margin:.4rem 0 0; max-width:60rem; color:var(--muted-foreground); }
+    .meta { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
+    .tag { display:inline-flex; align-items:center; gap:.35rem; min-height:1.55rem; padding:.12rem .5rem; border:1px solid var(--border); border-radius:999px; font-size:.72rem; font-weight:600; background:var(--card); }
+    .tag.canonical { color:var(--success); border-color:color-mix(in oklch,var(--success) 30%,var(--border)); background:var(--success-subtle); }
+    .tag.normalize { color:var(--warning); border-color:color-mix(in oklch,var(--warning) 30%,var(--border)); background:var(--warning-subtle); }
+    .tag.missing { color:var(--info); border-color:color-mix(in oklch,var(--info) 30%,var(--border)); background:var(--info-subtle); }
+    .tag.deprecated { color:var(--destructive); border-color:color-mix(in oklch,var(--destructive) 30%,var(--border)); background:color-mix(in oklch,var(--destructive) 10%,var(--background)); }
+
+    section { scroll-margin-top:4.5rem; margin:0 0 2rem; }
+    .section-head { display:flex; justify-content:space-between; gap:1rem; align-items:flex-end; margin-bottom:.9rem; }
+    .section-head h2 { margin:0; font-size:1.18rem; letter-spacing:-.02em; }
+    .section-head p { margin:.2rem 0 0; color:var(--muted-foreground); max-width:58rem; }
+    .subhead { margin:1.25rem 0 .6rem; font-size:.94rem; }
+    .grid { display:grid; gap:1rem; }
+    .grid-2 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .grid-3 { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .grid-4 { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .card { background:var(--card); color:var(--card-foreground); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1rem; }
+    .card.admin { box-shadow:none; }
+    .card.raised { box-shadow:var(--shadow-sm); }
+    .card h3 { margin:0 0 .35rem; font-size:.9rem; }
+    .card p { margin:.25rem 0; color:var(--muted-foreground); }
+    .note { padding:.8rem 1rem; border-radius:var(--radius-lg); border:1px solid var(--border); background:color-mix(in oklch,var(--muted) 55%,transparent); }
+    .callout { padding:1rem; border:1px solid color-mix(in oklch,var(--info) 28%,var(--border)); background:var(--info-subtle); color:var(--info-foreground); border-radius:var(--radius-xl); }
+    .rule { display:grid; grid-template-columns:10rem minmax(0,1fr); gap:1rem; padding:.7rem 0; border-top:1px solid var(--border); }
+    .rule:first-child { border-top:0; }
+    .rule strong { font-size:.82rem; }
+
+    .hierarchy { display:grid; grid-template-columns:1fr; gap:.5rem; max-width:42rem; }
+    .hierarchy div { position:relative; padding:.8rem 1rem; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--card); font-weight:600; }
+    .hierarchy div:not(:last-child)::after { content:'↓'; position:absolute; left:50%; bottom:-.7rem; transform:translateX(-50%); z-index:2; color:var(--muted-foreground); background:var(--background); padding:0 .25rem; }
+
+    .token-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem; }
+    .swatch { overflow:hidden; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--card); }
+    .swatch-color { height:4.25rem; border-bottom:1px solid var(--border); }
+    .swatch-body { padding:.7rem; }
+    .swatch-name { font-weight:700; font-size:.8rem; }
+    .swatch-value { color:var(--muted-foreground); font-size:.68rem; margin-top:.18rem; word-break:break-word; }
+    .tone-row { display:flex; flex-wrap:wrap; gap:.5rem; }
+    .status { display:inline-flex; align-items:center; gap:.42rem; min-height:1.6rem; padding:.15rem .52rem; border:1px solid; border-radius:var(--radius-md); font-size:.72rem; font-weight:600; }
+    .status::before { content:''; width:.4rem; height:.4rem; border-radius:999px; background:currentColor; }
+    .status.neutral { color:var(--muted-foreground); background:var(--muted); border-color:var(--border); }
+    .status.info { color:var(--info-foreground); background:var(--info-subtle); border-color:color-mix(in oklch,var(--info) 30%,var(--border)); }
+    .status.success { color:var(--success-foreground); background:var(--success-subtle); border-color:color-mix(in oklch,var(--success) 30%,var(--border)); }
+    .status.warning { color:var(--warning-foreground); background:var(--warning-subtle); border-color:color-mix(in oklch,var(--warning) 30%,var(--border)); }
+    .status.danger { color:var(--destructive); background:color-mix(in oklch,var(--destructive) 10%,var(--background)); border-color:color-mix(in oklch,var(--destructive) 30%,var(--border)); }
+
+    .type-specimen { display:grid; grid-template-columns:9rem minmax(0,1fr) 12rem; gap:1rem; align-items:baseline; padding:.8rem 0; border-top:1px solid var(--border); }
+    .type-specimen:first-child { border-top:0; }
+    .type-role { font-size:.75rem; font-weight:700; color:var(--muted-foreground); }
+    .type-meta { font-size:.7rem; color:var(--muted-foreground); }
+    .display { font-size:2rem; font-weight:600; line-height:1.12; letter-spacing:-.035em; }
+    .page-title { font-size:1.25rem; font-weight:600; line-height:1.25; letter-spacing:-.025em; }
+    .section-title { font-size:1rem; font-weight:600; line-height:1.35; }
+    .card-title { font-size:.875rem; font-weight:600; }
+    .body { font-size:.875rem; }
+    .body-muted { font-size:.875rem; color:var(--muted-foreground); }
+    .label-text { font-size:.875rem; font-weight:550; }
+    .caption { font-size:.75rem; color:var(--muted-foreground); }
+    .helper { font-size:.75rem; color:var(--muted-foreground); line-height:1.45; }
+    .code-role { font-size:.75rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+
+    .spacing-list { display:grid; gap:.55rem; }
+    .space-row { display:grid; grid-template-columns:9rem 4rem minmax(0,1fr); gap:.8rem; align-items:center; }
+    .space-bar { height:.75rem; border-radius:999px; background:var(--info); max-width:100%; }
+    .space-row code, .space-row span { font-size:.72rem; color:var(--muted-foreground); }
+
+    .radius-demo { height:5.5rem; border:1px solid var(--border); background:var(--muted); display:grid; place-items:center; font-size:.72rem; color:var(--muted-foreground); }
+    .shadow-demo { height:5.5rem; border:1px solid var(--border); background:var(--card); border-radius:var(--radius-lg); display:grid; place-items:center; font-size:.72rem; }
+
+    .btn { min-height:var(--spacing-control-md); border:1px solid transparent; border-radius:var(--radius-md); padding:.45rem 1rem; display:inline-flex; align-items:center; justify-content:center; gap:.45rem; font-weight:600; font-size:.82rem; white-space:nowrap; cursor:pointer; transition:color var(--duration-default),background var(--duration-default),border-color var(--duration-default),box-shadow var(--duration-default),transform var(--duration-fast); }
+    .btn:hover { transform:translateY(-1px); }
+    .btn:active { transform:translateY(0); }
+    .btn.primary { background:var(--primary); color:var(--primary-foreground); }
+    .btn.primary:hover { background:color-mix(in oklch,var(--primary) 90%,var(--background)); }
+    .btn.secondary { background:var(--secondary); color:var(--secondary-foreground); }
+    .btn.outline { border-color:var(--input); background:var(--background); color:var(--foreground); box-shadow:var(--shadow-xs); }
+    .btn.outline:hover, .btn.ghost:hover { background:var(--accent); color:var(--accent-foreground); }
+    .btn.ghost { background:transparent; color:var(--foreground); }
+    .btn.danger { background:var(--destructive); color:white; }
+    .btn.link { border:0; background:transparent; color:var(--primary); padding-inline:.25rem; text-decoration:underline; text-underline-offset:4px; }
+    .btn.sm { min-height:var(--spacing-control-sm); padding:.35rem .75rem; }
+    .btn.lg { min-height:var(--spacing-control-lg); padding:.55rem 1.5rem; }
+    .btn.icon { width:var(--spacing-control-md); padding:0; }
+    .btn[disabled] { pointer-events:none; cursor:not-allowed; opacity:.5; transform:none; }
+    .spinner { width:1rem; height:1rem; border:2px solid currentColor; border-right-color:transparent; border-radius:999px; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .field { display:grid; gap:var(--field-gap); }
+    .field label { font-weight:550; font-size:.82rem; }
+    .req { color:var(--destructive); }
+    .control { width:100%; min-height:var(--spacing-control-md); border:1px solid var(--input); border-radius:var(--radius-md); background:transparent; color:var(--foreground); padding:.45rem .75rem; box-shadow:var(--shadow-xs); transition:border-color var(--duration-default),box-shadow var(--duration-default),background var(--duration-default); }
+    .control::placeholder { color:var(--muted-foreground); }
+    .control:focus-visible { outline:none; border-color:var(--ring); box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent); }
+    .control[aria-invalid="true"] { border-color:var(--destructive); box-shadow:0 0 0 3px color-mix(in oklch,var(--destructive) 20%,transparent); }
+    .control:disabled { cursor:not-allowed; opacity:.5; }
+    .control[readonly] { background:var(--muted); }
+    textarea.control { min-height:6rem; resize:vertical; line-height:1.45; }
+    .help { font-size:.75rem; color:var(--muted-foreground); }
+    .error { font-size:.78rem; color:var(--destructive); font-weight:500; }
+    .check-row { display:flex; align-items:flex-start; gap:.65rem; }
+    .fake-check { width:1rem; height:1rem; border:1px solid var(--input); border-radius:.25rem; margin-top:.15rem; background:var(--primary); box-shadow:inset 0 0 0 3px var(--background); }
+
+    .component-states { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.75rem; }
+    .state-box { padding:.75rem; border:1px solid var(--border); border-radius:var(--radius-lg); }
+    .state-box small { display:block; margin-bottom:.55rem; color:var(--muted-foreground); font-weight:600; }
+
+    .toolbar { display:flex; align-items:center; gap:var(--toolbar-gap); padding:1rem; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--card); }
+    .search { position:relative; flex:1; max-width:24rem; }
+    .search .control { padding-left:2.25rem; }
+    .search-icon { position:absolute; left:.75rem; top:50%; width:1rem; height:1rem; transform:translateY(-50%); color:var(--muted-foreground); pointer-events:none; }
+
+    .table-wrap { overflow:hidden; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--card); }
+    .table-scroll { overflow:auto; }
+    table { width:100%; min-width:760px; border-collapse:collapse; font-size:.82rem; }
+    th { padding:.72rem 1rem; background:color-mix(in oklch,var(--muted) 40%,transparent); text-align:left; color:var(--muted-foreground); font-weight:600; }
+    td { padding:1rem; border-top:1px solid var(--border); vertical-align:middle; }
+    tbody tr:hover { background:color-mix(in oklch,var(--muted) 22%,transparent); }
+    td.numeric, th.numeric { text-align:right; font-variant-numeric:tabular-nums; }
+    .table-actions { display:flex; justify-content:flex-end; gap:.5rem; }
+    .table-foot { padding:.7rem 1rem; border-top:1px solid var(--border); color:var(--muted-foreground); font-size:.75rem; display:flex; justify-content:space-between; gap:1rem; align-items:center; }
+    .pagination { display:flex; gap:.3rem; align-items:center; }
+    .page-link { min-width:2rem; min-height:2rem; padding:.25rem .55rem; display:grid; place-items:center; border:1px solid var(--border); border-radius:var(--radius-md); text-decoration:none; font-size:.75rem; background:var(--background); }
+    .page-link.active { background:var(--primary); color:var(--primary-foreground); border-color:var(--primary); }
+    .mobile-list { display:none; }
+    .mobile-record { padding:1rem; border-top:1px solid var(--border); }
+    .mobile-record:first-child { border-top:0; }
+    .kv { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; }
+    .kv dt { color:var(--muted-foreground); font-size:.7rem; }
+    .kv dd { margin:.2rem 0 0; font-size:.82rem; }
+
+    .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; }
+    .metric { display:flex; gap:.8rem; align-items:center; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--card); padding:1rem; }
+    .metric-icon { width:2.75rem; height:2.75rem; border-radius:var(--radius-xl); display:grid; place-items:center; background:var(--muted); font-weight:800; }
+    .metric strong { display:block; font-size:1.35rem; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+    .metric span { color:var(--muted-foreground); font-size:.75rem; }
+
+    .dialog-demo { max-width:32rem; margin:auto; padding:1.25rem; border:1px solid var(--border); border-radius:var(--radius-xl); background:var(--popover); box-shadow:var(--shadow-lg); }
+    .dialog-demo h3 { margin:0; font-size:1rem; }
+    .dialog-demo p { margin:.35rem 0 1rem; color:var(--muted-foreground); }
+    .dialog-footer { display:flex; justify-content:flex-end; gap:.5rem; }
+
+    .empty { text-align:center; padding:2.4rem 1rem; border:1px dashed var(--border); border-radius:var(--radius-lg); background:var(--card); }
+    .empty-icon { width:2.5rem; height:2.5rem; border-radius:999px; margin:0 auto .7rem; display:grid; place-items:center; background:var(--muted); color:var(--muted-foreground); }
+    .empty h3 { margin:0; font-size:.9rem; }
+    .empty p { margin:.35rem auto .9rem; max-width:32rem; color:var(--muted-foreground); }
+
+    .mode-pair { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .mode-sample { --local-bg:#fff; --local-fg:#171717; --local-card:#fff; --local-muted:#f5f5f5; --local-border:#e5e5e5; padding:1rem; border-radius:var(--radius-xl); background:var(--local-bg); color:var(--local-fg); border:1px solid var(--local-border); }
+    .mode-sample.dark-sample { --local-bg:#171717; --local-fg:#fafafa; --local-card:#171717; --local-muted:#2b2b2b; --local-border:#333; }
+    .mode-card { background:var(--local-card); border:1px solid var(--local-border); border-radius:10px; padding:1rem; }
+    .mode-muted { color:color-mix(in srgb,var(--local-fg) 62%,transparent); }
+
+    .pattern-flow { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; }
+    .pattern-node { padding:.45rem .65rem; background:var(--muted); border:1px solid var(--border); border-radius:var(--radius-md); font-weight:600; font-size:.75rem; }
+    .arrow { color:var(--muted-foreground); }
+
+    .do-dont { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .do, .dont { padding:1rem; border:1px solid; border-radius:var(--radius-lg); }
+    .do { border-color:color-mix(in oklch,var(--success) 30%,var(--border)); background:var(--success-subtle); color:var(--success-foreground); }
+    .dont { border-color:color-mix(in oklch,var(--destructive) 30%,var(--border)); background:color-mix(in oklch,var(--destructive) 9%,var(--background)); }
+    .do h3, .dont h3 { margin:0 0 .5rem; font-size:.85rem; }
+    .do ul, .dont ul { margin:.35rem 0 0; padding-left:1.15rem; }
+    .do li, .dont li { margin:.35rem 0; }
+
+    .code { overflow:auto; padding:1rem; border:1px solid var(--border); border-radius:var(--radius-lg); background:color-mix(in oklch,var(--muted) 45%,var(--background)); font-size:.74rem; line-height:1.6; white-space:pre; }
+    .matrix { width:100%; border-collapse:separate; border-spacing:0; min-width:820px; }
+    .matrix th, .matrix td { border-top:1px solid var(--border); padding:.65rem .75rem; }
+    .matrix thead th { border-top:0; }
+    .matrix td:first-child { font-weight:600; }
+    .yes { color:var(--success); font-weight:750; }
+    .na { color:var(--muted-foreground); }
+
+    .responsive-demo { display:grid; grid-template-columns:1.4fr 1fr .72fr; gap:1rem; }
+    .device { border:1px solid var(--border); border-radius:var(--radius-xl); background:var(--card); overflow:hidden; }
+    .device-bar { height:1.8rem; background:var(--muted); border-bottom:1px solid var(--border); }
+    .device-body { padding:.7rem; min-height:9rem; display:grid; gap:.5rem; grid-template-columns:2.5rem 1fr; }
+    .device.mobile .device-body { grid-template-columns:1fr; }
+    .device-side { border-radius:.35rem; background:var(--sidebar); border:1px solid var(--sidebar-border); }
+    .device-main { display:grid; gap:.4rem; }
+    .fake-line { height:.45rem; background:var(--muted); border-radius:999px; }
+    .fake-line.short { width:42%; }
+    .fake-line.medium { width:68%; }
+    .fake-surface { min-height:4rem; border:1px solid var(--border); border-radius:.45rem; background:var(--background); }
+
+    .classification { display:grid; gap:.65rem; }
+    .class-row { display:grid; grid-template-columns:7rem 1fr; gap:1rem; align-items:start; padding:.8rem; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--card); }
+    .class-row p { margin:0; color:var(--muted-foreground); }
+
+    .footer { padding:1rem 0 2rem; color:var(--muted-foreground); font-size:.75rem; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+    @media (min-width: 1024px) {
+      .content { padding:var(--spacing-page-desktop); }
+    }
+    @media (max-width: 1100px) {
+      .grid-4, .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .responsive-demo { grid-template-columns:1fr 1fr; }
+      .responsive-demo .mobile { grid-column:1/-1; max-width:24rem; }
+    }
+    @media (max-width: 860px) {
+      .app { grid-template-columns:1fr; }
+      .side { position:static; height:auto; border-right:0; border-bottom:1px solid var(--border); padding:.65rem 1rem; }
+      .brand { margin:0; }
+      .side .nav-group-title, .side .nav { display:none; }
+      .content { padding:1rem; }
+      .grid-3, .grid-2 { grid-template-columns:1fr; }
+      .hero { flex-direction:column; }
+      .type-specimen { grid-template-columns:1fr; gap:.25rem; }
+      .rule, .class-row { grid-template-columns:1fr; gap:.35rem; }
+      .toolbar { align-items:stretch; flex-direction:column; }
+      .search { max-width:none; }
+      .mode-pair, .do-dont { grid-template-columns:1fr; }
+    }
+    @media (max-width: 640px) {
+      .metrics, .grid-4 { grid-template-columns:1fr; }
+      .desktop-table { display:none; }
+      .mobile-list { display:block; }
+      .table-foot { align-items:flex-start; flex-direction:column; }
+      .dialog-footer { flex-direction:column-reverse; }
+      .dialog-footer .btn { width:100%; }
+      .responsive-demo { grid-template-columns:1fr; }
+      .responsive-demo .mobile { grid-column:auto; max-width:none; }
+      .kv { grid-template-columns:1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior:auto; }
+      *, *::before, *::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+      .btn:hover { transform:none; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="side" aria-label="Design system sections">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">T</div>
+      <div><strong>ThermaSnap</strong><small>Admin UI Contract</small></div>
+    </div>
+    <div class="nav-group-title">Contract</div>
+    <nav class="nav" id="sectionNav">
+      <a href="#foundations"><span class="nav-dot"></span>Foundations</a>
+      <a href="#repository-findings"><span class="nav-dot"></span>Findings</a>
+      <a href="#tokens"><span class="nav-dot"></span>Tokens</a>
+      <a href="#typography"><span class="nav-dot"></span>Typography</a>
+      <a href="#spacing-sizing"><span class="nav-dot"></span>Spacing & sizing</a>
+      <a href="#surfaces"><span class="nav-dot"></span>Surfaces</a>
+      <a href="#motion-icons"><span class="nav-dot"></span>Motion & icons</a>
+      <a href="#components"><span class="nav-dot"></span>Components</a>
+      <a href="#forms"><span class="nav-dot"></span>Forms</a>
+      <a href="#navigation"><span class="nav-dot"></span>Navigation</a>
+      <a href="#data"><span class="nav-dot"></span>Data display</a>
+      <a href="#status"><span class="nav-dot"></span>Status system</a>
+      <a href="#feedback"><span class="nav-dot"></span>Feedback & overlays</a>
+      <a href="#patterns"><span class="nav-dot"></span>Page patterns</a>
+      <a href="#responsive"><span class="nav-dot"></span>Responsive</a>
+      <a href="#accessibility"><span class="nav-dot"></span>Accessibility</a>
+      <a href="#dark-mode"><span class="nav-dot"></span>Dark mode</a>
+      <a href="#content"><span class="nav-dot"></span>Content</a>
+      <a href="#implementation"><span class="nav-dot"></span>Implementation</a>
+      <a href="#ai-rules"><span class="nav-dot"></span>AI agent rules</a>
+      <a href="#do-not"><span class="nav-dot"></span>Do not</a>
+      <a href="#future"><span class="nav-dot"></span>Future normalization</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="crumbs">ThermaSnap / Internal reference / Canonical Admin UI Contract</div>
+      <div class="top-actions">
+        <button class="btn outline sm" id="themeToggle" type="button" aria-label="Toggle light and dark mode">Toggle theme</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <header class="hero">
+        <div>
+          <div class="eyebrow">Repository-derived UI constitution</div>
+          <h1>Canonical Admin UI Contract</h1>
+          <p>Mandatory visual and interaction contract for authenticated ThermaSnap admin pages. It documents the strongest recurring repository patterns, resolves accidental differences, and defines missing reusable contracts without changing domain behavior.</p>
+          <div class="meta">
+            <span class="tag canonical">Canonical reference</span>
+            <span class="tag">HEAD 45588f9d9d0f</span>
+            <span class="tag">Laravel 13 + Inertia 3 + React 19</span>
+            <span class="tag">Tailwind CSS 4</span>
+            <span class="tag">shadcn new-york + Radix + Lucide</span>
+          </div>
+        </div>
+      </header>
+
+      <section id="foundations">
+        <div class="section-head"><div><h2>Foundations</h2><p>Pages consume application patterns. They do not invent visual rules locally.</p></div></div>
+        <div class="grid grid-2">
+          <div class="card admin">
+            <h3>Required hierarchy</h3>
+            <div class="hierarchy" aria-label="Design system hierarchy">
+              <div>DESIGN TOKENS</div><div>UI PRIMITIVES</div><div>COMPOSITE COMPONENTS</div><div>APPLICATION PATTERNS</div><div>DOMAIN PAGES</div>
+            </div>
+          </div>
+          <div class="card admin">
+            <h3>Scope</h3>
+            <div class="rule"><strong>Global</strong><span>Authenticated admin shell, typography, controls, forms, statuses, surfaces, tables, feedback, responsive behavior, dark mode, accessibility.</span></div>
+            <div class="rule"><strong>Domain</strong><span>Workflow-specific information architecture such as template reordering, report views, print recovery, and session state evidence.</span></div>
+            <div class="rule"><strong>Outside scope</strong><span>Kiosk and public gallery have distinct customer-facing contracts. Their visual choices must not become admin precedent.</span></div>
+            <div class="rule"><strong>Behavior</strong><span>Routes, Wayfinder forms, Inertia contracts, authorization, validation, state transitions, submitted field names, and business rules remain authoritative.</span></div>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:1rem"><strong>Core rule.</strong> A screenshot or design mockup defines visual intent, not application behavior. Existing repository contracts remain authoritative unless explicitly changed by the task.</div>
+      </section>
+
+      <section id="repository-findings">
+        <div class="section-head"><div><h2>Repository findings</h2><p>Evidence classification from the current read-only HEAD.</p></div></div>
+        <div class="classification">
+          <div class="class-row"><span class="tag canonical">Canonical</span><p>Tailwind CSS 4 semantic variables in <span class="mono">resources/css/app.css</span>; shadcn new-york primitives; Radix behavior; Lucide icons; resolver-owned sidebar <span class="mono">AppLayout</span>; <span class="mono">p-4 lg:p-6</span> admin spacing; 36px default controls; semantic status tokens; accessible <span class="mono">aria-invalid</span> form wiring.</p></div>
+          <div class="class-row"><span class="tag normalize">Normalize</span><p>Page headers vary between shared <span class="mono">Heading</span> and custom report headings. Summary cards vary in radius, icon size, shadows, and color strategy. Management pages repeat local status mappings, filters, tables, empty states, and pagination patterns.</p></div>
+          <div class="class-row"><span class="tag">Exception</span><p>Dashboard and Reports may use charts and denser metrics. Settings may use split section cards. Templates may expose drag reorder controls. These are workflow exceptions, not general page templates.</p></div>
+          <div class="class-row"><span class="tag deprecated">Deprecated</span><p>Hard-coded status or summary palettes such as violet, emerald, amber, sky, and red when semantic tokens exist. Page-local control clones and page-specific status color maps should not be copied into new work.</p></div>
+          <div class="class-row"><span class="tag missing">Missing</span><p>Reusable application-level <span class="mono">PageHeader</span>, <span class="mono">Field</span>, <span class="mono">Textarea</span>, native <span class="mono">Select</span> contract, <span class="mono">StatusBadge</span>, <span class="mono">SearchInput</span>, <span class="mono">FilterToolbar</span>, <span class="mono">Pagination</span>, <span class="mono">EmptyState</span>, and responsive data-view composition.</p></div>
+        </div>
+        <h3 class="subhead">Existing primitives and libraries to reuse</h3>
+        <div class="grid grid-3">
+          <div class="card admin"><h3>UI primitives</h3><p>Alert, Avatar, Badge, Breadcrumb, Button, Card, Chart, Checkbox, Collapsible, Dialog, DropdownMenu, Input, InputOTP, Label, NavigationMenu, Select, Separator, Sheet, Sidebar, Skeleton, Sonner, Spinner, Switch, Toggle, ToggleGroup, Tooltip.</p></div>
+          <div class="card admin"><h3>Behavior and composition</h3><p>Radix UI for accessible headless primitives, CVA for variants, <span class="mono">clsx</span> + <span class="mono">tailwind-merge</span> through <span class="mono">cn()</span>, Inertia 3 forms and layout props, Laravel Wayfinder typed routes.</p></div>
+          <div class="card admin"><h3>Visual/data dependencies</h3><p>Lucide is the canonical icon family. Recharts is available for reports and dashboards. Sonner is available for transient notifications. No second component system should be added.</p></div>
+        </div>
+      </section>
+
+      <section id="tokens">
+        <div class="section-head"><div><h2>Design tokens</h2><p>Application code should consume semantic tokens. Primitive color references are implementation detail and must not become page-local APIs.</p></div></div>
+        <h3 class="subhead">Semantic application colors</h3>
+        <div class="token-grid">
+          <div class="swatch"><div class="swatch-color" style="background:var(--background)"></div><div class="swatch-body"><div class="swatch-name">background</div><div class="swatch-value">page canvas</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--foreground)"></div><div class="swatch-body"><div class="swatch-name">foreground</div><div class="swatch-value">primary text</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--card)"></div><div class="swatch-body"><div class="swatch-name">surface / card</div><div class="swatch-value">standard bordered surface</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--muted)"></div><div class="swatch-body"><div class="swatch-name">surface-muted / muted</div><div class="swatch-value">subtle hierarchy and inactive zones</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--popover)"></div><div class="swatch-body"><div class="swatch-name">surface-elevated / popover</div><div class="swatch-value">menus, dialogs, popovers</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--primary)"></div><div class="swatch-body"><div class="swatch-name">primary</div><div class="swatch-value">primary actions and selected emphasis</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--secondary)"></div><div class="swatch-body"><div class="swatch-name">secondary</div><div class="swatch-value">secondary actions</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--accent)"></div><div class="swatch-body"><div class="swatch-name">accent</div><div class="swatch-value">hover and contextual selection</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--border)"></div><div class="swatch-body"><div class="swatch-name">border</div><div class="swatch-value">surface separation</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--input)"></div><div class="swatch-body"><div class="swatch-name">input</div><div class="swatch-value">control boundary</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--ring)"></div><div class="swatch-body"><div class="swatch-name">ring</div><div class="swatch-value">focus-visible indication</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--destructive)"></div><div class="swatch-body"><div class="swatch-name">destructive / danger</div><div class="swatch-value">failure, invalid, destructive action</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--success)"></div><div class="swatch-body"><div class="swatch-name">success</div><div class="swatch-value">healthy, complete, active</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--success-subtle)"></div><div class="swatch-body"><div class="swatch-name">success-subtle</div><div class="swatch-value">success surface</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--warning)"></div><div class="swatch-body"><div class="swatch-name">warning</div><div class="swatch-value">pending, attention, review</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--warning-subtle)"></div><div class="swatch-body"><div class="swatch-name">warning-subtle</div><div class="swatch-value">warning surface</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--info)"></div><div class="swatch-body"><div class="swatch-name">info</div><div class="swatch-value">ready, scheduled, informational</div></div></div>
+          <div class="swatch"><div class="swatch-color" style="background:var(--info-subtle)"></div><div class="swatch-body"><div class="swatch-name">info-subtle</div><div class="swatch-value">information surface</div></div></div>
+        </div>
+        <h3 class="subhead">Executable token API</h3>
+        <div class="table-wrap"><div class="table-scroll"><table><thead><tr><th>Contract role</th><th>Canonical CSS token</th><th>Tailwind usage</th><th>Admission rule</th></tr></thead><tbody>
+          <tr><td>Page title</td><td><span class="mono">--text-page-title</span></td><td><span class="mono">text-page-title</span></td><td>Reuse. Do not create page-specific title sizes.</td></tr>
+          <tr><td>Section title</td><td><span class="mono">--text-section-title</span></td><td><span class="mono">text-section-title</span></td><td>Reuse for admin section hierarchy.</td></tr>
+          <tr><td>Page padding</td><td><span class="mono">--spacing-page</span> / <span class="mono">--spacing-page-desktop</span></td><td><span class="mono">p-page lg:p-page-desktop</span></td><td>Use for standard admin page shells.</td></tr>
+          <tr><td>Section gap</td><td><span class="mono">--spacing-section</span></td><td><span class="mono">gap-section</span></td><td>Use for major page sections.</td></tr>
+          <tr><td>Field gap</td><td><span class="mono">--spacing-field</span></td><td><span class="mono">gap-field</span></td><td>Use for label, control, helper, error anatomy.</td></tr>
+          <tr><td>Default control</td><td><span class="mono">--spacing-control-md</span></td><td><span class="mono">h-control-md</span></td><td>36px visual control height. Preserve existing Button/Input/Select behavior.</td></tr>
+          <tr><td>Touch target</td><td><span class="mono">--spacing-touch-target</span></td><td><span class="mono">min-h-touch-target min-w-touch-target</span></td><td>Use where touch-dominant controls need a 44px target.</td></tr>
+          <tr><td>Default icon</td><td><span class="mono">--spacing-icon-md</span></td><td><span class="mono">size-icon-md</span></td><td>16px default Lucide size.</td></tr>
+          <tr><td>Bounded workspace</td><td><span class="mono">--container-content</span></td><td><span class="mono">max-w-content</span></td><td>Use only when a bounded admin workspace improves readability.</td></tr>
+          <tr><td>Standard easing</td><td><span class="mono">--ease-standard</span></td><td><span class="mono">ease-standard</span></td><td>Use for ordinary state transitions.</td></tr>
+          <tr><td>Default duration</td><td><span class="mono">--duration-default</span></td><td><span class="mono">duration-(--duration-default)</span></td><td>Regular CSS variable. Do not globally override all Tailwind transitions.</td></tr>
+        </tbody></table></div></div>
+        <div class="note" style="margin-top:1rem"><strong>No duplicate surfaces.</strong> <span class="mono">card</span> is the canonical standard surface, <span class="mono">muted</span> is the subdued surface, and <span class="mono">popover</span> is the elevated overlay surface. Do not add aliases such as <span class="mono">surface</span>, <span class="mono">surface-muted</span>, or <span class="mono">surface-elevated</span> unless the existing semantics become insufficient.</div>
+        <h3 class="subhead">Primitive palette versus semantic API</h3>
+        <div class="do-dont">
+          <div class="do"><h3>Use</h3><ul><li><span class="mono">bg-success-subtle text-success</span></li><li><span class="mono">border-destructive</span> for invalid controls</li><li><span class="mono">bg-muted text-muted-foreground</span> for neutral/inactive content</li><li><span class="mono">chart-1..5</span> only for quantitative visualization series</li></ul></div>
+          <div class="dont"><h3>Do not use as application semantics</h3><ul><li><span class="mono">bg-emerald-100</span> for Active</li><li><span class="mono">text-red-600</span> for validation when destructive exists</li><li><span class="mono">bg-violet-100</span> for arbitrary KPI identity</li><li>Raw palette colors as one-off status systems</li></ul></div>
+        </div>
+        <h3 class="subhead">Interaction states</h3>
+        <div class="grid grid-3">
+          <div class="card admin"><h3>Hover</h3><p>Primary uses a subtle opacity shift. Outline/ghost use <span class="mono">accent</span>. Rows may use <span class="mono">muted/20</span>. Never change meaning on hover.</p></div>
+          <div class="card admin"><h3>Active / selected</h3><p>Selected navigation uses sidebar accent or a bordered background surface. Selected statuses keep semantic text labels and do not depend on fill alone.</p></div>
+          <div class="card admin"><h3>Focus / disabled</h3><p>Focus-visible uses <span class="mono">ring</span> with a 3px halo. Disabled controls use <span class="mono">opacity-50</span>, non-interactive cursor behavior, and retain readable labels.</p></div>
+        </div>
+      </section>
+
+      <section id="typography">
+        <div class="section-head"><div><h2>Typography contract</h2><p>Use the repository-defined Instrument Sans stack. Technical identifiers use the standard monospace stack.</p></div></div>
+        <div class="card admin">
+          <div class="type-specimen"><div class="type-role">display</div><div class="display">Operational clarity at a glance</div><div class="type-meta">32px / 600 / 1.12</div></div>
+          <div class="type-specimen"><div class="type-role">page-title</div><div class="page-title">Voucher Management</div><div class="type-meta">20px / 600 / tight</div></div>
+          <div class="type-specimen"><div class="type-role">section-title</div><div class="section-title">Payment configuration</div><div class="type-meta">16px / 600</div></div>
+          <div class="type-specimen"><div class="type-role">card-title</div><div class="card-title">Today's revenue</div><div class="type-meta">14px / 600</div></div>
+          <div class="type-specimen"><div class="type-role">body</div><div class="body">Use concise operational language that helps an administrator complete work quickly.</div><div class="type-meta">14px / regular</div></div>
+          <div class="type-specimen"><div class="type-role">body-muted</div><div class="body-muted">Secondary context, timestamps, descriptions, and metadata.</div><div class="type-meta">14px / muted</div></div>
+          <div class="type-specimen"><div class="type-role">label</div><div class="label-text">Session price</div><div class="type-meta">14px / medium</div></div>
+          <div class="type-specimen"><div class="type-role">caption / helper</div><div class="helper">Customer-facing message shown when new sessions are unavailable.</div><div class="type-meta">12px / muted</div></div>
+          <div class="type-specimen"><div class="type-role">code</div><div class="code-role">sess_01K4Y9M8J6...</div><div class="type-meta">12px / mono</div></div>
+        </div>
+        <div class="code" style="margin-top:1rem">text-display       → --text-display
+text-page-title    → --text-page-title
+text-section-title → --text-section-title
+text-card-title    → --text-card-title
+text-body          → --text-body
+text-caption       → --text-caption</div>
+        <div class="note" style="margin-top:1rem"><strong>Normalize semantics.</strong> The current shared <span class="mono">Heading</span> provides the canonical visual scale but renders a top-level title as <span class="mono">h2</span>. Future normalization should preserve the visual scale while using a semantic <span class="mono">h1</span> for page titles.</div>
+      </section>
+
+      <section id="spacing-sizing">
+        <div class="section-head"><div><h2>Spacing and sizing</h2><p>Use the Tailwind spacing scale. Do not introduce arbitrary pixel gaps when a canonical role exists.</p></div></div>
+        <div class="grid grid-2">
+          <div class="card admin"><h3>Semantic spacing roles</h3><div class="spacing-list">
+            <div class="space-row"><code>page-padding</code><span>16/24px</span><div class="space-bar" style="width:60%"></div></div>
+            <div class="space-row"><code>section-gap</code><span>24px</span><div class="space-bar" style="width:72%"></div></div>
+            <div class="space-row"><code>card-padding</code><span>16-24px</span><div class="space-bar" style="width:66%"></div></div>
+            <div class="space-row"><code>form-gap</code><span>24px</span><div class="space-bar" style="width:72%"></div></div>
+            <div class="space-row"><code>field-gap</code><span>8px</span><div class="space-bar" style="width:26%"></div></div>
+            <div class="space-row"><code>inline-gap</code><span>8px</span><div class="space-bar" style="width:26%"></div></div>
+            <div class="space-row"><code>toolbar-gap</code><span>12px</span><div class="space-bar" style="width:38%"></div></div>
+            <div class="space-row"><code>table-cell</code><span>16x12px</span><div class="space-bar" style="width:50%"></div></div>
+          </div></div>
+          <div class="card admin"><h3>Canonical sizing</h3>
+            <div class="rule"><strong>Controls</strong><span>sm 32px, default 36px, lg 40px. Input and Radix Select already use 36px default.</span></div>
+            <div class="rule"><strong>Icons</strong><span>14px compact, 16px default, 20px emphasized. Button children default to 16px.</span></div>
+            <div class="rule"><strong>Sidebar</strong><span>256px expanded, 288px mobile sheet, 48px icon rail.</span></div>
+            <div class="rule"><strong>Content</strong><span>80rem maximum where a bounded workspace is useful. Wide management tables may consume available sidebar inset width.</span></div>
+            <div class="rule"><strong>Dialogs</strong><span>sm 24rem, md 32rem, lg 42rem. Choose the smallest width that avoids compression.</span></div>
+          </div>
+        </div>
+        <div class="code" style="margin-top:1rem">p-page lg:p-page-desktop → --spacing-page / --spacing-page-desktop
+gap-section               → --spacing-section
+p-card                    → --spacing-card
+gap-form                  → --spacing-form
+gap-field                 → --spacing-field
+gap-inline                → --spacing-inline
+gap-toolbar               → --spacing-toolbar
+px-table-x py-table-y     → --spacing-table-x / --spacing-table-y
+p-dialog                  → --spacing-dialog
+h-control-sm/md/lg        → --spacing-control-sm/md/lg
+min-h-touch-target        → --spacing-touch-target
+size-icon-sm/md/lg        → --spacing-icon-sm/md/lg
+size-avatar-sm/md/lg      → --spacing-avatar-sm/md/lg
+w-sidebar                 → --spacing-sidebar
+w-sidebar-mobile          → --spacing-sidebar-mobile
+w-sidebar-icon            → --spacing-sidebar-icon
+max-w-content             → --container-content
+max-w-dialog-sm/md/lg     → --container-dialog-sm/md/lg</div>
+        <div class="note" style="margin-top:1rem"><strong>Density.</strong> Comfortable spacing is the default. Dense spacing is allowed for data-heavy tables and compact toolbars, never for destructive confirmations, critical forms, or touch-first flows.</div>
+      </section>
+
+      <section id="surfaces">
+        <div class="section-head"><div><h2>Radius, borders, shadows, and surfaces</h2><p>Hierarchy comes primarily from border, spacing, and background contrast. Elevation is restrained.</p></div></div>
+        <div class="grid grid-4">
+          <div><div class="radius-demo" style="border-radius:var(--radius-sm)">radius-sm</div><p class="caption">small internal details</p></div>
+          <div><div class="radius-demo" style="border-radius:var(--radius-md)">radius-md</div><p class="caption">controls, buttons, badges</p></div>
+          <div><div class="radius-demo" style="border-radius:var(--radius-lg)">radius-lg / xl visual</div><p class="caption">cards and standard panels</p></div>
+          <div><div class="radius-demo" style="border-radius:var(--radius-2xl)">section radius</div><p class="caption">Tailwind rounded-2xl, large section composites only</p></div>
+        </div>
+        <h3 class="subhead">Elevation</h3>
+        <div class="grid grid-4">
+          <div class="shadow-demo" style="box-shadow:none">shadow-none<br><span class="caption">admin panels</span></div>
+          <div class="shadow-demo" style="box-shadow:var(--shadow-xs)">shadow-xs<br><span class="caption">controls</span></div>
+          <div class="shadow-demo" style="box-shadow:var(--shadow-sm)">shadow-sm<br><span class="caption">raised/interactive cards</span></div>
+          <div class="shadow-demo" style="box-shadow:var(--shadow-lg)">shadow-lg<br><span class="caption">overlays only</span></div>
+        </div>
+        <h3 class="subhead">Surface contract</h3>
+        <div class="grid grid-3">
+          <div class="card admin"><h3>Page</h3><p><span class="mono">background</span>. Never wrap the page in a duplicate shell.</p></div>
+          <div class="card admin"><h3>Card / Panel</h3><p><span class="mono">card + border</span>. Default admin composition uses no shadow.</p></div>
+          <div class="card raised"><h3>Elevated overlay</h3><p><span class="mono">popover</span> plus medium/large shadow for temporary layers.</p></div>
+        </div>
+      </section>
+
+      <section id="motion-icons">
+        <div class="section-head"><div><h2>Motion and iconography</h2><p>Motion communicates continuity, never application truth.</p></div></div>
+        <div class="grid grid-2">
+          <div class="card admin"><h3>Motion contract</h3>
+            <div class="rule"><strong>fast 120ms</strong><span>press feedback, micro state transitions</span></div>
+            <div class="rule"><strong>default 180ms</strong><span>hover, dropdown, popover, accordion, tabs</span></div>
+            <div class="rule"><strong>slow 260ms</strong><span>dialog, sheet, sidebar transitions where spatial context matters</span></div>
+            <div class="rule"><strong>reduced motion</strong><span>remove non-essential translation and collapse durations to effectively instant</span></div>
+          </div>
+          <div class="card admin"><h3>Lucide is canonical</h3><p>Use Lucide for create (+), edit (pencil), delete (trash), search, filter, sort, download, upload, refresh, settings, more actions, chevrons, warning, success, info, error, and external link.</p><div class="tone-row" style="margin-top:.8rem"><span class="tag">+ Create</span><span class="tag">⌕ Search</span><span class="tag">⚙ Settings</span><span class="tag">⋯ More</span><span class="tag">↻ Refresh</span></div><p class="caption" style="margin-top:.7rem">Default icon size 16px. Emphasis 20px. Compact inline icon 14px. Avoid mixing icon families.</p></div>
+        </div>
+      </section>
+
+      <section id="components">
+        <div class="section-head"><div><h2>Core UI components</h2><p>Existing repository primitives remain the first choice. Missing contracts are application-level standardization targets, not a reason to add a second library.</p></div></div>
+        <h3 class="subhead">Buttons</h3>
+        <div class="card admin"><div class="tone-row">
+          <button class="btn primary">Primary</button><button class="btn secondary">Secondary</button><button class="btn outline">Outline</button><button class="btn ghost">Ghost</button><button class="btn danger">Destructive</button><button class="btn link">Link</button><button class="btn primary sm">Small</button><button class="btn primary lg">Large</button><button class="btn outline icon" aria-label="More actions">•••</button><button class="btn primary" disabled>Disabled</button><button class="btn primary"><span class="spinner" aria-hidden="true"></span>Saving...</button>
+        </div><div class="note" style="margin-top:1rem"><strong>Usage.</strong> One dominant primary action per local decision area. Secondary/outline for alternatives. Ghost for low-emphasis contextual actions. Destructive only for irreversible or high-risk removal. Link styling for true navigation, not action buttons.</div></div>
+        <h3 class="subhead">Component status</h3>
+        <div class="table-wrap"><div class="table-scroll"><table>
+          <thead><tr><th>Component</th><th>Repository status</th><th>Canonical rule</th></tr></thead>
+          <tbody>
+            <tr><td>Button / IconButton</td><td><span class="tag canonical">Existing</span></td><td>Reuse shadcn Button variants and sizes. Icon-only requires accessible name.</td></tr>
+            <tr><td>Input</td><td><span class="tag canonical">Existing</span></td><td>36px default, rounded-md, 3px focus halo, aria-invalid.</td></tr>
+            <tr><td>Radix Select</td><td><span class="tag canonical">Existing</span></td><td>Use for custom selection UI. Preserve its trigger sizing and keyboard behavior.</td></tr>
+            <tr><td>NativeSelect</td><td><span class="tag missing">Missing</span></td><td>When native serialization/behavior is preferable, create one shared primitive matching Input visual states.</td></tr>
+            <tr><td>Textarea</td><td><span class="tag missing">Missing</span></td><td>Create one shared primitive matching Input focus, invalid, disabled, type scale, and dark mode.</td></tr>
+            <tr><td>Field / FieldError</td><td><span class="tag normalize">Partial</span></td><td>Current Label + Input + InputError wiring is correct. Consolidate repeated anatomy without changing names/values.</td></tr>
+            <tr><td>Badge</td><td><span class="tag canonical">Existing</span></td><td>Use base Badge, but domain state color must come from semantic status mapping.</td></tr>
+            <tr><td>StatusBadge</td><td><span class="tag missing">Missing</span></td><td>Centralize semantic neutral/info/success/warning/danger rendering and accessible labels.</td></tr>
+            <tr><td>Dialog / Sheet / Dropdown / Tooltip</td><td><span class="tag canonical">Existing</span></td><td>Reuse Radix-backed primitives. Preserve focus management and keyboard behavior.</td></tr>
+            <tr><td>Pagination / EmptyState / FilterToolbar</td><td><span class="tag missing">Missing</span></td><td>Promote repeated application patterns into shared composites when migration work begins.</td></tr>
+          </tbody>
+        </table></div></div>
+        <h3 class="subhead">Interactive state matrix</h3>
+        <div class="table-wrap"><div class="table-scroll"><table class="matrix">
+          <thead><tr><th>Component</th><th>Default</th><th>Hover</th><th>Focus-visible</th><th>Active/selected</th><th>Disabled</th><th>Loading</th><th>Invalid</th><th>Read-only</th></tr></thead>
+          <tbody>
+            <tr><td>Button</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">3px ring</td><td class="yes">pressed visual</td><td class="yes">opacity 50%</td><td class="yes">spinner + label</td><td class="na">N/A</td><td class="na">N/A</td></tr>
+            <tr><td>Input</td><td class="yes">Yes</td><td class="na">subtle only</td><td class="yes">ring token</td><td class="na">N/A</td><td class="yes">opacity 50%</td><td class="na">N/A</td><td class="yes">destructive</td><td class="yes">muted surface</td></tr>
+            <tr><td>Select</td><td class="yes">Yes</td><td class="yes">subtle</td><td class="yes">ring token</td><td class="yes">item accent</td><td class="yes">opacity 50%</td><td class="na">N/A</td><td class="yes">destructive</td><td class="na">N/A</td></tr>
+            <tr><td>Textarea</td><td class="yes">same as Input</td><td class="na">subtle only</td><td class="yes">ring token</td><td class="na">N/A</td><td class="yes">opacity 50%</td><td class="na">N/A</td><td class="yes">destructive</td><td class="yes">muted surface</td></tr>
+          </tbody>
+        </table></div></div>
+      </section>
+
+      <section id="forms">
+        <div class="section-head"><div><h2>Form contract</h2><p>All controls share one field anatomy, one validation language, and one sizing system.</p></div></div>
+        <div class="grid grid-2">
+          <div class="card admin">
+            <h3>Canonical field anatomy</h3>
+            <div class="field" style="margin-top:.8rem"><label for="demoName">Voucher code <span class="req" aria-hidden="true">*</span></label><input id="demoName" class="control" placeholder="VCH-ABCD-1234" aria-describedby="demoHelp"><div class="help" id="demoHelp">Use a short operator-readable code.</div></div>
+            <div class="field" style="margin-top:1rem"><label for="demoInvalid">Session price</label><input id="demoInvalid" class="control" value="0" aria-invalid="true" aria-describedby="demoError"><div class="error" id="demoError" role="alert">Session price must be greater than zero.</div></div>
+            <div class="field" style="margin-top:1rem"><label for="demoText">Maintenance message</label><textarea id="demoText" class="control" placeholder="Temporarily unavailable..."></textarea><div class="help">Textarea follows the same control contract as Input.</div></div>
+            <div class="check-row" style="margin-top:1rem"><span class="fake-check" aria-hidden="true"></span><div><strong>Active</strong><div class="help">Checkbox label remains visible and clickable.</div></div></div>
+          </div>
+          <div class="card admin"><h3>Rules</h3>
+            <div class="rule"><strong>Label</strong><span>Always visible. Do not use placeholder as the only label.</span></div>
+            <div class="rule"><strong>Required</strong><span>Use native <span class="mono">required</span> where applicable plus a visual indicator if it improves comprehension.</span></div>
+            <div class="rule"><strong>Description</strong><span>Optional, concise, directly associated with <span class="mono">aria-describedby</span> when useful.</span></div>
+            <div class="rule"><strong>Error</strong><span>Immediately follows the control/description, uses destructive semantic color, role=alert where appropriate, and is referenced by <span class="mono">aria-describedby</span>.</span></div>
+            <div class="rule"><strong>Submit</strong><span>Disable while processing and keep a stable action label such as “Saving changes...”.</span></div>
+            <div class="rule"><strong>Serialization</strong><span>Never change field names, values, hidden inputs, Wayfinder form semantics, or controlled/uncontrolled behavior just for styling.</span></div>
+          </div>
+        </div>
+        <div class="note" style="margin-top:1rem"><strong>Current normalization target.</strong> <span class="mono">InputError</span> currently hard-codes red. New design-system work should align it to <span class="mono">text-destructive</span> without changing its public behavior.</div>
+      </section>
+
+      <section id="navigation">
+        <div class="section-head"><div><h2>Navigation contract</h2><p>Sidebar, breadcrumbs, page heading, tabs/sub-navigation, and back navigation must describe the same information hierarchy.</p></div></div>
+        <div class="pattern-flow" aria-label="Navigation hierarchy"><span class="pattern-node">Application</span><span class="arrow">→</span><span class="pattern-node">Domain / Module</span><span class="arrow">→</span><span class="pattern-node">Resource</span><span class="arrow">→</span><span class="pattern-node">Page / Action</span></div>
+        <div class="grid grid-3" style="margin-top:1rem">
+          <div class="card admin"><h3>App Sidebar</h3><p>Use the existing shadcn Sidebar. 16rem expanded, 3rem icon rail, 18rem mobile Sheet. Main admin groups are Dashboard, Templates, Stickers, Vouchers, Sessions, Payments, Reports, and System settings.</p></div>
+          <div class="card admin"><h3>Breadcrumbs</h3><p>Set via <span class="mono">setLayoutProps()</span> for resolver-owned admin layout. Pages must not manually wrap <span class="mono">AppLayout</span>.</p></div>
+          <div class="card admin"><h3>Sub-navigation</h3><p>Use tabs/segmented navigation only when sibling views share one domain, such as Daily, Monthly, and Date Range reports. Preserve <span class="mono">aria-current="page"</span>.</p></div>
+        </div>
+      </section>
+
+      <section id="data">
+        <div class="section-head"><div><h2>Data display contract</h2><p>Use predictable tables on desktop and an intentional alternate representation when the table no longer fits.</p></div></div>
+        <div class="metrics">
+          <div class="metric"><div class="metric-icon">#</div><div><span>Total vouchers</span><strong>128</strong></div></div>
+          <div class="metric"><div class="metric-icon" style="background:var(--success-subtle);color:var(--success)">✓</div><div><span>Usable now</span><strong>94</strong></div></div>
+          <div class="metric"><div class="metric-icon" style="background:var(--info-subtle);color:var(--info)">i</div><div><span>Redemptions</span><strong>842</strong></div></div>
+          <div class="metric"><div class="metric-icon" style="background:var(--warning-subtle);color:var(--warning)">!</div><div><span>Needs attention</span><strong>7</strong></div></div>
+        </div>
+        <div class="toolbar" style="margin-top:1rem">
+          <div class="search"><svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input class="control" aria-label="Search vouchers" placeholder="Search vouchers by code..."></div>
+          <select class="control" style="width:auto;min-width:11rem" aria-label="Status filter"><option>All statuses</option><option>Usable</option><option>Pending</option></select>
+          <button class="btn outline">Reset</button>
+        </div>
+        <div class="table-wrap" style="margin-top:1rem">
+          <div class="table-scroll desktop-table"><table><caption class="sr-only">Voucher management example</caption><thead><tr><th>Voucher code</th><th>Status</th><th>Usage</th><th>Validity</th><th class="numeric">Amount</th><th class="numeric">Actions</th></tr></thead><tbody>
+            <tr><td class="mono"><strong>VCH-8H4K-22</strong></td><td><span class="status success">Usable</span></td><td>8 / 20</td><td>Expires Aug 31, 2026</td><td class="numeric">₱100.00</td><td><div class="table-actions"><button class="btn outline sm">Edit</button><button class="btn ghost icon" aria-label="More actions">•••</button></div></td></tr>
+            <tr><td class="mono"><strong>VCH-3Q1P-91</strong></td><td><span class="status warning">Pending</span></td><td>0 / 10</td><td>Starts Sep 1, 2026</td><td class="numeric">₱100.00</td><td><div class="table-actions"><button class="btn outline sm">Edit</button><button class="btn ghost icon" aria-label="More actions">•••</button></div></td></tr>
+            <tr><td class="mono"><strong>VCH-0F9A-12</strong></td><td><span class="status neutral">Disabled</span></td><td>4 / 4</td><td>Expired Aug 10, 2026</td><td class="numeric">₱100.00</td><td><div class="table-actions"><button class="btn outline sm">Edit</button><button class="btn ghost icon" aria-label="More actions">•••</button></div></td></tr>
+          </tbody></table></div>
+          <div class="mobile-list">
+            <article class="mobile-record"><div style="display:flex;justify-content:space-between;gap:1rem"><div><div class="caption">Voucher</div><strong class="mono">VCH-8H4K-22</strong></div><span class="status success">Usable</span></div><dl class="kv"><div><dt>Usage</dt><dd>8 / 20</dd></div><div><dt>Validity</dt><dd>Expires Aug 31, 2026</dd></div></dl></article>
+            <article class="mobile-record"><div style="display:flex;justify-content:space-between;gap:1rem"><div><div class="caption">Voucher</div><strong class="mono">VCH-3Q1P-91</strong></div><span class="status warning">Pending</span></div><dl class="kv"><div><dt>Usage</dt><dd>0 / 10</dd></div><div><dt>Validity</dt><dd>Starts Sep 1, 2026</dd></div></dl></article>
+          </div>
+          <div class="table-foot"><span>Showing 1-20 of 128 vouchers</span><nav class="pagination" aria-label="Pagination"><a class="page-link" href="#data">Previous</a><a class="page-link active" href="#data" aria-current="page">1</a><a class="page-link" href="#data">2</a><a class="page-link" href="#data">Next</a></nav></div>
+        </div>
+        <div class="grid grid-3" style="margin-top:1rem">
+          <div class="card admin"><h3>Table header</h3><p>Muted surface, text-left by default, medium label, 12px vertical and 16px horizontal padding.</p></div>
+          <div class="card admin"><h3>Rows</h3><p>16px horizontal/vertical comfort for management tables. Row hover is subtle muted background. Numeric values align right and use tabular numerals.</p></div>
+          <div class="card admin"><h3>Actions</h3><p>Keep one obvious edit/action when useful. Put low-frequency/destructive actions in contextual menus. Do not overload every row.</p></div>
+        </div>
+      </section>
+
+      <section id="status">
+        <div class="section-head"><div><h2>Canonical status system</h2><p>Domain states map into five semantic meanings. The same meaning uses the same semantic color everywhere.</p></div></div>
+        <div class="tone-row"><span class="status neutral">Neutral</span><span class="status info">Info</span><span class="status success">Success</span><span class="status warning">Warning</span><span class="status danger">Danger</span></div>
+        <div class="table-wrap" style="margin-top:1rem"><div class="table-scroll"><table><thead><tr><th>Domain state</th><th>Semantic state</th><th>Reason</th></tr></thead><tbody>
+          <tr><td>Active, Success, Completed, Printed, Usable</td><td><span class="status success">Success</span></td><td>Healthy or successfully complete.</td></tr>
+          <tr><td>Ready, Scheduled, Processing context</td><td><span class="status info">Info</span></td><td>Informational, ready, or scheduled without urgency.</td></tr>
+          <tr><td>Pending, Payment pending, For review, Needs attention</td><td><span class="status warning">Warning</span></td><td>Requires time, review, or operator awareness.</td></tr>
+          <tr><td>Disabled, Cancelled, Expired, Abandoned</td><td><span class="status neutral">Neutral</span></td><td>Inactive or terminal without current failure.</td></tr>
+          <tr><td>Failed, Blocked, Exhausted when action is required</td><td><span class="status danger">Danger</span></td><td>Failure or blocked operation requiring corrective action.</td></tr>
+        </tbody></table></div></div>
+        <div class="note" style="margin-top:1rem"><strong>Context matters.</strong> “Expired voucher” can be neutral when merely historical, but warning when it is part of a current “needs attention” work queue. The label and surrounding workflow determine urgency. Do not encode urgency by changing colors arbitrarily per page.</div>
+      </section>
+
+      <section id="feedback">
+        <div class="section-head"><div><h2>Feedback and overlays</h2><p>Every data-driven surface explicitly supports Loading, Ready, Empty, and Error where applicable.</p></div></div>
+        <div class="grid grid-3">
+          <div class="card admin"><h3>Loading</h3><div style="display:grid;gap:.5rem;margin-top:.7rem"><div class="fake-line medium"></div><div class="fake-line"></div><div class="fake-line short"></div></div><p>Use Skeleton for structural loading, Spinner for bounded actions.</p></div>
+          <div class="empty"><div class="empty-icon">0</div><h3>No vouchers yet</h3><p>Create the first voucher code to authorize a kiosk session without Maya payment.</p><button class="btn primary">New voucher</button></div>
+          <div class="card admin"><h3>Error / recovery</h3><p style="color:var(--destructive)"><strong>Could not load payments.</strong></p><p>Keep the user’s context and provide a specific recovery action when retry is safe.</p><button class="btn outline" style="margin-top:.6rem">Try again</button></div>
+        </div>
+        <h3 class="subhead">Overlay contract</h3>
+        <div class="dialog-demo" role="group" aria-label="Destructive dialog example"><h3>Delete “VCH-8H4K-22”?</h3><p>This voucher has no redemption history. Deleting it cannot be undone.</p><div class="dialog-footer"><button class="btn secondary">Cancel</button><button class="btn danger">Delete voucher</button></div></div>
+        <div class="grid grid-3" style="margin-top:1rem">
+          <div class="card admin"><h3>Dialog / AlertDialog</h3><p>Use for blocking decisions. Trap focus, Escape closes when safe, restore focus to trigger. High-impact destructive operations must state the exact resource and consequence.</p></div>
+          <div class="card admin"><h3>Sheet / Drawer</h3><p>Use for navigation and secondary mobile filters. Do not move primary form completion into a drawer without a workflow reason.</p></div>
+          <div class="card admin"><h3>Popover / Tooltip / Dropdown</h3><p>Use for transient supporting controls. Tooltip is never the sole source of essential information. Dropdown destructive items remain visibly distinct.</p></div>
+        </div>
+      </section>
+
+      <section id="patterns">
+        <div class="section-head"><div><h2>Application and CRUD patterns</h2><p>Pages provide domain composition. The application shell is owned by the resolver and shared layouts.</p></div></div>
+        <h3 class="subhead">Canonical page hierarchy</h3>
+        <div class="code">AppLayout (resolver-owned)
+└── SidebarInset / AppContent
+    ├── AppSidebarHeader + Breadcrumbs
+    └── PageContainer: p-4 lg:p-6
+        ├── PageHeader
+        │   ├── PageTitle
+        │   ├── PageDescription
+        │   └── PageActions
+        └── PageContent
+            ├── Optional Summary
+            ├── Optional FilterToolbar
+            └── Domain Content</div>
+        <h3 class="subhead">Index</h3><div class="pattern-flow"><span class="pattern-node">Page Header</span><span class="arrow">→</span><span class="pattern-node">Optional compact Summary</span><span class="arrow">→</span><span class="pattern-node">Search + Filters + Sort</span><span class="arrow">→</span><span class="pattern-node">Table / Responsive list</span><span class="arrow">→</span><span class="pattern-node">Pagination</span></div>
+        <h3 class="subhead">Create / Edit</h3><div class="pattern-flow"><span class="pattern-node">Page Header</span><span class="arrow">→</span><span class="pattern-node">Logical Form Sections</span><span class="arrow">→</span><span class="pattern-node">Validation</span><span class="arrow">→</span><span class="pattern-node">Save + Cancel</span></div>
+        <h3 class="subhead">Delete</h3><div class="pattern-flow"><span class="pattern-node">Contextual action</span><span class="arrow">→</span><span class="pattern-node">Confirmation</span><span class="arrow">→</span><span class="pattern-node">Specific consequence</span><span class="arrow">→</span><span class="pattern-node">Destructive action</span></div>
+        <h3 class="subhead">Search and filtering</h3>
+        <div class="grid grid-3">
+          <div class="card admin"><h3>Desktop</h3><p>Compact toolbar. Search gets flexible width. Common high-signal filters remain inline. “Reset” appears only when a filter is active.</p></div>
+          <div class="card admin"><h3>Mobile</h3><p>Search remains visible when primary. Collapse secondary filters into a Sheet when the toolbar becomes crowded.</p></div>
+          <div class="card admin"><h3>Progressive disclosure</h3><p>Do not expose every possible filter by default. Add filters only when they support real operator decisions.</p></div>
+        </div>
+        <h3 class="subhead">Documented exceptions</h3>
+        <div class="grid grid-4">
+          <div class="card admin"><h3>Dashboard</h3><p>Metric-first overview and charts. It may be denser than CRUD pages.</p></div>
+          <div class="card admin"><h3>Reports</h3><p>Dedicated Daily / Monthly / Date Range sub-navigation and period/export controls.</p></div>
+          <div class="card admin"><h3>Settings</h3><p>Split section cards can pair explanatory context with grouped controls.</p></div>
+          <div class="card admin"><h3>Templates</h3><p>Drag reorder and media previews are domain-specific operational controls.</p></div>
+        </div>
+      </section>
+
+      <section id="responsive">
+        <div class="section-head"><div><h2>Responsive contract</h2><p>Responsive behavior is defined by composition changes, not only breakpoints.</p></div></div>
+        <div class="responsive-demo">
+          <div class="device"><div class="device-bar"></div><div class="device-body"><div class="device-side"></div><div class="device-main"><div class="fake-line medium"></div><div class="fake-line short"></div><div class="fake-surface"></div><div class="fake-surface"></div></div></div><div class="caption" style="padding:.6rem">Desktop: persistent/collapsible sidebar, inline toolbar, wide tables, visible secondary actions.</div></div>
+          <div class="device"><div class="device-bar"></div><div class="device-body"><div class="device-side"></div><div class="device-main"><div class="fake-line medium"></div><div class="fake-surface"></div><div class="fake-surface"></div></div></div><div class="caption" style="padding:.6rem">Tablet: collapsed sidebar as needed, wrapped toolbar, reduced secondary information.</div></div>
+          <div class="device mobile"><div class="device-bar"></div><div class="device-body"><div class="device-main"><div class="fake-line medium"></div><div class="fake-line short"></div><div class="fake-surface"></div><div class="fake-surface"></div></div></div><div class="caption" style="padding:.6rem">Mobile: drawer navigation, stacked actions, single-column forms, filter sheet, card/list data when tables become unusable.</div></div>
+        </div>
+        <div class="grid grid-3" style="margin-top:1rem">
+          <div class="card admin"><h3>Mobile</h3><p>16px page padding. Full-width primary action when needed. Minimum touch target should approach 44x44px for touch-dominant controls even if visual control height is 36px.</p></div>
+          <div class="card admin"><h3>Tablet</h3><p>Keep data priority explicit. Hide only secondary columns that can be reconstructed from a row detail or card layout.</p></div>
+          <div class="card admin"><h3>Desktop</h3><p>24px page padding. Preserve readable line lengths. Do not stretch form fields to full viewport width when their values are short.</p></div>
+        </div>
+      </section>
+
+      <section id="accessibility">
+        <div class="section-head"><div><h2>Accessibility contract</h2><p>Target WCAG 2.2 AA behavior. Prefer native semantics before ARIA.</p></div></div>
+        <div class="grid grid-3">
+          <div class="card admin"><h3>Keyboard and focus</h3><p>All admin controls are keyboard operable. Focus-visible is always perceivable. Dialogs trap focus and restore it. Logical DOM order matches visual order.</p></div>
+          <div class="card admin"><h3>Forms</h3><p>Every control has a programmatic label. Errors are associated by ID. Required state is exposed. Invalid state uses text plus visual treatment, not color alone.</p></div>
+          <div class="card admin"><h3>Data</h3><p>Use semantic tables with caption or accessible name, header cells, and meaningful action names. Responsive cards use <span class="mono">article</span>, <span class="mono">dl</span>, headings, or equivalent semantics.</p></div>
+          <div class="card admin"><h3>Icon-only controls</h3><p>Always provide an accessible name such as “More actions for VCH-8H4K-22”. Decorative icons use <span class="mono">aria-hidden="true"</span>.</p></div>
+          <div class="card admin"><h3>Contrast and status</h3><p>Maintain AA contrast. Status communicates meaning through text and, where useful, shape/dot/icon as reinforcement. Never rely on color alone.</p></div>
+          <div class="card admin"><h3>Motion and zoom</h3><p>Honor <span class="mono">prefers-reduced-motion</span>. Content must reflow under browser zoom without clipping critical controls or forcing two-dimensional scrolling.</p></div>
+        </div>
+      </section>
+
+      <section id="dark-mode">
+        <div class="section-head"><div><h2>Dark mode contract</h2><p>Dark mode preserves semantic hierarchy. It is not an inverted afterthought.</p></div></div>
+        <div class="mode-pair">
+          <div class="mode-sample"><strong>Light hierarchy</strong><p class="mode-muted">Background → bordered card → elevated popover.</p><div class="mode-card"><strong>System settings</strong><p class="mode-muted">Muted text remains subordinate without becoming unreadable.</p></div></div>
+          <div class="mode-sample dark-sample"><strong>Dark hierarchy</strong><p class="mode-muted">Background → bordered card → elevated popover.</p><div class="mode-card"><strong>System settings</strong><p class="mode-muted">Borders, text, statuses, and focus remain intentional.</p></div></div>
+        </div>
+        <div class="grid grid-3" style="margin-top:1rem">
+          <div class="card admin"><h3>Surfaces</h3><p>Use dark token values for background, card, popover, sidebar, and border. Avoid light-only hard-coded fills.</p></div>
+          <div class="card admin"><h3>States</h3><p>Focus, hover, disabled, selected, and invalid states must be explicitly legible in dark mode.</p></div>
+          <div class="card admin"><h3>Status</h3><p>Use semantic dark token values. Do not mirror light palette classes manually inside pages.</p></div>
+        </div>
+      </section>
+
+      <section id="content">
+        <div class="section-head"><div><h2>Content and microcopy</h2><p>Use concise, plain-language operator terminology and the application’s existing domain vocabulary.</p></div></div>
+        <div class="do-dont">
+          <div class="do"><h3>Preferred</h3><ul><li>New voucher</li><li>Save changes</li><li>Delete voucher</li><li>Try again</li><li>No payments found</li><li>Session price</li><li>Maintenance mode</li></ul></div>
+          <div class="dont"><h3>Avoid</h3><ul><li>Initiate Voucher Creation</li><li>Execute Delete</li><li>Submit Modifications</li><li>Retry Operation</li><li>No Data Available</li><li>Unexplained abbreviations</li><li>Technical backend wording in customer/operator feedback</li></ul></div>
+        </div>
+        <div class="grid grid-3" style="margin-top:1rem">
+          <div class="card admin"><h3>Sentence case</h3><p>Page titles, buttons, labels, filters, empty states, and confirmations use sentence case unless a proper noun requires otherwise.</p></div>
+          <div class="card admin"><h3>Dates and money</h3><p>Admin-facing dates use clear locale-aware formatting. PHP currency formatting uses the actual contract value when present. Technical IDs remain monospaced and truncatable with full value accessible.</p></div>
+          <div class="card admin"><h3>Errors</h3><p>State what failed and what the operator can do next. Preserve safe technical evidence in logs, not verbose internal exceptions in UI.</p></div>
+        </div>
+      </section>
+
+      <section id="implementation">
+        <div class="section-head"><div><h2>Implementation rules</h2><p>Layer visual decisions low in the stack and domain decisions high in the stack. The documentation and executable token layer must stay synchronized.</p></div></div>
+        <div class="code">design-system.html
+    ↓ human-readable and AI-readable design constitution
+resources/css/app.css
+    ↓ executable primitive + semantic design tokens
+resources/js/components/ui/**
+    ↓ shadcn/Radix primitives
+resources/js/components/**
+    ↓ reusable application composites and patterns
+resources/js/layouts/**
+    ↓ application shell and navigation
+resources/js/pages/admin/**
+    ↓ domain composition only</div>
+        <div class="grid grid-3" style="margin-top:1rem">
+          <div class="card admin"><h3>Reuse before extension</h3><p>Find an existing token, primitive, variant, composite, or comparable pattern first. Extend an existing primitive only when a legitimate reusable variation is missing.</p></div>
+          <div class="card admin"><h3>Semantic classes</h3><p>Prefer token-backed classes such as <span class="mono">bg-card</span>, <span class="mono">text-muted-foreground</span>, <span class="mono">text-success</span>, <span class="mono">border-destructive</span>, <span class="mono">gap-section</span>, and <span class="mono">text-page-title</span>.</p></div>
+          <div class="card admin"><h3>Page composition</h3><p>Pages should be domain data, Inertia forms, Wayfinder actions, and composition of shared UI. Raw visual decisions inside pages are exceptional and must not create a parallel UI contract.</p></div>
+        </div>
+        <h3 class="subhead">New token admission rule</h3>
+        <div class="card admin"><p>A new token is allowed only when no existing semantic token or safe composition represents the requirement, the need is more than a one-page visual preference, the name expresses semantic purpose rather than appearance or domain identity, and the result is reusable or globally important. Theme-dependent additions require intentional light mode, dark mode, and WCAG 2.2 AA review. Do not create domain tokens such as <span class="mono">--voucher-green</span>, <span class="mono">--payments-card-gray</span>, <span class="mono">--template-purple</span>, or <span class="mono">--dashboard-box-radius</span>.</p></div>
+        <h3 class="subhead">New component admission rule</h3>
+        <div class="code">existing primitive
+    ↓ if insufficient
+existing variant
+    ↓ if insufficient
+composition of existing primitives
+    ↓ if insufficient
+extension of an existing reusable component
+    ↓ only with evidence of a reusable gap
+new reusable component</div>
+        <p class="caption" style="margin-top:.7rem">Do not create domain styling wrappers such as VoucherButton, PaymentButton, SettingsInput, or TemplateCard merely to alter visual treatment.</p>
+        <h3 class="subhead">Mandatory two-way synchronization</h3>
+        <div class="card admin"><ol style="margin:0;padding-left:1.3rem;display:grid;gap:.45rem">
+          <li>Implement every newly accepted reusable token in <span class="mono">resources/css/app.css</span>.</li>
+          <li>Add intentional light and dark values when the token is theme-dependent.</li>
+          <li>Expose the appropriate Tailwind CSS 4 theme namespace when utility generation is useful.</li>
+          <li>Update <span class="mono">design-system.html</span> in the same change with its semantic purpose, visual specimen, usage guidance, and prohibited misuse.</li>
+          <li>Update affected component examples, state matrices, responsive rules, and accessibility guidance when the token changes a shared primitive.</li>
+          <li>Apply the same synchronization rule to newly accepted reusable components, variants, and application patterns.</li>
+        </ol></div>
+        <div class="callout" style="margin-top:1rem"><strong>Invariant.</strong> <span class="mono">design-system.html</span> documents the contract. <span class="mono">resources/css/app.css</span> implements the token contract. A design-system-level change is incomplete until both agree.</div>
+        <h3 class="subhead">Minimal target composites for future normalization</h3>
+        <div class="code">PageHeader          → canonical title, description, actions, responsive stacking
+Field               → Label + control slot + description + FieldError
+Textarea            → Input-equivalent states with vertical resize
+NativeSelect         → native serialization + Input-equivalent visual contract
+StatusBadge          → neutral | info | success | warning | danger
+SearchInput          → Input + search affordance + accessible label
+FilterToolbar        → responsive search/filter/reset composition
+EmptyState           → first-use | filtered | permission | recovery variants
+Pagination           → Laravel pagination links + safe labels + aria-current
+ResponsiveDataView   → desktop table + intentional mobile record composition</div>
+      </section>
+
+      <section id="ai-rules">
+        <div class="section-head"><div><h2>Mandatory Rules for AI Agents</h2><p>Every AI agent creating, modifying, or redesigning ThermaSnap admin UI must perform this compliance pass before changing JSX or CSS.</p></div></div>
+        <div class="callout"><strong>Mandatory rule.</strong> Before creating or redesigning any admin UI, inspect this design system, <span class="mono">resources/css/app.css</span>, existing UI primitives, reusable components, and comparable application patterns. Reuse the existing token, component, variant, or pattern whenever it can satisfy the requirement. Creating a new design token, primitive, component, or pattern is permitted only when the requirement is genuinely unsupported by the existing Canonical Admin UI Contract. Any newly accepted reusable token, component, variant, or pattern must be added to <span class="mono">design-system.html</span> in the same change so documentation and implementation remain synchronized.</div>
+        <h3 class="subhead">Mandatory decision order</h3>
+        <div class="card admin"><ol style="margin:0;padding-left:1.3rem;display:grid;gap:.5rem">
+          <li>Read <span class="mono">design-system.html</span>.</li>
+          <li>Inspect <span class="mono">resources/css/app.css</span>.</li>
+          <li>Inspect <span class="mono">resources/js/components/ui/**</span>.</li>
+          <li>Inspect reusable <span class="mono">resources/js/components/**</span>.</li>
+          <li>Inspect comparable existing application patterns.</li>
+          <li>Reuse an existing semantic design token when one exists.</li>
+          <li>Reuse an existing UI primitive when one exists.</li>
+          <li>Reuse an existing component variant when one exists.</li>
+          <li>Reuse an existing composite or application pattern when one exists.</li>
+          <li>Extend an existing primitive or component only for a legitimate reusable variation.</li>
+          <li>Create a new token, primitive, component, or pattern only after proving a genuine design-system gap.</li>
+        </ol></div>
+        <div class="grid grid-2" style="margin-top:1rem">
+          <div class="card admin"><h3>Preserve application contracts</h3><p>Preserve resolver-owned AppLayout, <span class="mono">setLayoutProps()</span>, Inertia form names and values, Wayfinder routes, authorization, validation, state transitions, data integrity, accessibility, responsive behavior, and dark-mode parity unless the task explicitly changes them.</p></div>
+          <div class="card admin"><h3>Screenshot translation</h3><p>Approximate visual intent through the closest canonical ThermaSnap tokens, components, spacing, surfaces, typography, state language, and patterns. Pixel values in a reference are not permission to create one-off design APIs.</p></div>
+        </div>
+        <div class="callout" style="margin-top:1rem"><strong>Non-negotiable.</strong> A screenshot or design mockup defines visual intent, not application behavior. Existing repository contracts and the Canonical Admin UI Contract remain authoritative unless explicitly changed by the task.</div>
+        <div class="callout" style="margin-top:1rem"><strong>Admission invariant.</strong> Reuse before extension. Extend before creation. Creation requires evidence of a real reusable design-system gap.</div>
+      </section>
+
+      <section id="do-not">
+        <div class="section-head"><div><h2>Do Not: anti-patterns</h2><p>These patterns create UI entropy and must not be copied into new admin work.</p></div></div>
+        <div class="card admin"><ul style="columns:2;column-gap:2rem;margin:0;padding-left:1.2rem">
+          <li>Do not create page-specific button variants.</li>
+          <li>Do not hard-code arbitrary status colors when semantic tokens exist.</li>
+          <li>Do not duplicate Input, Select, Textarea, Dialog, Card, Badge, or Button styling inside pages.</li>
+          <li>Do not recreate AppLayout or sidebar structures inside admin page components.</li>
+          <li>Do not use a different status color for the same semantic meaning.</li>
+          <li>Do not use chart palette tokens as generic status colors.</li>
+          <li>Do not place destructive primary actions beside normal primary actions without clear visual distinction.</li>
+          <li>Do not hide form labels and rely only on placeholders.</li>
+          <li>Do not use color as the only status indicator.</li>
+          <li>Do not invent arbitrary spacing or radius values when the scale supports the requirement.</li>
+          <li>Do not create a second Card component because a page needs different content composition.</li>
+          <li>Do not create a parallel component system beside shadcn/Radix.</li>
+          <li>Do not make desktop tables unusably overflow on mobile without an intentional strategy.</li>
+          <li>Do not use raw HTML injected pagination labels when normal text rendering is sufficient.</li>
+          <li>Do not make a reversible operation require a destructive confirmation dialog.</li>
+          <li>Do not change Inertia form names, values, Wayfinder routes, requests, or domain workflows for visual convenience.</li>
+          <li>Do not introduce a new token solely to reproduce a screenshot value when an existing semantic role is sufficient.</li>
+          <li>Do not create domain-named visual tokens for generic color, radius, spacing, elevation, or control treatment.</li>
+          <li>Do not add a reusable token, component, variant, or pattern to application code without synchronizing this design-system contract in the same change.</li>
+
+        </ul></div>
+      </section>
+
+      <section id="future">
+        <div class="section-head"><div><h2>Recommended future normalization</h2><p>These are follow-up migration candidates only. This contract does not perform them.</p></div></div>
+        <div class="table-wrap"><div class="table-scroll"><table><thead><tr><th>Priority</th><th>Target</th><th>Normalize toward</th><th>Reason</th></tr></thead><tbody>
+          <tr><td>P1</td><td><span class="mono">InputError</span></td><td>Semantic destructive token</td><td>Current hard-coded red diverges from the token system.</td></tr>
+          <tr><td>P1</td><td>Template summary/status colors</td><td>success / warning / info / neutral / destructive</td><td>Current violet/emerald/amber/sky palette creates a parallel semantic language.</td></tr>
+          <tr><td>P1</td><td>Payment, Voucher, Template, Sticker status presenters</td><td>Shared <span class="mono">StatusBadge</span></td><td>Same semantic behavior is repeated page-locally.</td></tr>
+          <tr><td>P1</td><td>Admin page heading composition</td><td>Shared semantic <span class="mono">PageHeader</span></td><td>Shared Heading and custom ReportShell differ in semantics and sizing.</td></tr>
+          <tr><td>P2</td><td>Admin forms</td><td>Field + Textarea + NativeSelect contracts</td><td>Reduce repeated label/error/accessibility wiring while preserving form serialization.</td></tr>
+          <tr><td>P2</td><td>Management index pages</td><td>FilterToolbar + EmptyState + Pagination</td><td>Search/filter/reset and empty/pagination treatment are repeated.</td></tr>
+          <tr><td>P2</td><td>Vouchers and other wide tables</td><td>ResponsiveDataView pattern</td><td>Payments already demonstrates intentional mobile cards; other wide tables should not rely only on horizontal overflow.</td></tr>
+          <tr><td>P3</td><td>Metric/Summary cards</td><td>One compact metric composition with semantic tones</td><td>Current icon size, radius, shadow, and tone implementations vary between domains.</td></tr>
+        </tbody></table></div></div>
+        <div class="note" style="margin-top:1rem"><strong>Migration discipline.</strong> This token-governance change does not migrate these consumers. Normalize one shared contract at a time, add focused frontend regression coverage, then migrate consumers incrementally. Do not start an application-wide visual rewrite as part of a single resource ticket.</div>
+      </section>
+
+      <section id="contract-summary">
+        <div class="section-head"><div><h2>Canonical contract summary</h2><p>The minimum rules independent developers or AI agents must converge on.</p></div></div>
+        <div class="grid grid-3">
+          <div class="card admin"><h3>Tokens</h3><p><span class="mono">resources/css/app.css</span> is the executable token authority. Use semantic color, typography, spacing, sizing, container, and motion roles. Chart tokens remain chart-only.</p></div>
+          <div class="card admin"><h3>Documentation</h3><p><span class="mono">design-system.html</span> is the human-readable and AI-readable design constitution. It and <span class="mono">app.css</span> must be updated together for every accepted reusable design-system change.</p></div>
+          <div class="card admin"><h3>Components</h3><p>Use shadcn new-york + Radix + Lucide. Reuse an existing primitive or variant before extension, and extend before creating another component.</p></div>
+          <div class="card admin"><h3>Patterns</h3><p>Resolver-owned shell → PageHeader → optional Summary → FilterToolbar → domain data → Pagination. Domain pages compose shared UI instead of defining a parallel visual language.</p></div>
+          <div class="card admin"><h3>Accessibility</h3><p>WCAG 2.2 AA intent, semantic HTML, keyboard access, visible focus, labeled controls, associated errors, accessible overlays, non-color status meaning, and touch-target usability.</p></div>
+          <div class="card admin"><h3>Responsive + dark</h3><p>16px mobile and 24px desktop page padding, intentional mobile data strategy, and token-driven light/dark parity for surfaces, borders, text, statuses, focus, disabled, and overlays.</p></div>
+        </div>
+        <div class="callout" style="margin-top:1rem"><strong>Final invariant.</strong> Reuse before extension. Extend before creation. Creation requires evidence of a real reusable design-system gap.</div>
+      </section>
+
+      <footer class="footer">ThermaSnap Canonical Admin UI Contract. Generated from the read-only repository state at commit 45588f9d9d0f83c2e93ff4f52361d5bffa353bbe. This reference changes visual implementation guidance only. Repository behavior remains authoritative.</footer>
+    </div>
+  </main>
+</div>
+<script>
+(function () {
+  const root = document.documentElement;
+  const toggle = document.getElementById('themeToggle');
+  const stored = localStorage.getItem('thermasnap-ds-theme');
+  const preferDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (stored === 'dark' || (!stored && preferDark)) root.classList.add('dark');
+  function syncLabel() {
+    const dark = root.classList.contains('dark');
+    toggle.textContent = dark ? 'Use light mode' : 'Use dark mode';
+    toggle.setAttribute('aria-pressed', dark ? 'true' : 'false');
+  }
+  syncLabel();
+  toggle.addEventListener('click', function () {
+    root.classList.toggle('dark');
+    localStorage.setItem('thermasnap-ds-theme', root.classList.contains('dark') ? 'dark' : 'light');
+    syncLabel();
+  });
+
+  const links = Array.from(document.querySelectorAll('#sectionNav a'));
+  const targets = links.map(function (link) { return document.querySelector(link.getAttribute('href')); }).filter(Boolean);
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(function (entries) {
+      const visible = entries.filter(function (entry) { return entry.isIntersecting; }).sort(function (a,b) { return b.intersectionRatio - a.intersectionRatio; })[0];
+      if (!visible) return;
+      links.forEach(function (link) { link.classList.toggle('active', link.getAttribute('href') === '#' + visible.target.id); });
+    }, { rootMargin: '-20% 0px -70% 0px', threshold: [0, .25, .6] });
+    targets.forEach(function (target) { observer.observe(target); });
+  }
+})();
+</script>
+</body>
+</html>
