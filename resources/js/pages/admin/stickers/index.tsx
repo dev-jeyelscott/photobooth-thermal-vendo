@@ -30,7 +30,7 @@ import {
     Search,
     Trash2,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import StickerController from '@/actions/App/Http/Controllers/Admin/StickerController';
 import Heading from '@/components/heading';
@@ -469,16 +469,14 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
         breadcrumbs: [{ title: 'Stickers', href: stickersIndex() }],
     });
 
-    const [orderedStickers, setOrderedStickers] = useState<Sticker[]>(() =>
-        [...stickers].sort(
-            (first, second) => first.sortOrder - second.sortOrder,
-        ),
-    );
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] =
         useState<StickerStatusFilter>('all');
     const [sortOption, setSortOption] = useState<StickerSortOption>('priority');
     const [reordering, setReordering] = useState(false);
+    const [optimisticOrderIds, setOptimisticOrderIds] = useState<
+        number[] | null
+    >(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -491,13 +489,36 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
         }),
     );
 
-    useEffect(() => {
-        setOrderedStickers(
+    const canonicalStickers = useMemo(
+        () =>
             [...stickers].sort(
                 (first, second) => first.sortOrder - second.sortOrder,
             ),
+        [stickers],
+    );
+
+    const orderedStickers = useMemo(() => {
+        if (optimisticOrderIds === null) {
+            return canonicalStickers;
+        }
+
+        const stickersById = new Map(
+            canonicalStickers.map((sticker) => [sticker.id, sticker]),
         );
-    }, [stickers]);
+
+        const optimisticStickers = optimisticOrderIds.flatMap((stickerId) => {
+            const sticker = stickersById.get(stickerId);
+
+            return sticker === undefined ? [] : [sticker];
+        });
+
+        const optimisticIds = new Set(optimisticOrderIds);
+        const newCanonicalStickers = canonicalStickers.filter(
+            (sticker) => !optimisticIds.has(sticker.id),
+        );
+
+        return [...optimisticStickers, ...newCanonicalStickers];
+    }, [canonicalStickers, optimisticOrderIds]);
 
     const summary = useMemo(
         () => getStickerSummary(orderedStickers),
@@ -521,26 +542,27 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
         sortOption === 'priority';
 
     /**
-     * Persist a complete canonical sticker order and restore the previous order
-     * if the backend rejects or fails the reorder request.
+     * Persist a complete canonical sticker order using temporary optimistic
+     * IDs while allowing refreshed Inertia props to remain authoritative.
      */
     function persistOrder(nextStickers: Sticker[]): void {
-        const previousStickers = orderedStickers;
+        const orderedIds = nextStickers.map((sticker) => sticker.id);
 
-        setOrderedStickers(nextStickers);
+        setOptimisticOrderIds(orderedIds);
         setReordering(true);
 
         router.patch(
             reorder.url(),
             {
-                ordered_ids: nextStickers.map((sticker) => sticker.id),
+                ordered_ids: orderedIds,
             },
             {
                 preserveScroll: true,
                 onError: () => {
-                    setOrderedStickers(previousStickers);
+                    setOptimisticOrderIds(null);
                 },
                 onFinish: () => {
+                    setOptimisticOrderIds(null);
                     setReordering(false);
                 },
             },
