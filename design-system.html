@@ -18,11 +18,11 @@
       --secondary: oklch(0.97 0 0);
       --secondary-foreground: oklch(0.205 0 0);
       --muted: oklch(0.97 0 0);
-      --muted-foreground: oklch(0.556 0 0);
+      --muted-foreground: oklch(0.54 0 0);
       --accent: oklch(0.97 0 0);
       --accent-foreground: oklch(0.205 0 0);
       --destructive: oklch(0.577 0.245 27.325);
-      --destructive-foreground: oklch(0.577 0.245 27.325);
+      --destructive-foreground: oklch(0.54 0.2 27.325);
       --success: oklch(0.52 0.15 150);
       --success-foreground: oklch(0.24 0.06 150);
       --success-subtle: oklch(0.96 0.035 150);
@@ -112,13 +112,13 @@
       --destructive: oklch(0.396 0.141 25.723);
       --destructive-foreground: oklch(0.637 0.237 25.331);
       --success: oklch(0.72 0.16 150);
-      --success-foreground: oklch(0.19 0.05 150);
+      --success-foreground: oklch(0.72 0.16 150);
       --success-subtle: oklch(0.23 0.045 150);
       --warning: oklch(0.78 0.16 80);
-      --warning-foreground: oklch(0.21 0.06 70);
+      --warning-foreground: oklch(0.78 0.16 80);
       --warning-subtle: oklch(0.25 0.045 80);
       --info: oklch(0.7 0.16 255);
-      --info-foreground: oklch(0.18 0.05 255);
+      --info-foreground: oklch(0.7 0.16 255);
       --info-subtle: oklch(0.23 0.045 255);
       --border: oklch(0.269 0 0);
       --input: oklch(0.269 0 0);
@@ -180,10 +180,10 @@
     .hero p { margin:.4rem 0 0; max-width:60rem; color:var(--muted-foreground); }
     .meta { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
     .tag { display:inline-flex; align-items:center; gap:.35rem; min-height:1.55rem; padding:.12rem .5rem; border:1px solid var(--border); border-radius:999px; font-size:.72rem; font-weight:600; background:var(--card); }
-    .tag.canonical { color:var(--success); border-color:color-mix(in oklch,var(--success) 30%,var(--border)); background:var(--success-subtle); }
-    .tag.normalize { color:var(--warning); border-color:color-mix(in oklch,var(--warning) 30%,var(--border)); background:var(--warning-subtle); }
-    .tag.missing { color:var(--info); border-color:color-mix(in oklch,var(--info) 30%,var(--border)); background:var(--info-subtle); }
-    .tag.deprecated { color:var(--destructive); border-color:color-mix(in oklch,var(--destructive) 30%,var(--border)); background:color-mix(in oklch,var(--destructive) 10%,var(--background)); }
+    .tag.canonical { color:var(--success-foreground); border-color:color-mix(in oklch,var(--success) 30%,var(--border)); background:var(--success-subtle); }
+    .tag.normalize { color:var(--warning-foreground); border-color:color-mix(in oklch,var(--warning) 30%,var(--border)); background:var(--warning-subtle); }
+    .tag.missing { color:var(--info-foreground); border-color:color-mix(in oklch,var(--info) 30%,var(--border)); background:var(--info-subtle); }
+    .tag.deprecated { color:var(--destructive-foreground); border-color:color-mix(in oklch,var(--destructive) 30%,var(--border)); background:color-mix(in oklch,var(--destructive) 10%,var(--background)); }
 
     section { scroll-margin-top:4.5rem; margin:0 0 2rem; }
     .section-head { display:flex; justify-content:space-between; gap:1rem; align-items:flex-end; margin-bottom:.9rem; }
@@ -222,7 +222,7 @@
     .status.info { color:var(--info-foreground); background:var(--info-subtle); border-color:color-mix(in oklch,var(--info) 30%,var(--border)); }
     .status.success { color:var(--success-foreground); background:var(--success-subtle); border-color:color-mix(in oklch,var(--success) 30%,var(--border)); }
     .status.warning { color:var(--warning-foreground); background:var(--warning-subtle); border-color:color-mix(in oklch,var(--warning) 30%,var(--border)); }
-    .status.danger { color:var(--destructive); background:color-mix(in oklch,var(--destructive) 10%,var(--background)); border-color:color-mix(in oklch,var(--destructive) 30%,var(--border)); }
+    .status.danger { color:var(--destructive-foreground); background:color-mix(in oklch,var(--destructive) 10%,var(--background)); border-color:color-mix(in oklch,var(--destructive) 30%,var(--border)); }
 
     .type-specimen { display:grid; grid-template-columns:9rem minmax(0,1fr) 12rem; gap:1rem; align-items:baseline; padding:.8rem 0; border-top:1px solid var(--border); }
     .type-specimen:first-child { border-top:0; }
@@ -265,9 +265,9 @@
     .spinner { width:1rem; height:1rem; border:2px solid currentColor; border-right-color:transparent; border-radius:999px; animation:spin .8s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
 
-    .field { display:grid; gap:var(--field-gap); }
+    .field { display:grid; gap:var(--spacing-field); }
     .field label { font-weight:550; font-size:.82rem; }
-    .req { color:var(--destructive); }
+    .req { color:var(--destructive-foreground); }
     .control { width:100%; min-height:var(--spacing-control-md); border:1px solid var(--input); border-radius:var(--radius-md); background:transparent; color:var(--foreground); padding:.45rem .75rem; box-shadow:var(--shadow-xs); transition:border-color var(--duration-default),box-shadow var(--duration-default),background var(--duration-default); }
     .control::placeholder { color:var(--muted-foreground); }
     .control:focus-visible { outline:none; border-color:var(--ring); box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent); }
@@ -276,15 +276,18 @@
     .control[readonly] { background:var(--muted); }
     textarea.control { min-height:6rem; resize:vertical; line-height:1.45; }
     .help { font-size:.75rem; color:var(--muted-foreground); }
-    .error { font-size:.78rem; color:var(--destructive); font-weight:500; }
+    .error { font-size:.78rem; color:var(--destructive-foreground); font-weight:500; }
     .check-row { display:flex; align-items:flex-start; gap:.65rem; }
-    .fake-check { width:1rem; height:1rem; border:1px solid var(--input); border-radius:.25rem; margin-top:.15rem; background:var(--primary); box-shadow:inset 0 0 0 3px var(--background); }
+    .demo-check { appearance:none; width:1rem; height:1rem; flex:0 0 1rem; border:1px solid var(--input); border-radius:4px; margin-top:.15rem; background:var(--background); box-shadow:var(--shadow-xs); position:relative; cursor:pointer; }
+    .demo-check:checked { border-color:var(--primary); background:var(--primary); }
+    .demo-check:checked::after { content:'✓'; position:absolute; inset:0; display:grid; place-items:center; color:var(--primary-foreground); font-size:.72rem; font-weight:800; line-height:1; }
+    .demo-check:focus-visible { outline:none; border-color:var(--ring); box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent); }
 
     .component-states { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.75rem; }
     .state-box { padding:.75rem; border:1px solid var(--border); border-radius:var(--radius-lg); }
     .state-box small { display:block; margin-bottom:.55rem; color:var(--muted-foreground); font-weight:600; }
 
-    .toolbar { display:flex; align-items:center; gap:var(--toolbar-gap); padding:1rem; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--card); }
+    .toolbar { display:flex; align-items:center; gap:var(--spacing-toolbar); padding:1rem; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--card); }
     .search { position:relative; flex:1; max-width:24rem; }
     .search .control { padding-left:2.25rem; }
     .search-icon { position:absolute; left:.75rem; top:50%; width:1rem; height:1rem; transform:translateY(-50%); color:var(--muted-foreground); pointer-events:none; }
@@ -459,7 +462,6 @@
           <p>Mandatory visual and interaction contract for authenticated ThermaSnap admin pages. It documents the strongest recurring repository patterns, resolves accidental differences, and defines missing reusable contracts without changing domain behavior.</p>
           <div class="meta">
             <span class="tag canonical">Canonical reference</span>
-            <span class="tag">HEAD 45588f9d9d0f</span>
             <span class="tag">Laravel 13 + Inertia 3 + React 19</span>
             <span class="tag">Tailwind CSS 4</span>
             <span class="tag">shadcn new-york + Radix + Lucide</span>
@@ -544,7 +546,7 @@
         <div class="note" style="margin-top:1rem"><strong>No duplicate surfaces.</strong> <span class="mono">card</span> is the canonical standard surface, <span class="mono">muted</span> is the subdued surface, and <span class="mono">popover</span> is the elevated overlay surface. Do not add aliases such as <span class="mono">surface</span>, <span class="mono">surface-muted</span>, or <span class="mono">surface-elevated</span> unless the existing semantics become insufficient.</div>
         <h3 class="subhead">Primitive palette versus semantic API</h3>
         <div class="do-dont">
-          <div class="do"><h3>Use</h3><ul><li><span class="mono">bg-success-subtle text-success</span></li><li><span class="mono">border-destructive</span> for invalid controls</li><li><span class="mono">bg-muted text-muted-foreground</span> for neutral/inactive content</li><li><span class="mono">chart-1..5</span> only for quantitative visualization series</li></ul></div>
+          <div class="do"><h3>Use</h3><ul><li><span class="mono">bg-success-subtle text-success-foreground</span></li><li><span class="mono">border-destructive</span> for invalid controls</li><li><span class="mono">bg-muted text-muted-foreground</span> for neutral/inactive content</li><li><span class="mono">chart-1..5</span> only for quantitative visualization series</li></ul></div>
           <div class="dont"><h3>Do not use as application semantics</h3><ul><li><span class="mono">bg-emerald-100</span> for Active</li><li><span class="mono">text-red-600</span> for validation when destructive exists</li><li><span class="mono">bg-violet-100</span> for arbitrary KPI identity</li><li>Raw palette colors as one-off status systems</li></ul></div>
         </div>
         <h3 class="subhead">Interaction states</h3>
@@ -697,7 +699,7 @@ max-w-dialog-sm/md/lg     → --container-dialog-sm/md/lg</div>
             <div class="field" style="margin-top:.8rem"><label for="demoName">Voucher code <span class="req" aria-hidden="true">*</span></label><input id="demoName" class="control" placeholder="VCH-ABCD-1234" aria-describedby="demoHelp"><div class="help" id="demoHelp">Use a short operator-readable code.</div></div>
             <div class="field" style="margin-top:1rem"><label for="demoInvalid">Session price</label><input id="demoInvalid" class="control" value="0" aria-invalid="true" aria-describedby="demoError"><div class="error" id="demoError" role="alert">Session price must be greater than zero.</div></div>
             <div class="field" style="margin-top:1rem"><label for="demoText">Maintenance message</label><textarea id="demoText" class="control" placeholder="Temporarily unavailable..."></textarea><div class="help">Textarea follows the same control contract as Input.</div></div>
-            <div class="check-row" style="margin-top:1rem"><span class="fake-check" aria-hidden="true"></span><div><strong>Active</strong><div class="help">Checkbox label remains visible and clickable.</div></div></div>
+            <label class="check-row" for="demoActive" style="margin-top:1rem"><input id="demoActive" class="demo-check" type="checkbox" checked><span><strong>Active</strong><span class="help" style="display:block">Checkbox label remains visible and clickable.</span></span></label>
           </div>
           <div class="card admin"><h3>Rules</h3>
             <div class="rule"><strong>Label</strong><span>Always visible. Do not use placeholder as the only label.</span></div>
@@ -708,7 +710,7 @@ max-w-dialog-sm/md/lg     → --container-dialog-sm/md/lg</div>
             <div class="rule"><strong>Serialization</strong><span>Never change field names, values, hidden inputs, Wayfinder form semantics, or controlled/uncontrolled behavior just for styling.</span></div>
           </div>
         </div>
-        <div class="note" style="margin-top:1rem"><strong>Current normalization target.</strong> <span class="mono">InputError</span> currently hard-codes red. New design-system work should align it to <span class="mono">text-destructive</span> without changing its public behavior.</div>
+        <div class="note" style="margin-top:1rem"><strong>Current normalization target.</strong> <span class="mono">InputError</span> currently hard-codes red. New design-system work should align it to <span class="mono">text-destructive-foreground</span> without changing its public behavior.</div>
       </section>
 
       <section id="navigation">
@@ -763,6 +765,7 @@ max-w-dialog-sm/md/lg     → --container-dialog-sm/md/lg</div>
           <tr><td>Disabled, Cancelled, Expired, Abandoned</td><td><span class="status neutral">Neutral</span></td><td>Inactive or terminal without current failure.</td></tr>
           <tr><td>Failed, Blocked, Exhausted when action is required</td><td><span class="status danger">Danger</span></td><td>Failure or blocked operation requiring corrective action.</td></tr>
         </tbody></table></div></div>
+        <div class="note" style="margin-top:1rem"><strong>Contrast pairing.</strong> Status text on subtle semantic surfaces uses the corresponding <span class="mono">*-foreground</span> token. Base success, warning, info, and destructive tones remain available for borders, dots, icons, and emphasis. Neutral status uses <span class="mono">muted-foreground</span> on <span class="mono">muted</span>.</div>
         <div class="note" style="margin-top:1rem"><strong>Context matters.</strong> “Expired voucher” can be neutral when merely historical, but warning when it is part of a current “needs attention” work queue. The label and surrounding workflow determine urgency. Do not encode urgency by changing colors arbitrarily per page.</div>
       </section>
 
@@ -771,7 +774,7 @@ max-w-dialog-sm/md/lg     → --container-dialog-sm/md/lg</div>
         <div class="grid grid-3">
           <div class="card admin"><h3>Loading</h3><div style="display:grid;gap:.5rem;margin-top:.7rem"><div class="fake-line medium"></div><div class="fake-line"></div><div class="fake-line short"></div></div><p>Use Skeleton for structural loading, Spinner for bounded actions.</p></div>
           <div class="empty"><div class="empty-icon">0</div><h3>No vouchers yet</h3><p>Create the first voucher code to authorize a kiosk session without Maya payment.</p><button class="btn primary">New voucher</button></div>
-          <div class="card admin"><h3>Error / recovery</h3><p style="color:var(--destructive)"><strong>Could not load payments.</strong></p><p>Keep the user’s context and provide a specific recovery action when retry is safe.</p><button class="btn outline" style="margin-top:.6rem">Try again</button></div>
+          <div class="card admin"><h3>Error / recovery</h3><p style="color:var(--destructive-foreground)"><strong>Could not load payments.</strong></p><p>Keep the user’s context and provide a specific recovery action when retry is safe.</p><button class="btn outline" style="margin-top:.6rem">Try again</button></div>
         </div>
         <h3 class="subhead">Overlay contract</h3>
         <div class="dialog-demo" role="group" aria-label="Destructive dialog example"><h3>Delete “VCH-8H4K-22”?</h3><p>This voucher has no redemption history. Deleting it cannot be undone.</p><div class="dialog-footer"><button class="btn secondary">Cancel</button><button class="btn danger">Delete voucher</button></div></div>
@@ -883,7 +886,7 @@ resources/js/pages/admin/**
     ↓ domain composition only</div>
         <div class="grid grid-3" style="margin-top:1rem">
           <div class="card admin"><h3>Reuse before extension</h3><p>Find an existing token, primitive, variant, composite, or comparable pattern first. Extend an existing primitive only when a legitimate reusable variation is missing.</p></div>
-          <div class="card admin"><h3>Semantic classes</h3><p>Prefer token-backed classes such as <span class="mono">bg-card</span>, <span class="mono">text-muted-foreground</span>, <span class="mono">text-success</span>, <span class="mono">border-destructive</span>, <span class="mono">gap-section</span>, and <span class="mono">text-page-title</span>.</p></div>
+          <div class="card admin"><h3>Semantic classes</h3><p>Prefer token-backed classes such as <span class="mono">bg-card</span>, <span class="mono">text-muted-foreground</span>, <span class="mono">text-success-foreground</span>, <span class="mono">border-destructive</span>, <span class="mono">gap-section</span>, and <span class="mono">text-page-title</span>.</p></div>
           <div class="card admin"><h3>Page composition</h3><p>Pages should be domain data, Inertia forms, Wayfinder actions, and composition of shared UI. Raw visual decisions inside pages are exceptional and must not create a parallel UI contract.</p></div>
         </div>
         <h3 class="subhead">New token admission rule</h3>

@@ -59,6 +59,64 @@ describe('canonical design-system contract', () => {
         }
     });
 
+    it('keeps semantic text tokens readable across light and dark status surfaces', () => {
+        const accessibleSemanticValues = [
+            '--muted-foreground: oklch(0.54 0 0);',
+            '--destructive-foreground: oklch(0.54 0.2 27.325);',
+            '--success-foreground: oklch(0.72 0.16 150);',
+            '--warning-foreground: oklch(0.78 0.16 80);',
+            '--info-foreground: oklch(0.7 0.16 255);',
+        ] as const;
+
+        for (const token of accessibleSemanticValues) {
+            expect(appCss).toContain(token);
+            expect(designSystem).toContain(token);
+        }
+    });
+
+    it('does not reference undefined design-system CSS custom properties', () => {
+        const styleBlock =
+            designSystem.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? '';
+        const definedTokens = new Set(
+            [...styleBlock.matchAll(/(--[\w-]+)\s*:/g)].map(
+                (match) => match[1],
+            ),
+        );
+        const referencedTokens = new Set(
+            [...styleBlock.matchAll(/var\((--[\w-]+)/g)].map(
+                (match) => match[1],
+            ),
+        );
+        const missingTokens = [...referencedTokens]
+            .filter((token) => !definedTokens.has(token))
+            .sort();
+
+        expect(missingTokens).toEqual([]);
+    });
+
+    it('keeps visual specimens aligned with canonical semantic roles', () => {
+        expect(designSystem).toContain(
+            '.tag.canonical { color:var(--success-foreground);',
+        );
+        expect(designSystem).toContain(
+            '.tag.normalize { color:var(--warning-foreground);',
+        );
+        expect(designSystem).toContain(
+            '.tag.missing { color:var(--info-foreground);',
+        );
+        expect(designSystem).toContain(
+            '.tag.deprecated { color:var(--destructive-foreground);',
+        );
+        expect(designSystem).toContain(
+            '.status.danger { color:var(--destructive-foreground);',
+        );
+        expect(designSystem).toContain(
+            '<input id="demoActive" class="demo-check" type="checkbox" checked>',
+        );
+        expect(designSystem).not.toContain('fake-check');
+        expect(designSystem).not.toMatch(/HEAD [a-f0-9]{7,40}/i);
+    });
+
     it('documents the mandatory reuse and synchronization rules', () => {
         expect(designSystem).toContain(
             'Reuse before extension. Extend before creation. Creation requires evidence of a real reusable design-system gap.',
