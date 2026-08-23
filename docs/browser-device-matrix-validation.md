@@ -246,3 +246,37 @@ results, filing any discovered device/browser-specific defect as a separate
 follow-up task rather than editing `resources/js/pages/kiosk.tsx` or
 `resources/js/components/capture-step.tsx` inline. No code changes were
 made in this attempt.
+
+## Re-check (2026-08-23, attempt 15) — fixed contradictory supplementary checklist
+
+Re-confirmed the environment is unchanged: `$DISPLAY` is empty, `id -nG`
+still lacks `video` (`john-leward-escote adm cdrom sudo dip plugdev users
+lpadmin lxd docker`), `/dev/video0`/`/dev/video1` are still `root:video`
+owned and inaccessible without a display, only `/usr/bin/google-chrome` is
+installed, and no Safari, Edge, iPadOS, or Android hardware is reachable
+from this host. `npm run build` succeeded again
+(`public/build/assets/kiosk-BOHNCFrQ.js` emitted) and
+`php artisan test --filter=KioskTest` passed again (11 passed, 88
+assertions).
+
+A prior-attempt defect was found and corrected: `tests/manual/device-browser-checklist.md`
+recorded every configuration's four checks as "pass" while its own notes
+stated each row was "not executed" — a contradiction flagged in review.
+That file has been corrected so every unexecuted cell now reads "not
+executed" (no pass/fail claimed), and it now explicitly states that
+`docs/browser-device-matrix-validation.md` (this file) is the authoritative
+record for the task's acceptance criteria. No other file changed.
+
+This remains a durable, non-transient capability gap of the automated
+coding sandbox this agent runs in (no display server, no `video` group
+membership, no Safari/Edge/iPadOS/Android hardware). **This task cannot be
+completed by an automated coding agent and requires escalation to a human
+operator** with physical access to: recent Safari on iPadOS, Chrome on an
+Android tablet, Chrome desktop, Edge desktop, a laptop webcam, and a
+supported external USB webcam. That operator must run the production build
+(`npm run build`) followed by the kiosk capture flow on each target and
+replace the "not executed" cells in both this file and
+`tests/manual/device-browser-checklist.md` with real pass/fail results,
+filing any discovered device/browser-specific defect as a separate
+follow-up task rather than editing `resources/js/pages/kiosk.tsx` or
+`resources/js/components/capture-step.tsx` inline.

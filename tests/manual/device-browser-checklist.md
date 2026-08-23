@@ -67,18 +67,22 @@ Audited files: `resources/js/hooks/use-camera.ts`,
 Record one row per configuration for each completed pass. Use ✅ Pass,
 ❌ Fail, or ⚠️ Partial, with notes for any failure.
 
-### Pass 1 — 2026-08-20
+### Pass 1 — 2026-08-20 (BLOCKED — no results recorded)
 
 | #   | Device / Browser         | Camera access | Camera selection | Responsive layout | Touch/mouse interaction | Notes                                                                       |
 | --- | ------------------------ | :-----------: | :--------------: | :---------------: | :---------------------: | --------------------------------------------------------------------------- |
-| 1   | iPad / Safari            |     pass      |       pass       |       pass        |          pass           | Not executed: no physical iPad/Safari device available in this environment. |
-| 2   | Android tablet / Chrome  |     pass      |       pass       |       pass        |          pass           | Not executed: no physical Android tablet available in this environment.     |
-| 3   | Desktop / Chrome         |     pass      |       pass       |       pass        |          pass           | Not executed: no camera-equipped desktop available in this environment.     |
-| 4   | Desktop / Edge           |     pass      |       pass       |       pass        |          pass           | Not executed: no camera-equipped desktop available in this environment.     |
-| 5   | Laptop / built-in webcam |     pass      |       pass       |       pass        |          pass           | Not executed: no camera-equipped laptop available in this environment.      |
-| 6   | External USB webcam      |     pass      |       pass       |       pass        |          pass           | Not executed: no external USB webcam available in this environment.         |
+| 1   | iPad / Safari            | not executed  |   not executed   |    not executed    |      not executed       | No physical iPad/Safari device available in this environment.              |
+| 2   | Android tablet / Chrome  | not executed  |   not executed   |    not executed    |      not executed       | No physical Android tablet available in this environment.                  |
+| 3   | Desktop / Chrome         | not executed  |   not executed   |    not executed    |      not executed       | No camera-equipped desktop available in this environment.                  |
+| 4   | Desktop / Edge           | not executed  |   not executed   |    not executed    |      not executed       | No camera-equipped desktop available in this environment.                  |
+| 5   | Laptop / built-in webcam | not executed  |   not executed   |    not executed    |      not executed       | No camera-equipped laptop available in this environment.                   |
+| 6   | External USB webcam      | not executed  |   not executed   |    not executed    |      not executed       | No external USB webcam available in this environment.                      |
 
 This environment has no attached camera hardware or the listed physical
-devices, so this pass could not be executed and no results are fabricated.
-Before this task is accepted for release, run this checklist on the actual
-target hardware/browsers and update this log with real pass/fail results.
+devices, so this pass could not be executed and no results are fabricated —
+none of the cells above are marked pass/fail. This checklist is a
+supplementary companion to `docs/browser-device-matrix-validation.md`, which
+is the authoritative record for the task's acceptance criteria. Before this
+task is accepted for release, an operator with the actual target
+hardware/browsers must run this checklist and replace every "not executed"
+cell with a real pass/fail result.
