@@ -42,6 +42,12 @@ describe('admin navigation', () => {
             { title: 'Stickers', href: '/admin/stickers', matches: 'prefix' },
             { title: 'Vouchers', href: '/admin/vouchers', matches: 'prefix' },
             { title: 'Sessions', href: '/admin/sessions', matches: 'prefix' },
+            { title: 'Payments', href: '/admin/payments', matches: 'prefix' },
+            {
+                title: 'Reports',
+                href: '/admin/reports/daily',
+                matches: 'prefix',
+            },
             {
                 title: 'System settings',
                 href: '/admin/settings',
@@ -64,6 +70,7 @@ describe('admin navigation', () => {
                 .getByText('Templates')
                 .closest('[data-slot="sidebar-menu-button"]'),
         ).toHaveAttribute('data-active', 'true');
+
         expect(
             screen
                 .getByText('Dashboard')

@@ -18,6 +18,16 @@ type MockFormState = {
     submit: () => void;
 };
 
+type MockLinkHref = string | { url: string };
+
+/**
+ * Normalize an Inertia or Wayfinder href into the URL rendered by the test
+ * anchor so route assertions exercise the real component contract.
+ */
+function resolveHref(href: MockLinkHref): string {
+    return typeof href === 'string' ? href : href.url;
+}
+
 vi.mock('@inertiajs/react', () => ({
     Form: ({
         children,
@@ -35,8 +45,8 @@ vi.mock('@inertiajs/react', () => ({
         </form>
     ),
     Head: () => null,
-    Link: ({ children }: { children: ReactNode }) => (
-        <a href="/admin/templates/create">{children}</a>
+    Link: ({ children, href }: { children: ReactNode; href: MockLinkHref }) => (
+        <a href={resolveHref(href)}>{children}</a>
     ),
     router: {
         patch: patchMock,
@@ -161,7 +171,7 @@ describe('templates index page', () => {
 
         expect(
             screen.getByRole('link', { name: 'New Template' }),
-        ).toBeInTheDocument();
+        ).toHaveAttribute('href', '/admin/templates/create');
 
         expect(
             within(screen.getByLabelText('Total Templates')).getByText('4'),
@@ -288,11 +298,18 @@ describe('templates index page', () => {
             }),
         ).toBeInTheDocument();
 
-        expect(
-            screen.getByRole('link', {
-                name: 'Edit',
-            }),
-        ).toBeInTheDocument();
+        const editLinks = screen.getAllByRole('link', {
+            name: 'Edit',
+        });
+
+        expect(editLinks).toHaveLength(4);
+
+        expect(editLinks.map((link) => link.getAttribute('href'))).toEqual([
+            '/admin/templates/1/edit',
+            '/admin/templates/2/edit',
+            '/admin/templates/3/edit',
+            '/admin/templates/4/edit',
+        ]);
 
         expect(
             screen.getByRole('button', {
@@ -308,6 +325,6 @@ describe('templates index page', () => {
 
         expect(
             screen.getByRole('link', { name: 'New Template' }),
-        ).toBeInTheDocument();
+        ).toHaveAttribute('href', '/admin/templates/create');
     });
 });
