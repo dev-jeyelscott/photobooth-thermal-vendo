@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
     daily as dailyReport,
-    exportRoute,
+    exportMethod as exportReport,
     monthly as monthlyReport,
     range as rangeReport,
 } from '@/routes/admin/reports';
@@ -148,7 +148,7 @@ export function buildReportNavigationLinks({
  * Builds the existing CSV export route for a concrete reporting period.
  */
 export function buildReportExportHref(start: string, end: string): string {
-    return exportRoute.url({
+    return exportReport.url({
         query: {
             start,
             end,
@@ -536,6 +536,7 @@ export function IssueSummaryCard({
                             />
                             {firstLabel}
                         </div>
+
                         <strong
                             className={cn(
                                 'mt-2 block text-2xl font-semibold tabular-nums',
@@ -559,6 +560,7 @@ export function IssueSummaryCard({
                             />
                             {secondLabel}
                         </div>
+
                         <strong
                             className={cn(
                                 'mt-2 block text-2xl font-semibold tabular-nums',
