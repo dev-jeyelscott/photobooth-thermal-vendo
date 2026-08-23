@@ -93,9 +93,9 @@ test('demo seeder feeds meaningful dashboard and daily report data', function ()
             ->component('admin/dashboard')
             ->where('summary.today.count', fn ($count) => $count >= 5)
             ->where('summary.today.salesTotal', fn ($sales) => (float) $sales >= 150.00)
-            ->where('summary.failedPayments', 1)
-            ->where('summary.failedPrintJobs', 1)
-            ->where('summary.pendingPayments', 1)
+            ->where('summary.needsAttention.failedPayments', 1)
+            ->where('summary.needsAttention.failedPrintJobs', 1)
+            ->where('summary.needsAttention.pendingPayments', 1)
             ->where('recentActivity', fn ($activity) => count($activity) > 0)
         );
 

@@ -47,9 +47,9 @@ test('dashboard shows sales summary computed from real session, payment, and pri
         ->where('summary.today.salesTotal', '100.00')
         ->where('summary.thisMonth.count', 3)
         ->where('summary.thisMonth.salesTotal', '150.00')
-        ->where('summary.failedPayments', 2)
-        ->where('summary.failedPrintJobs', 1)
-        ->where('summary.pendingPayments', 1)
+        ->where('summary.needsAttention.failedPayments', 2)
+        ->where('summary.needsAttention.failedPrintJobs', 1)
+        ->where('summary.needsAttention.pendingPayments', 1)
         ->has('recentActivity')
         ->where('recentActivity', fn ($activity) => count($activity) > 0)
     );
