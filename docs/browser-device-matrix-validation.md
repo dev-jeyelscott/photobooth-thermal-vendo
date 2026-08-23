@@ -218,3 +218,31 @@ outcome. Completing the six-row matrix requires an operator with physical
 Safari/iPadOS, Chrome/Android tablet, Chrome desktop, Edge desktop, a laptop
 webcam, and a supported external USB webcam to actually run the kiosk
 capture flow and record real pass/fail results.
+
+## Re-check (2026-08-23, attempt 14) — escalation, no further automated re-checks
+
+Re-confirmed once more, for the fourteenth time, that the environment is
+unchanged: `$DISPLAY` is empty, `id -nG` still lacks `video`
+(`john-leward-escote adm cdrom sudo dip plugdev users lpadmin lxd docker`),
+`/dev/video0`/`/dev/video1` are still `root:video`-owned and inaccessible to
+this user with no display available, only `/usr/bin/google-chrome` is
+installed, and no Safari, Edge, iPadOS, or Android hardware is reachable
+from this host. `npm run build` succeeded again
+(`public/build/assets/kiosk-BOHNCFrQ.js` emitted) and
+`php artisan test --filter=KioskTest` passed again (11 passed, 88
+assertions).
+
+This is a durable, non-transient capability gap of the automated coding
+sandbox, confirmed identically across fourteen separate attempts. No
+further automated re-check of this same environment is expected to produce
+a different result, and repeating it again would not add new information.
+**This task cannot be completed by an automated coding agent and requires
+escalation to a human operator** with physical access to: recent Safari on
+iPadOS, Chrome on an Android tablet, Chrome desktop, Edge desktop, a laptop
+webcam, and a supported external USB webcam. That operator must run the
+production build (`npm run build`) followed by the kiosk capture flow on
+each target and replace the "not executed" cells above with real pass/fail
+results, filing any discovered device/browser-specific defect as a separate
+follow-up task rather than editing `resources/js/pages/kiosk.tsx` or
+`resources/js/components/capture-step.tsx` inline. No code changes were
+made in this attempt.
