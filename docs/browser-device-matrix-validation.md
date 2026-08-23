@@ -121,3 +121,22 @@ the six-device matrix. The matrix remains open pending an operator with
 physical access to the target devices; per this task's constraints, no
 speculative fix or workaround has been applied to
 `resources/js/pages/kiosk.tsx` or `resources/js/components/capture-step.tsx`.
+
+## Re-check (2026-08-23, attempt 9)
+
+Re-inspected the environment again: `$DISPLAY` is still unset, `id -nG` for
+the sandbox user (`john-leward-escote`) still shows
+`adm cdrom sudo dip plugdev users lpadmin lxd docker` (no `video` group),
+and `/dev/video0`/`/dev/video1` are present but still not group-accessible
+and there is no display to drive a real browser session against them. This
+host has no Safari, no Edge, and no iPadOS/Android hardware attached.
+`npm run build` was re-run and completed successfully (`public/build/assets`
+includes `kiosk-BOHNCFrQ.js`), and `php artisan test --filter=KioskTest`
+passed (11 passed, 88 assertions). No new capability to physically exercise
+the six required device/browser combinations has appeared in this sandbox
+across nine attempts. Per the task's explicit no-fabrication constraint,
+the matrix cells are left as `not executed` rather than invented pass/fail
+outcomes. This task requires handoff to an operator with physical access to
+Safari/iPadOS, Chrome Android tablet, Chrome desktop, Edge desktop, a laptop
+webcam, and a supported external USB webcam to produce genuine results; no
+further sandbox re-check is expected to change this conclusion.
