@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import SessionsIndex, {
@@ -151,6 +151,21 @@ function renderPage({
     );
 }
 
+/**
+ * Locate the rendered table row belonging to one exact session token so row
+ * assertions cannot collide with matching labels in the filter controls.
+ */
+function getSessionRow(sessionToken: string): HTMLElement {
+    const sessionTokenElement = screen.getByText(sessionToken);
+    const sessionRow = sessionTokenElement.closest('tr');
+
+    if (sessionRow === null) {
+        throw new Error(`Session row not found for ${sessionToken}`);
+    }
+
+    return sessionRow;
+}
+
 describe('Sessions presentation helpers', () => {
     it('humanizes durable enum-style values without changing their meaning', () => {
         expect(formatEnumLabel('payment_pending')).toBe('Payment pending');
@@ -266,8 +281,10 @@ describe('Sessions monitoring page', () => {
             ]),
         });
 
-        expect(screen.getByText(sessionToken)).toBeInTheDocument();
-        expect(screen.getByText('Printing')).toBeInTheDocument();
+        const sessionRow = getSessionRow(sessionToken);
+
+        expect(within(sessionRow).getByText(sessionToken)).toBeInTheDocument();
+        expect(within(sessionRow).getByText('Printing')).toBeInTheDocument();
     });
 
     it('renders payment and print evidence without inventing missing records', () => {
@@ -285,9 +302,12 @@ describe('Sessions monitoring page', () => {
     });
 
     it('renders real payment evidence with semantic status treatment', () => {
+        const sessionToken = '11111111-1111-4111-8111-000000000014';
+
         renderPage({
             sessions: makePagination([
                 makeSession({
+                    sessionToken,
                     status: 'payment_pending',
                     payment: {
                         method: 'maya',
@@ -299,16 +319,25 @@ describe('Sessions monitoring page', () => {
             ]),
         });
 
-        expect(screen.getByText('Payment pending')).toBeInTheDocument();
-        expect(screen.getByText('maya')).toBeInTheDocument();
-        expect(screen.getByText('pending')).toHaveClass('text-warning');
-        expect(screen.getByText('50.00')).toBeInTheDocument();
+        const sessionRow = getSessionRow(sessionToken);
+
+        expect(
+            within(sessionRow).getByText('Payment pending'),
+        ).toBeInTheDocument();
+        expect(within(sessionRow).getByText('maya')).toBeInTheDocument();
+        expect(within(sessionRow).getByText('pending')).toHaveClass(
+            'text-warning',
+        );
+        expect(within(sessionRow).getByText('50.00')).toBeInTheDocument();
     });
 
     it('renders the semantic failed print-job state', () => {
+        const sessionToken = '11111111-1111-4111-8111-000000000015';
+
         renderPage({
             sessions: makePagination([
                 makeSession({
+                    sessionToken,
                     status: 'printing',
                     printJob: {
                         status: 'failed',
@@ -319,7 +348,11 @@ describe('Sessions monitoring page', () => {
             ]),
         });
 
-        expect(screen.getByText('Failed')).toHaveClass('text-destructive');
+        const sessionRow = getSessionRow(sessionToken);
+
+        expect(within(sessionRow).getByText('Failed')).toHaveClass(
+            'text-destructive',
+        );
     });
 
     it('renders active filters from the authoritative server filter props', () => {
