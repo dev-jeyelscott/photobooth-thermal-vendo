@@ -280,3 +280,21 @@ replace the "not executed" cells in both this file and
 filing any discovered device/browser-specific defect as a separate
 follow-up task rather than editing `resources/js/pages/kiosk.tsx` or
 `resources/js/components/capture-step.tsx` inline.
+
+## Re-check (2026-08-23, attempt 18)
+
+Re-confirmed the environment is unchanged: `$DISPLAY` is empty, `id -nG`
+still lacks `video`, `/dev/video0`/`/dev/video1` are still
+`root:video`-owned and inaccessible without a display, and no Safari,
+Edge, iPadOS, or Android hardware is reachable from this host. `npm run
+build` succeeded again (`public/build/assets/kiosk-BOHNCFrQ.js` emitted)
+and `php artisan test --filter=KioskTest` passed again (11 passed, 88
+assertions).
+
+This confirms, for the eighteenth time, that this sandbox has no path to
+genuine pass/fail evidence for the six required device/browser
+combinations. Per the task's explicit no-fabrication constraint, the
+matrix cells remain "not executed" rather than invented. This task
+requires escalation to a human operator with physical access to the
+target devices; no further code-level action in this sandbox can change
+that outcome.
