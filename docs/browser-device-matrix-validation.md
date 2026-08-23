@@ -335,3 +335,26 @@ access blocker, not something further automated re-checks in this sandbox
 can resolve — the task requires a human operator with physical access to
 Safari/iPadOS, Chrome on an Android tablet, Chrome desktop, Edge desktop, a
 laptop webcam, and a supported external USB webcam to complete.
+
+## Re-check (2026-08-23, attempt 24) — final status, no change
+
+Re-confirmed once more: `$DISPLAY` is empty, `id -nG` still lacks `video`
+(`john-leward-escote adm cdrom sudo dip plugdev users lpadmin lxd docker`),
+only `/usr/bin/google-chrome` is installed (no `safari`, `msedge`,
+`chromium`, or `chromium-browser` binaries found), and no iPadOS/Android
+hardware is reachable from this host. `npm run build` succeeded
+(`public/build/assets/kiosk-BOHNCFrQ.js` emitted) and
+`php artisan test --filter=KioskTest` passed (11 passed, 88 assertions).
+
+This is the twenty-fourth identical confirmation that this sandbox has no
+path to genuine pass/fail evidence for the six required device/browser
+combinations. This is a durable hardware/operator-access blocker, not a
+code defect, and no further automated re-check of this same environment is
+expected to produce a different result. Per the task's explicit
+no-fabrication constraint, the matrix cells remain "not executed" rather
+than invented, and no changes were made to `resources/js/pages/kiosk.tsx`
+or `resources/js/components/capture-step.tsx`. This task requires
+escalation to a human operator with physical access to recent Safari on
+iPadOS, Chrome on an Android tablet, Chrome desktop, Edge desktop, a
+laptop webcam, and a supported external USB webcam to produce genuine
+results.
