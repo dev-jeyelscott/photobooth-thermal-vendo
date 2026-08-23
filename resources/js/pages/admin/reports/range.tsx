@@ -1,16 +1,21 @@
 import { Form, Head, setLayoutProps } from '@inertiajs/react';
-import Heading from '@/components/heading';
+import { Banknote, CircleCheck, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { range as rangeReport } from '@/routes/admin/reports';
+import {
+    buildReportExportHref,
+    buildReportNavigationLinks,
+    formatReportCurrency,
+    formatReportDate,
+    IssueSummaryCard,
+    ReportFilterPanel,
+    ReportMetricCard,
+    ReportShell,
+} from './report-ui';
 
-type RangeReport = {
+type RangeReportData = {
     revenue: string;
     successfulPayments: number;
     failedPayments: number;
@@ -19,6 +24,9 @@ type RangeReport = {
     failedPrintJobs: number;
 };
 
+/**
+ * Renders the sales and operations report for an arbitrary date range.
+ */
 export default function RangeReport({
     start,
     end,
@@ -26,108 +34,127 @@ export default function RangeReport({
 }: {
     start: string;
     end: string;
-    report: RangeReport;
+    report: RangeReportData;
 }) {
     setLayoutProps({
-        breadcrumbs: [{ title: 'Date range report', href: rangeReport() }],
+        breadcrumbs: [{ title: 'Reports', href: rangeReport() }],
     });
+
+    const [year, month] = start.split('-').map(Number);
+
+    const links = buildReportNavigationLinks({
+        dailyDate: start,
+        monthlyYear: year,
+        monthlyMonth: month,
+        rangeStart: start,
+        rangeEnd: end,
+    });
+
+    const exportHref = buildReportExportHref(start, end);
 
     return (
         <>
             <Head title="Date range report" />
 
-            <div className="flex flex-col gap-6 p-4">
-                <Heading
-                    title="Date range report"
-                    description="Sales and session totals for a selected date range"
-                />
+            <ReportShell
+                active="range"
+                links={links}
+                periodLabel={`Reporting period: ${formatReportDate(start)} to ${formatReportDate(end)}`}
+                exportHref={exportHref}
+            >
+                <ReportFilterPanel>
+                    <Form
+                        action={rangeReport.url()}
+                        method="get"
+                        options={{
+                            preserveState: true,
+                            replace: true,
+                        }}
+                        className="flex flex-col gap-3 lg:flex-row lg:items-end"
+                    >
+                        {() => (
+                            <>
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="range-report-start">
+                                        Start date
+                                    </Label>
+                                    <Input
+                                        id="range-report-start"
+                                        type="date"
+                                        name="start"
+                                        defaultValue={start}
+                                        className="sm:w-56"
+                                    />
+                                </div>
 
-                <Form
-                    action={rangeReport.url()}
-                    method="get"
-                    options={{ preserveState: true, replace: true }}
-                    className="flex flex-wrap items-end gap-3"
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="range-report-end">
+                                        End date
+                                    </Label>
+                                    <Input
+                                        id="range-report-end"
+                                        type="date"
+                                        name="end"
+                                        defaultValue={end}
+                                        className="sm:w-56"
+                                    />
+                                </div>
+
+                                <Button type="submit">View report</Button>
+                            </>
+                        )}
+                    </Form>
+                </ReportFilterPanel>
+
+                <section
+                    aria-labelledby="range-summary-heading"
+                    className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
                 >
-                    {() => (
-                        <>
-                            <label className="flex flex-col gap-1 text-sm">
-                                Start date
-                                <Input
-                                    type="date"
-                                    name="start"
-                                    defaultValue={start}
-                                />
-                            </label>
+                    <h2 id="range-summary-heading" className="sr-only">
+                        Date range report summary
+                    </h2>
 
-                            <label className="flex flex-col gap-1 text-sm">
-                                End date
-                                <Input
-                                    type="date"
-                                    name="end"
-                                    defaultValue={end}
-                                />
-                            </label>
+                    <ReportMetricCard
+                        label="Revenue"
+                        value={formatReportCurrency(report.revenue)}
+                        icon={Banknote}
+                        tone="success"
+                    />
 
-                            <Button type="submit">View</Button>
-                        </>
-                    )}
-                </Form>
+                    <ReportMetricCard
+                        label="Completed sessions"
+                        value={String(report.completedSessions)}
+                        icon={CircleCheck}
+                        tone="info"
+                    />
 
-                <div className="grid auto-rows-min gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Revenue</CardDescription>
-                            <CardTitle className="text-3xl">
-                                ₱{report.revenue}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>
-                                Successful payments
-                            </CardDescription>
-                            <CardTitle className="text-3xl">
-                                {report.successfulPayments}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Failed payments</CardDescription>
-                            <CardTitle className="text-3xl">
-                                {report.failedPayments}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>
-                                Completed sessions
-                            </CardDescription>
-                            <CardTitle className="text-3xl">
-                                {report.completedSessions}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Voucher sessions</CardDescription>
-                            <CardTitle className="text-3xl">
-                                {report.voucherSessions}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Failed print jobs</CardDescription>
-                            <CardTitle className="text-3xl">
-                                {report.failedPrintJobs}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                </div>
-            </div>
+                    <ReportMetricCard
+                        label="Successful payments"
+                        value={String(report.successfulPayments)}
+                        icon={CircleCheck}
+                        tone="success"
+                    />
+                </section>
+
+                <section
+                    aria-label="Date range operational insights"
+                    className="grid gap-4 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]"
+                >
+                    <ReportMetricCard
+                        label="Voucher sessions"
+                        value={String(report.voucherSessions)}
+                        icon={Ticket}
+                        tone="warning"
+                    />
+
+                    <IssueSummaryCard
+                        firstLabel="Failed payments"
+                        firstValue={report.failedPayments}
+                        secondLabel="Failed print jobs"
+                        secondValue={report.failedPrintJobs}
+                    />
+                </section>
+            </ReportShell>
         </>
     );
 }

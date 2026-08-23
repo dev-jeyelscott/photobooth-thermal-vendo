@@ -1,16 +1,22 @@
 import { Form, Head, setLayoutProps } from '@inertiajs/react';
-import Heading from '@/components/heading';
+import { Banknote, CircleCheck, ReceiptText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { daily as dailyReport } from '@/routes/admin/reports';
+import {
+    buildReportExportHref,
+    buildReportNavigationLinks,
+    formatReportCurrency,
+    formatReportDate,
+    HealthSummaryCard,
+    PaymentMixCard,
+    ReportFilterPanel,
+    ReportMetricCard,
+    ReportShell,
+} from './report-ui';
 
-type DailyReport = {
+type DailyReportData = {
     grossSales: string;
     successfulSessions: number;
     paidSessions: number;
@@ -19,104 +25,130 @@ type DailyReport = {
     averageTransactionValue: string;
 };
 
+/**
+ * Renders the operationally focused daily sales report.
+ */
 export default function DailyReport({
     date,
     report,
 }: {
     date: string;
-    report: DailyReport;
+    report: DailyReportData;
 }) {
     setLayoutProps({
-        breadcrumbs: [{ title: 'Daily sales report', href: dailyReport() }],
+        breadcrumbs: [{ title: 'Reports', href: dailyReport() }],
     });
+
+    const [year, month] = date.split('-').map(Number);
+
+    const links = buildReportNavigationLinks({
+        dailyDate: date,
+        monthlyYear: year,
+        monthlyMonth: month,
+        rangeStart: date,
+        rangeEnd: date,
+    });
+
+    const exportHref = buildReportExportHref(date, date);
+
+    const healthMessage =
+        report.failedPayments > 0
+            ? `${report.failedPayments} failed payment${report.failedPayments === 1 ? '' : 's'} need review.`
+            : 'No failed payments were recorded for this day.';
 
     return (
         <>
-            <Head title="Daily sales report" />
+            <Head title="Daily report" />
 
-            <div className="flex flex-col gap-6 p-4">
-                <Heading
-                    title="Daily sales report"
-                    description="Sales and session totals for a selected day"
-                />
+            <ReportShell
+                active="daily"
+                links={links}
+                periodLabel={`Reporting period: ${formatReportDate(date)}`}
+                exportHref={exportHref}
+            >
+                <ReportFilterPanel>
+                    <Form
+                        action={dailyReport.url()}
+                        method="get"
+                        options={{
+                            preserveState: true,
+                            replace: true,
+                        }}
+                        className="flex flex-col gap-3 sm:flex-row sm:items-end"
+                    >
+                        {() => (
+                            <>
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="daily-report-date">
+                                        Date
+                                    </Label>
+                                    <Input
+                                        id="daily-report-date"
+                                        type="date"
+                                        name="date"
+                                        defaultValue={date}
+                                        className="sm:w-56"
+                                    />
+                                </div>
 
-                <Form
-                    action={dailyReport.url()}
-                    method="get"
-                    options={{ preserveState: true, replace: true }}
-                    className="flex flex-wrap items-end gap-3"
+                                <Button type="submit">View report</Button>
+                            </>
+                        )}
+                    </Form>
+                </ReportFilterPanel>
+
+                <section
+                    aria-labelledby="daily-summary-heading"
+                    className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
                 >
-                    {() => (
-                        <>
-                            <label className="flex flex-col gap-1 text-sm">
-                                Date
-                                <Input
-                                    type="date"
-                                    name="date"
-                                    defaultValue={date}
-                                />
-                            </label>
+                    <h2 id="daily-summary-heading" className="sr-only">
+                        Daily report summary
+                    </h2>
 
-                            <Button type="submit">View</Button>
-                        </>
-                    )}
-                </Form>
+                    <ReportMetricCard
+                        label="Gross sales"
+                        value={formatReportCurrency(report.grossSales)}
+                        icon={Banknote}
+                        tone="success"
+                    />
 
-                <div className="grid auto-rows-min gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Gross sales</CardDescription>
-                            <CardTitle className="text-3xl">
-                                ₱{report.grossSales}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>
-                                Successful sessions
-                            </CardDescription>
-                            <CardTitle className="text-3xl">
-                                {report.successfulSessions}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>
-                                Average transaction value
-                            </CardDescription>
-                            <CardTitle className="text-3xl">
-                                ₱{report.averageTransactionValue}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Paid sessions</CardDescription>
-                            <CardTitle className="text-3xl">
-                                {report.paidSessions}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Voucher sessions</CardDescription>
-                            <CardTitle className="text-3xl">
-                                {report.voucherSessions}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Failed payments</CardDescription>
-                            <CardTitle className="text-3xl">
-                                {report.failedPayments}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                </div>
-            </div>
+                    <ReportMetricCard
+                        label="Successful sessions"
+                        value={String(report.successfulSessions)}
+                        icon={CircleCheck}
+                        tone="info"
+                    />
+
+                    <ReportMetricCard
+                        label="Average transaction value"
+                        value={formatReportCurrency(
+                            report.averageTransactionValue,
+                        )}
+                        icon={ReceiptText}
+                        tone="warning"
+                    />
+                </section>
+
+                <section
+                    aria-label="Daily payment and transaction insights"
+                    className="grid gap-4 xl:grid-cols-2"
+                >
+                    <PaymentMixCard
+                        mayaSessions={report.paidSessions}
+                        voucherSessions={report.voucherSessions}
+                    />
+
+                    <HealthSummaryCard
+                        title="Transaction health"
+                        description="Successful sessions and recorded payment failures"
+                        healthyLabel="Successful sessions"
+                        healthyValue={report.successfulSessions}
+                        issueLabel="Failed payments"
+                        issueValue={report.failedPayments}
+                        message={healthMessage}
+                    />
+                </section>
+            </ReportShell>
         </>
     );
 }
