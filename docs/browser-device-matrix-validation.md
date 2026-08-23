@@ -140,3 +140,22 @@ outcomes. This task requires handoff to an operator with physical access to
 Safari/iPadOS, Chrome Android tablet, Chrome desktop, Edge desktop, a laptop
 webcam, and a supported external USB webcam to produce genuine results; no
 further sandbox re-check is expected to change this conclusion.
+
+## Re-check (2026-08-23, attempt 10)
+
+Re-inspected the environment once more: `$DISPLAY` is still unset, `id -nG`
+for the sandbox user still shows
+`john-leward-escote adm cdrom sudo dip plugdev users lpadmin lxd docker` (no
+`video` group), and `/dev/video0`/`/dev/video1` are still present but not
+group-accessible with no display to drive a real browser session against
+them. Only `google-chrome` is installed on this host; no Safari, no Edge,
+and no iPadOS/Android hardware is reachable. `npm run build` was re-run and
+completed successfully (`public/build/assets/kiosk-BOHNCFrQ.js` emitted),
+and `php artisan test --filter=KioskTest` passed (11 passed, 88 assertions).
+No new capability to physically exercise the six required device/browser
+combinations exists in this sandbox. Consistent with the explicit
+no-fabrication constraint, the matrix cells remain `not executed` rather
+than invented pass/fail outcomes, and no changes were made to
+`resources/js/pages/kiosk.tsx` or `resources/js/components/capture-step.tsx`.
+This task remains blocked on an operator with physical access to the target
+devices; it cannot be completed from this sandbox.
