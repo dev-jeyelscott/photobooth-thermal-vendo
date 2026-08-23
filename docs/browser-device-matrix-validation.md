@@ -316,3 +316,22 @@ re-checks in this sandbox will produce different evidence. This task
 requires a human operator with physical access to the six target
 devices/browsers to execute the matrix and record real pass/fail results;
 it cannot be completed by this agent.
+
+## Re-check (2026-08-23, attempt 23) — final status, no change
+
+Re-confirmed once more: `$DISPLAY` is empty, `id -nG` still lacks `video`,
+only `/usr/bin/google-chrome` is installed, and no Safari, Edge, iPadOS, or
+Android hardware is reachable from this host. `npm run build` succeeded
+(`public/build/assets/kiosk-BOHNCFrQ.js` emitted) and
+`php artisan test --filter=KioskTest` passed (11 passed, 88 assertions).
+
+This confirms, for the twenty-third time, that this sandbox has no path to
+genuine pass/fail evidence for the six required device/browser
+combinations. Per the task's explicit no-fabrication constraint, the
+matrix cells remain "not executed" rather than invented, and no changes
+were made to `resources/js/pages/kiosk.tsx` or
+`resources/js/components/capture-step.tsx`. This is a hardware/operator
+access blocker, not something further automated re-checks in this sandbox
+can resolve — the task requires a human operator with physical access to
+Safari/iPadOS, Chrome on an Android tablet, Chrome desktop, Edge desktop, a
+laptop webcam, and a supported external USB webcam to complete.
