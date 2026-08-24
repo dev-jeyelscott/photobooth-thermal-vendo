@@ -1,12 +1,26 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import {
+    fireEvent,
+    render as testingLibraryRender,
+    screen,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import TemplateForm from './template-form';
 
 const formErrors = vi.hoisted(() => ({
     current: {} as Record<string, string>,
 }));
+
+/**
+ * Render the template form with the same application-level providers used in production.
+ */
+function render(ui: ReactElement) {
+    return testingLibraryRender(
+        <TooltipProvider delayDuration={0}>{ui}</TooltipProvider>,
+    );
+}
 
 /**
  * Resolve an Inertia or Wayfinder href into the URL expected by the test anchor.
@@ -303,6 +317,7 @@ describe('template form browser payload contract', () => {
         const layoutInput = container.querySelector(
             'input[name="layout_config"]',
         );
+
         const layout = JSON.parse(
             layoutInput?.getAttribute('value') ?? '{}',
         ) as {
