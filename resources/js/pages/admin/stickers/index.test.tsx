@@ -73,7 +73,7 @@ vi.mock('@dnd-kit/sortable', () => ({
         transition: undefined,
         isDragging: false,
     })),
-    verticalListSortingStrategy: {},
+    rectSortingStrategy: {},
 }));
 
 vi.mock('@dnd-kit/utilities', () => ({

@@ -156,7 +156,7 @@ class ComposeColorPhoto
             $snapshot = $session->template_snapshot;
 
             $layoutPath = array_key_exists('layout_path', $snapshot)
-                ? (is_string($snapshot['layout_path']) ? $snapshot['layout_path'] : null)
+                ? $snapshot['layout_path']
                 : $this->legacyLayoutPath($session);
 
             return [

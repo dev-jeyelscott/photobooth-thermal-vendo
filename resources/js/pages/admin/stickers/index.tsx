@@ -9,10 +9,10 @@ import {
 import type { DragEndEvent } from '@dnd-kit/core';
 import {
     arrayMove,
+    rectSortingStrategy,
     SortableContext,
     sortableKeyboardCoordinates,
     useSortable,
-    verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Form, Head, Link, router, setLayoutProps } from '@inertiajs/react';
@@ -90,8 +90,7 @@ type StickerSummary = {
 type SummaryTone = 'neutral' | 'success' | 'warning' | 'info';
 
 /**
- * Calculate operator-focused sticker totals directly from the existing
- * management payload without introducing an additional aggregate endpoint.
+ * Calculate operator-focused sticker totals from the existing management payload.
  */
 export function getStickerSummary(stickers: Sticker[]): StickerSummary {
     const active = stickers.filter((sticker) => sticker.active).length;
@@ -107,8 +106,7 @@ export function getStickerSummary(stickers: Sticker[]): StickerSummary {
 }
 
 /**
- * Convert the repository's template-restriction contract into plain language
- * for non-technical administrators.
+ * Convert the persisted template restriction contract into operator-readable text.
  */
 export function getStickerCompatibilityLabel(sticker: Sticker): string {
     if (sticker.templateIds.length === 0) {
@@ -123,8 +121,7 @@ export function getStickerCompatibilityLabel(sticker: Sticker): string {
 }
 
 /**
- * Apply client-side search, status filtering, and visual sorting while keeping
- * the backend-provided priority order untouched when Priority is selected.
+ * Apply client-side search, status filtering, and display sorting without mutating priority order.
  */
 export function filterAndSortStickers(
     stickers: Sticker[],
@@ -165,8 +162,7 @@ export function filterAndSortStickers(
 }
 
 /**
- * Render one concise summary card using the application's semantic design
- * tokens instead of introducing page-specific colors.
+ * Render one compact management metric with canonical semantic tones.
  */
 function SummaryCard({
     label,
@@ -215,26 +211,24 @@ function SummaryCard({
 }
 
 /**
- * Render the preferred sticker thumbnail and fall back to the primary asset
- * when no dedicated thumbnail exists.
+ * Render the dedicated thumbnail when available and fall back to the primary sticker asset.
  */
 function StickerPreview({ sticker }: { sticker: Sticker }) {
     return (
-        <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/30">
+        <div className="flex aspect-square w-full items-center justify-center overflow-hidden bg-muted/30">
             <img
                 src={sticker.thumbnailUrl ?? sticker.assetUrl}
                 alt={sticker.name}
-                className="size-full object-contain p-1"
+                className="size-full object-contain p-6"
             />
         </div>
     );
 }
 
 /**
- * Render one sortable sticker management row with compact operator actions,
- * accessible ordering fallbacks, and protected destructive deletion.
+ * Render one accessible sortable sticker card with management actions.
  */
-function SortableStickerRow({
+function SortableStickerCard({
     sticker,
     priority,
     reorderEnabled,
@@ -274,138 +268,152 @@ function SortableStickerRow({
                     transform: CSS.Transform.toString(transform),
                     transition,
                 }}
-                className={`grid grid-cols-[44px_52px_minmax(0,1fr)] items-center gap-3 border-b bg-background p-4 last:border-b-0 lg:grid-cols-[44px_52px_minmax(240px,1fr)_minmax(170px,0.75fr)_160px_160px] lg:gap-4 ${
-                    isDragging ? 'relative z-10 shadow-lg' : ''
-                }`}
+                className={
+                    isDragging
+                        ? 'relative z-10 opacity-95 shadow-lg'
+                        : undefined
+                }
             >
-                <Button
-                    ref={setActivatorNodeRef}
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={!reorderEnabled || reordering}
-                    aria-label={`Drag ${sticker.name} to reorder`}
-                    className="cursor-grab text-muted-foreground active:cursor-grabbing"
-                    {...attributes}
-                    {...listeners}
-                >
-                    <GripVertical aria-hidden="true" />
-                </Button>
+                <Card className="h-full gap-0 overflow-hidden py-0">
+                    <div className="relative border-b">
+                        <StickerPreview sticker={sticker} />
 
-                <div
-                    className="flex size-9 items-center justify-center rounded-md bg-muted text-sm font-medium"
-                    aria-label={`Priority ${priority}`}
-                >
-                    {priority}
-                </div>
+                        <div
+                            className="absolute top-3 left-3 rounded-md border bg-background/90 px-2 py-1 text-xs font-medium shadow-xs backdrop-blur-sm"
+                            aria-label={`Priority ${priority}`}
+                        >
+                            #{priority}
+                        </div>
 
-                <div className="flex min-w-0 items-center gap-3">
-                    <StickerPreview sticker={sticker} />
+                        <Button
+                            ref={setActivatorNodeRef}
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            disabled={!reorderEnabled || reordering}
+                            aria-label={`Drag ${sticker.name} to reorder`}
+                            className="absolute top-3 right-3 cursor-grab bg-background/90 shadow-xs backdrop-blur-sm active:cursor-grabbing"
+                            {...attributes}
+                            {...listeners}
+                        >
+                            <GripVertical aria-hidden="true" />
+                        </Button>
+                    </div>
 
-                    <div className="min-w-0">
-                        <p className="truncate font-semibold">{sticker.name}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            Sticker overlay
+                    <div className="grid gap-3 p-4">
+                        <div className="min-w-0">
+                            <h2 className="truncate text-card-title">
+                                {sticker.name}
+                            </h2>
+
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <Badge
+                                    variant="outline"
+                                    className={
+                                        sticker.active
+                                            ? 'border-success/30 bg-success-subtle text-success-foreground'
+                                            : 'border-border bg-muted text-muted-foreground'
+                                    }
+                                >
+                                    {sticker.active ? 'Active' : 'Inactive'}
+                                </Badge>
+
+                                <span className="inline-flex items-center gap-1 text-caption text-muted-foreground">
+                                    <LayoutGrid
+                                        className="size-3.5"
+                                        aria-hidden="true"
+                                    />
+                                    {getStickerCompatibilityLabel(sticker)}
+                                </span>
+                            </div>
+                        </div>
+
+                        <p className="text-caption text-muted-foreground">
+                            Display order {priority}
                         </p>
                     </div>
-                </div>
 
-                <div className="col-start-3 flex items-center gap-2 text-sm lg:col-start-auto">
-                    <LayoutGrid
-                        className="size-4 shrink-0 text-info"
-                        aria-hidden="true"
-                    />
-                    <span className="text-muted-foreground">
-                        {getStickerCompatibilityLabel(sticker)}
-                    </span>
-                </div>
+                    <div className="mt-auto flex items-center gap-2 border-t p-3">
+                        <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                        >
+                            <Link href={StickerController.edit(sticker.id)}>
+                                <Pencil aria-hidden="true" />
+                                Edit
+                            </Link>
+                        </Button>
 
-                <div className="col-start-3 flex items-center gap-3 lg:col-start-auto">
-                    <Badge
-                        variant="outline"
-                        className={
-                            sticker.active
-                                ? 'border-success/30 bg-success-subtle text-success-foreground'
-                                : 'border-border bg-muted text-muted-foreground'
-                        }
-                    >
-                        {sticker.active ? 'Active' : 'Inactive'}
-                    </Badge>
+                        <Form
+                            {...StickerController.toggle.form(sticker.id)}
+                            options={{ preserveScroll: true }}
+                            className="inline-flex"
+                        >
+                            {({ processing, submit }) => (
+                                <Switch
+                                    checked={sticker.active}
+                                    disabled={processing}
+                                    onCheckedChange={() => submit()}
+                                    aria-label={`${
+                                        sticker.active ? 'Disable' : 'Enable'
+                                    } ${sticker.name}`}
+                                    className="data-[state=checked]:bg-success"
+                                />
+                            )}
+                        </Form>
 
-                    <Form
-                        {...StickerController.toggle.form(sticker.id)}
-                        options={{ preserveScroll: true }}
-                        className="inline-flex"
-                    >
-                        {({ processing, submit }) => (
-                            <Switch
-                                checked={sticker.active}
-                                disabled={processing}
-                                onCheckedChange={() => submit()}
-                                aria-label={`${
-                                    sticker.active ? 'Disable' : 'Enable'
-                                } ${sticker.name}`}
-                                className="data-[state=checked]:bg-success"
-                            />
-                        )}
-                    </Form>
-                </div>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    aria-label={`More actions for ${sticker.name}`}
+                                >
+                                    <MoreHorizontal aria-hidden="true" />
+                                </Button>
+                            </DropdownMenuTrigger>
 
-                <div className="col-start-3 flex items-center gap-2 lg:col-start-auto lg:justify-end">
-                    <Button asChild variant="outline" size="sm">
-                        <Link href={StickerController.edit(sticker.id)}>
-                            <Pencil aria-hidden="true" />
-                            Edit
-                        </Link>
-                    </Button>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    disabled={
+                                        !reorderEnabled ||
+                                        reordering ||
+                                        !canMoveUp
+                                    }
+                                    onSelect={() => onMove(sticker.id, -1)}
+                                >
+                                    <ArrowUp aria-hidden="true" />
+                                    Move up
+                                </DropdownMenuItem>
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                aria-label={`More actions for ${sticker.name}`}
-                            >
-                                <MoreHorizontal aria-hidden="true" />
-                            </Button>
-                        </DropdownMenuTrigger>
+                                <DropdownMenuItem
+                                    disabled={
+                                        !reorderEnabled ||
+                                        reordering ||
+                                        !canMoveDown
+                                    }
+                                    onSelect={() => onMove(sticker.id, 1)}
+                                >
+                                    <ArrowDown aria-hidden="true" />
+                                    Move down
+                                </DropdownMenuItem>
 
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                disabled={
-                                    !reorderEnabled || reordering || !canMoveUp
-                                }
-                                onSelect={() => onMove(sticker.id, -1)}
-                            >
-                                <ArrowUp aria-hidden="true" />
-                                Move up
-                            </DropdownMenuItem>
+                                <DropdownMenuSeparator />
 
-                            <DropdownMenuItem
-                                disabled={
-                                    !reorderEnabled ||
-                                    reordering ||
-                                    !canMoveDown
-                                }
-                                onSelect={() => onMove(sticker.id, 1)}
-                            >
-                                <ArrowDown aria-hidden="true" />
-                                Move down
-                            </DropdownMenuItem>
-
-                            <DropdownMenuSeparator />
-
-                            <DropdownMenuItem
-                                variant="destructive"
-                                onSelect={() => setDeleteOpen(true)}
-                            >
-                                <Trash2 aria-hidden="true" />
-                                Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+                                <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={() => setDeleteOpen(true)}
+                                >
+                                    <Trash2 aria-hidden="true" />
+                                    Delete
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </Card>
             </div>
 
             <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -415,8 +423,9 @@ function SortableStickerRow({
                     </DialogTitle>
 
                     <DialogDescription>
-                        This cannot be undone. Stickers referenced by existing
-                        photobooth sessions cannot be deleted.
+                        This action cannot be undone. The server rejects
+                        deletion when historical photobooth sessions reference
+                        this sticker.
                     </DialogDescription>
 
                     <Form
@@ -426,7 +435,10 @@ function SortableStickerRow({
                         {({ processing, errors }) => (
                             <>
                                 {errors.sticker && (
-                                    <p className="text-sm text-destructive">
+                                    <p
+                                        role="alert"
+                                        className="text-sm text-destructive-foreground"
+                                    >
                                         {errors.sticker}
                                     </p>
                                 )}
@@ -435,7 +447,8 @@ function SortableStickerRow({
                                     <DialogClose asChild>
                                         <Button
                                             type="button"
-                                            variant="secondary"
+                                            variant="outline"
+                                            disabled={processing}
                                         >
                                             Cancel
                                         </Button>
@@ -446,6 +459,7 @@ function SortableStickerRow({
                                         variant="destructive"
                                         disabled={processing}
                                     >
+                                        <Trash2 aria-hidden="true" />
                                         {processing
                                             ? 'Deleting...'
                                             : 'Delete sticker'}
@@ -461,8 +475,7 @@ function SortableStickerRow({
 }
 
 /**
- * Render the redesigned operator-focused Sticker Management experience while
- * preserving all existing CRUD and reorder contracts.
+ * Render the operator-focused Sticker Management experience while preserving existing domain contracts.
  */
 export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
     setLayoutProps({
@@ -542,8 +555,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
         sortOption === 'priority';
 
     /**
-     * Persist a complete canonical sticker order using temporary optimistic
-     * IDs while allowing refreshed Inertia props to remain authoritative.
+     * Persist the complete canonical sticker order and roll back temporary state on failure.
      */
     function persistOrder(nextStickers: Sticker[]): void {
         const orderedIds = nextStickers.map((sticker) => sticker.id);
@@ -570,8 +582,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
     }
 
     /**
-     * Move one sticker by a single canonical priority position using the same
-     * persistence contract as drag-and-drop ordering.
+     * Move one sticker by a single canonical priority position.
      */
     function moveSticker(stickerId: number, direction: -1 | 1): void {
         if (!reorderEnabled || reordering) {
@@ -595,8 +606,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
     }
 
     /**
-     * Translate a completed dnd-kit interaction into the application's
-     * existing complete ordered-ID reorder request.
+     * Translate a completed drag interaction into the canonical ordered-ID request.
      */
     function handleDragEnd(event: DragEndEvent): void {
         if (
@@ -626,12 +636,12 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
         <>
             <Head title="Stickers" />
 
-            <div className="flex flex-col gap-6 p-4 md:p-6">
+            <div className="flex flex-col gap-section p-page md:p-page-desktop">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="[&>header]:mb-0">
                         <Heading
                             title="Stickers"
-                            description="Manage the sticker overlays available in the kiosk."
+                            description="Manage sticker overlays available in the photobooth."
                         />
                     </div>
 
@@ -647,7 +657,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                     <SummaryCard
                         label="Total stickers"
                         value={summary.total}
-                        description="All stickers in the system"
+                        description="All sticker designs"
                         icon={<Layers className="size-6" aria-hidden="true" />}
                         tone="neutral"
                     />
@@ -655,7 +665,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                     <SummaryCard
                         label="Active"
                         value={summary.active}
-                        description="Visible in the kiosk"
+                        description="Available in the kiosk"
                         icon={
                             <CircleCheck
                                 className="size-6"
@@ -668,7 +678,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                     <SummaryCard
                         label="Inactive"
                         value={summary.inactive}
-                        description="Hidden from the kiosk"
+                        description="Hidden from new sessions"
                         icon={
                             <CirclePause
                                 className="size-6"
@@ -690,7 +700,7 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                 </div>
 
                 <Card className="gap-0 overflow-hidden py-0">
-                    <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-toolbar border-b p-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
                             <div className="relative w-full md:max-w-xl">
                                 <Search
@@ -786,15 +796,6 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                         </Select>
                     </div>
 
-                    <div className="hidden grid-cols-[44px_52px_minmax(240px,1fr)_minmax(170px,0.75fr)_160px_160px] items-center gap-4 border-b bg-muted/30 px-4 py-3 text-xs font-medium tracking-wide text-muted-foreground lg:grid">
-                        <span className="sr-only">Reorder</span>
-                        <span>Order</span>
-                        <span>Sticker</span>
-                        <span>Compatibility</span>
-                        <span>Status</span>
-                        <span className="text-right">Actions</span>
-                    </div>
-
                     {orderedStickers.length === 0 ? (
                         <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
                             <div className="flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
@@ -828,42 +829,54 @@ export default function StickersIndex({ stickers }: { stickers: Sticker[] }) {
                             </p>
                         </div>
                     ) : (
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleDragEnd}
-                        >
-                            <SortableContext
-                                items={visibleStickers.map(
-                                    (sticker) => sticker.id,
-                                )}
-                                strategy={verticalListSortingStrategy}
+                        <div className="p-4">
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleDragEnd}
                             >
-                                {visibleStickers.map((sticker) => {
-                                    const canonicalIndex =
-                                        orderedStickers.findIndex(
-                                            (candidate) =>
-                                                candidate.id === sticker.id,
-                                        );
+                                <SortableContext
+                                    items={visibleStickers.map(
+                                        (sticker) => sticker.id,
+                                    )}
+                                    strategy={rectSortingStrategy}
+                                >
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                                        {visibleStickers.map((sticker) => {
+                                            const canonicalIndex =
+                                                orderedStickers.findIndex(
+                                                    (candidate) =>
+                                                        candidate.id ===
+                                                        sticker.id,
+                                                );
 
-                                    return (
-                                        <SortableStickerRow
-                                            key={sticker.id}
-                                            sticker={sticker}
-                                            priority={canonicalIndex + 1}
-                                            reorderEnabled={reorderEnabled}
-                                            reordering={reordering}
-                                            canMoveUp={canonicalIndex > 0}
-                                            canMoveDown={
-                                                canonicalIndex <
-                                                orderedStickers.length - 1
-                                            }
-                                            onMove={moveSticker}
-                                        />
-                                    );
-                                })}
-                            </SortableContext>
-                        </DndContext>
+                                            return (
+                                                <SortableStickerCard
+                                                    key={sticker.id}
+                                                    sticker={sticker}
+                                                    priority={
+                                                        canonicalIndex + 1
+                                                    }
+                                                    reorderEnabled={
+                                                        reorderEnabled
+                                                    }
+                                                    reordering={reordering}
+                                                    canMoveUp={
+                                                        canonicalIndex > 0
+                                                    }
+                                                    canMoveDown={
+                                                        canonicalIndex <
+                                                        orderedStickers.length -
+                                                            1
+                                                    }
+                                                    onMove={moveSticker}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                </SortableContext>
+                            </DndContext>
+                        </div>
                     )}
 
                     {orderedStickers.length > 0 && (

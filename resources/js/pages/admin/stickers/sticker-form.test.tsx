@@ -1,11 +1,24 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { InputHTMLAttributes, ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StickerForm from './sticker-form';
 
 const formErrors = vi.hoisted(() => ({
     current: {} as Record<string, string>,
 }));
+
+const createObjectUrlMock = vi.fn(() => 'blob:sticker-preview');
+const revokeObjectUrlMock = vi.fn();
+
+Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: createObjectUrlMock,
+});
+
+Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: revokeObjectUrlMock,
+});
 
 vi.mock('@inertiajs/react', () => ({
     Form: ({
@@ -24,11 +37,27 @@ vi.mock('@inertiajs/react', () => ({
             {children({ processing: false, errors: formErrors.current })}
         </form>
     ),
+    Link: ({
+        href,
+        children,
+    }: {
+        href: string | { url: string };
+        children: ReactNode;
+    }) => <a href={typeof href === 'string' ? href : href.url}>{children}</a>,
 }));
 
 vi.mock('@/components/ui/checkbox', () => ({
-    Checkbox: (props: InputHTMLAttributes<HTMLInputElement>) => (
-        <input type="checkbox" {...props} />
+    Checkbox: ({
+        onCheckedChange,
+        ...props
+    }: InputHTMLAttributes<HTMLInputElement> & {
+        onCheckedChange?: (checked: boolean) => void;
+    }) => (
+        <input
+            type="checkbox"
+            {...props}
+            onChange={(event) => onCheckedChange?.(event.target.checked)}
+        />
     ),
 }));
 
@@ -52,6 +81,12 @@ const existingSticker = {
     },
     templateIds: [7],
 };
+
+beforeEach(() => {
+    formErrors.current = {};
+    createObjectUrlMock.mockClear();
+    revokeObjectUrlMock.mockClear();
+});
 
 describe('sticker form browser payload contract', () => {
     it('submits an explicit Laravel boolean value for active', () => {
@@ -218,6 +253,63 @@ describe('sticker form browser payload contract', () => {
             screen.getByRole('link', { name: 'View current thumbnail' }),
         ).toHaveAttribute('href', existingSticker.thumbnailUrl);
     });
+
+    it('previews a selected sticker asset without changing its form field contract', () => {
+        render(
+            <StickerForm
+                form={{ action: '/admin/stickers', method: 'post' }}
+                templates={templates}
+            />,
+        );
+
+        const file = new File(['sticker'], 'sparkle.png', {
+            type: 'image/png',
+        });
+
+        const input = screen.getByLabelText('Sticker asset');
+
+        fireEvent.change(input, {
+            target: {
+                files: [file],
+            },
+        });
+
+        expect(createObjectUrlMock).toHaveBeenCalledWith(file);
+
+        expect(
+            screen.getByRole('img', { name: 'Sticker asset preview' }),
+        ).toHaveAttribute('src', 'blob:sticker-preview');
+
+        expect(input).toHaveAttribute('name', 'asset');
+        expect(input).toBeRequired();
+        expect(screen.getByText('sparkle.png')).toBeInTheDocument();
+        expect(screen.getByText(/image\/png/)).toBeInTheDocument();
+    });
+
+    it('revokes temporary object URLs when the form unmounts', () => {
+        const { unmount } = render(
+            <StickerForm
+                form={{ action: '/admin/stickers', method: 'post' }}
+                templates={templates}
+            />,
+        );
+
+        const file = new File(['sticker'], 'sparkle.png', {
+            type: 'image/png',
+        });
+
+        fireEvent.change(screen.getByLabelText('Sticker asset'), {
+            target: {
+                files: [file],
+            },
+        });
+
+        unmount();
+
+        expect(revokeObjectUrlMock).toHaveBeenCalledWith(
+            'blob:sticker-preview',
+        );
+    });
 });
 
 describe('sticker form accessibility', () => {
@@ -232,14 +324,14 @@ describe('sticker form accessibility', () => {
         );
 
         const nameInput = screen.getByLabelText('Name');
+
         expect(nameInput).toHaveAttribute('aria-invalid', 'true');
         expect(nameInput).toHaveAttribute('aria-describedby', 'name-error');
 
         const message = screen.getByText('The name field is required.');
+
         expect(message).toHaveAttribute('id', 'name-error');
         expect(message).toHaveAttribute('role', 'alert');
-
-        formErrors.current = {};
     });
 
     it('groups compatible template checkboxes under a labelled fieldset', () => {
@@ -272,24 +364,26 @@ describe('sticker form accessibility', () => {
         const group = screen.getByRole('group', {
             name: 'Compatible templates (none selected means all templates)',
         });
+
         expect(group).toHaveAttribute('aria-invalid', 'true');
         expect(group).toHaveAttribute('aria-describedby', 'template_ids-error');
 
         const classic = screen.getByLabelText('Classic');
         const party = screen.getByLabelText('Party');
+
         expect(classic).toHaveAttribute(
             'aria-describedby',
             'template_ids-error',
         );
         expect(classic).toHaveAttribute('aria-invalid', 'true');
+
         expect(party).toHaveAttribute('aria-describedby', 'template_ids-error');
         expect(party).toHaveAttribute('aria-invalid', 'true');
 
         const message = screen.getByText(
             'The selected template ids are invalid.',
         );
-        expect(message).toHaveAttribute('id', 'template_ids-error');
 
-        formErrors.current = {};
+        expect(message).toHaveAttribute('id', 'template_ids-error');
     });
 });
