@@ -12,6 +12,10 @@ import {
 import type { CameraErrorReason } from '@/hooks/use-camera';
 import { useCamera } from '@/hooks/use-camera';
 
+/**
+ * Maps low-level camera hook failures to the customer-safe kiosk recovery
+ * surfaces already used throughout the photobooth flow.
+ */
 const cameraErrorKind = (reason: CameraErrorReason): KioskErrorKind => {
     if (reason === 'permission-denied') {
         return 'no-camera-permission';
@@ -25,16 +29,14 @@ const cameraErrorKind = (reason: CameraErrorReason): KioskErrorKind => {
 };
 
 /**
- * Live camera preview backed by useCamera. Starts the stream on mount and
- * stops it on unmount so the camera light is released as soon as this step ends.
- * When more than one camera is available, a selector lets the customer pick
- * which one to use for the rest of the session.
+ * Live browser camera surface. It owns stream start/stop lifecycle and exposes
+ * the video element to CaptureStep while presenting device selection as an
+ * overlay so the camera remains the dominant kiosk visual.
  */
 export function CameraPreview({
     videoRef: externalVideoRef,
     onBackToStart,
 }: {
-    /** Exposes the underlying <video> element to callers that need to capture frames from it. */
     videoRef?: RefObject<HTMLVideoElement | null>;
     onBackToStart?: () => void;
 } = {}) {
@@ -66,55 +68,77 @@ export function CameraPreview({
     }, [stream, videoRef]);
 
     if (error) {
-        // 'disconnected' is set when the active camera drops mid-session,
-        // either because no fallback device remains (devicechange) or the
-        // active track itself ended (see useCamera). Reconnecting still
-        // retries start(), so an already-plugged camera keeps working;
-        // Back to Start is offered as a fallback exit either way.
-        const isUnrecoverable = error === 'disconnected';
-
         return (
-            <KioskErrorState
-                kind={cameraErrorKind(error)}
-                onRetry={() => start()}
-                onBackToStart={isUnrecoverable ? onBackToStart : undefined}
-            />
+            <div className="grid min-h-[22rem] w-full place-items-center rounded-2xl bg-neutral-950 p-5">
+                <KioskErrorState
+                    kind={cameraErrorKind(error)}
+                    onRetry={() => start()}
+                    onBackToStart={
+                        error === 'disconnected' ? onBackToStart : undefined
+                    }
+                />
+            </div>
         );
     }
 
+    const selectedIndex = Math.max(
+        devices.findIndex((device) => device.deviceId === selectedDeviceId),
+        0,
+    );
+    const selectedDevice = devices[selectedIndex];
+    const selectedLabel =
+        selectedDevice?.label || `Camera ${selectedIndex + 1}`;
+
     return (
-        <div className="flex w-full flex-col items-center gap-3">
+        <div className="relative w-full overflow-hidden rounded-2xl bg-black">
             <video
                 data-testid="camera-preview-video"
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
-                className="aspect-video w-full rounded-xl bg-black object-cover"
+                className="aspect-video min-h-[20rem] w-full bg-black object-cover sm:min-h-[28rem] lg:min-h-[32rem]"
             />
-            {devices.length > 1 && (
-                <Select
-                    value={selectedDeviceId ?? undefined}
-                    onValueChange={selectDevice}
-                >
-                    <SelectTrigger
-                        data-testid="camera-preview-device-select"
-                        className="w-full data-[size=default]:h-10"
+
+            <div className="absolute top-4 left-4 z-20 max-w-[70%] sm:top-5 sm:left-5">
+                {devices.length > 1 ? (
+                    <Select
+                        value={selectedDeviceId ?? undefined}
+                        onValueChange={selectDevice}
                     >
-                        <SelectValue placeholder="Choose a camera" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {devices.map((device, index) => (
-                            <SelectItem
-                                key={device.deviceId}
-                                value={device.deviceId}
-                                className="min-h-10"
-                            >
-                                {device.label || `Camera ${index + 1}`}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                        <SelectTrigger
+                            data-testid="camera-preview-device-select"
+                            aria-label="Choose camera"
+                            className="min-h-10 w-auto max-w-full border-neutral-700 bg-neutral-950/80 px-4 text-xs text-neutral-200 shadow-lg backdrop-blur data-[size=default]:h-10 sm:text-sm"
+                        >
+                            <span className="mr-1 text-neutral-400">
+                                Camera:
+                            </span>
+                            <SelectValue placeholder="Choose a camera" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {devices.map((device, index) => (
+                                <SelectItem
+                                    key={device.deviceId}
+                                    value={device.deviceId}
+                                    className="min-h-11"
+                                >
+                                    {device.label || `Camera ${index + 1}`}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                ) : (
+                    <span className="inline-flex min-h-10 items-center rounded-full border border-neutral-700 bg-neutral-950/80 px-4 text-xs text-neutral-300 shadow-lg backdrop-blur sm:text-sm">
+                        Camera: {selectedLabel}
+                    </span>
+                )}
+            </div>
+
+            {stream && (
+                <span className="absolute right-4 bottom-4 z-20 rounded-full border border-neutral-700 bg-neutral-950/80 px-4 py-2 text-xs text-neutral-300 shadow-lg backdrop-blur sm:right-5 sm:bottom-5 sm:text-sm">
+                    Camera ready
+                </span>
             )}
         </div>
     );

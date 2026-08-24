@@ -1,24 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KioskErrorState } from '@/components/kiosk-error-state';
+import { PhotoCompositionPreview } from '@/components/photo-composition-preview';
 import { Button } from '@/components/ui/button';
-import type { StickerDesignOption } from '@/hooks/use-photobooth-session';
+import type {
+    PhotoTemplateOption,
+    StickerDesignOption,
+} from '@/hooks/use-photobooth-session';
 import { NETWORK_ERROR_MESSAGE } from '@/hooks/use-photobooth-session';
-
-const PREVIEW_SIZE = 480;
 
 type SelectStickerResult =
     { ok: true } | { ok: false; message: string; expired: boolean };
 
 /**
- * Lets the customer browse enabled sticker designs and preview one overlaid on
- * the selected template's thumbnail, submitting the choice to the active
- * photobooth session. The selection can be changed at any time before
- * continuing, since it only updates the session's sticker_design_id.
+ * Lets the customer browse compatible enabled stickers, preview the local
+ * choice against captured photos, and persist only the final choice when the
+ * customer continues. Deferring the write keeps Clear selection truthful.
  */
 export function StickerSelectionStep({
     fetchStickers,
     selectSticker,
-    templatePreviewPath,
+    capturedPhotos,
+    template,
     onContinue,
     onActivity,
     onExpired,
@@ -26,7 +28,8 @@ export function StickerSelectionStep({
 }: {
     fetchStickers: () => Promise<StickerDesignOption[]>;
     selectSticker: (stickerDesignId: number) => Promise<SelectStickerResult>;
-    templatePreviewPath: string | null;
+    capturedPhotos: string[];
+    template: PhotoTemplateOption;
     onContinue: (sticker: StickerDesignOption) => void;
     onActivity: () => void;
     onExpired: () => void;
@@ -39,7 +42,6 @@ export function StickerSelectionStep({
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [networkError, setNetworkError] = useState(false);
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -48,6 +50,11 @@ export function StickerSelectionStep({
             .then((result) => {
                 if (!cancelled) {
                     setStickers(result);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setNetworkError(true);
                 }
             })
             .finally(() => {
@@ -61,81 +68,12 @@ export function StickerSelectionStep({
         };
     }, [fetchStickers]);
 
-    // Redraws the overlay preview onto the canvas whenever the template
-    // background or the selected sticker changes.
-    useEffect(() => {
-        const canvas = canvasRef.current;
-
-        if (!canvas) {
-            return;
-        }
-
-        const context = canvas.getContext('2d');
-
-        if (!context) {
-            return;
-        }
-
-        canvas.width = PREVIEW_SIZE;
-        canvas.height = PREVIEW_SIZE;
-        context.clearRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
-
-        let cancelled = false;
-
-        const drawOverlay = () => {
-            if (!selectedSticker) {
-                return;
-            }
-
-            const stickerImage = new Image();
-            stickerImage.crossOrigin = 'anonymous';
-            stickerImage.onload = () => {
-                if (cancelled) {
-                    return;
-                }
-
-                context.drawImage(
-                    stickerImage,
-                    0,
-                    0,
-                    PREVIEW_SIZE,
-                    PREVIEW_SIZE,
-                );
-            };
-            stickerImage.src = selectedSticker.assetPath;
-        };
-
-        if (templatePreviewPath) {
-            const templateImage = new Image();
-            templateImage.crossOrigin = 'anonymous';
-            templateImage.onload = () => {
-                if (cancelled) {
-                    return;
-                }
-
-                context.drawImage(
-                    templateImage,
-                    0,
-                    0,
-                    PREVIEW_SIZE,
-                    PREVIEW_SIZE,
-                );
-                drawOverlay();
-            };
-            templateImage.src = templatePreviewPath;
-        } else {
-            context.fillStyle = 'rgba(255, 255, 255, 0.1)';
-            context.fillRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
-            drawOverlay();
-        }
-
-        return () => {
-            cancelled = true;
-        };
-    }, [templatePreviewPath, selectedSticker]);
-
-    const choose = async (sticker: StickerDesignOption) => {
-        if (isSaving) {
+    /**
+     * Persists the locally previewed sticker using the existing session action
+     * and advances only after the backend accepts that selection.
+     */
+    const continueWithSticker = async () => {
+        if (!selectedSticker || isSaving) {
             return;
         }
 
@@ -144,7 +82,7 @@ export function StickerSelectionStep({
         setError(null);
         setNetworkError(false);
 
-        const result = await selectSticker(sticker.id);
+        const result = await selectSticker(selectedSticker.id);
 
         setIsSaving(false);
 
@@ -166,7 +104,7 @@ export function StickerSelectionStep({
             return;
         }
 
-        setSelectedSticker(sticker);
+        onContinue(selectedSticker);
     };
 
     if (networkError) {
@@ -182,81 +120,128 @@ export function StickerSelectionStep({
     return (
         <div
             data-testid="kiosk-select-sticker"
-            className="flex w-full max-w-4xl flex-col items-center gap-4 text-center sm:gap-6"
+            className="grid w-full items-center gap-8 lg:grid-cols-[minmax(16rem,0.9fr)_minmax(0,1.35fr)] lg:gap-14"
         >
-            <h2 className="text-2xl font-semibold sm:text-3xl">
-                Choose a Sticker
-            </h2>
-            <p className="text-sm text-neutral-300 sm:text-base">
-                Add a sticker to your photos. You can change your pick before
-                continuing.
-            </p>
-
-            {error && (
-                <p
-                    role="alert"
-                    data-testid="kiosk-sticker-error"
-                    className="text-sm text-red-400"
-                >
-                    {error}
+            <div className="flex flex-col items-center lg:items-start">
+                <p className="mb-4 text-xs font-semibold tracking-[0.18em] text-neutral-400 uppercase">
+                    Live composition preview
                 </p>
-            )}
+                <PhotoCompositionPreview
+                    capturedPhotos={capturedPhotos}
+                    template={template}
+                    sticker={selectedSticker}
+                    testId="kiosk-sticker-preview"
+                    className="w-auto max-w-full"
+                />
+            </div>
 
-            <canvas
-                ref={canvasRef}
-                data-testid="kiosk-sticker-preview"
-                className="aspect-square w-full max-w-xs rounded-xl border border-white/20 bg-white/5"
-            />
+            <div className="mx-auto w-full max-w-2xl lg:mx-0">
+                <p className="text-xs font-semibold tracking-[0.18em] text-neutral-400 uppercase">
+                    Customize
+                </p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-neutral-50 sm:text-4xl lg:text-[2.6rem]">
+                    Choose a sticker
+                </h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-400 sm:text-base">
+                    Pick one enabled preset overlay. You can change the
+                    selection before continuing to the final preview.
+                </p>
 
-            {isLoading ? (
-                <p className="text-sm text-neutral-400">Loading stickers...</p>
-            ) : (
-                <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {stickers.map((sticker) => (
-                        <button
-                            key={sticker.id}
-                            type="button"
-                            data-testid={`kiosk-sticker-${sticker.id}`}
-                            disabled={isSaving}
-                            onClick={() => choose(sticker)}
-                            className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-center transition hover:bg-white/10 disabled:pointer-events-none disabled:opacity-50 ${
-                                selectedSticker?.id === sticker.id
-                                    ? 'border-white bg-white/10'
-                                    : 'border-white/20 bg-white/5'
-                            }`}
-                        >
-                            {sticker.thumbnailPath ? (
-                                <img
-                                    src={sticker.thumbnailPath}
-                                    alt={sticker.name}
-                                    className="aspect-square w-full rounded-lg object-cover"
-                                />
-                            ) : (
-                                <div className="aspect-square w-full rounded-lg bg-white/10" />
-                            )}
-                            <span className="text-sm font-medium sm:text-base">
-                                {sticker.name}
-                            </span>
-                        </button>
-                    ))}
+                {error && (
+                    <p
+                        role="alert"
+                        data-testid="kiosk-sticker-error"
+                        className="mt-5 rounded-xl border border-red-900/70 bg-red-950/30 px-4 py-3 text-sm text-red-300"
+                    >
+                        {error}
+                    </p>
+                )}
+
+                {isLoading ? (
+                    <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {Array.from({ length: 6 }, (_, index) => (
+                            <div
+                                key={index}
+                                className="h-28 animate-pulse rounded-xl border border-neutral-800 bg-neutral-900/60"
+                            />
+                        ))}
+                    </div>
+                ) : stickers.length === 0 ? (
+                    <p className="mt-7 rounded-xl border border-neutral-800 px-4 py-5 text-sm text-neutral-400">
+                        No compatible stickers are currently available.
+                    </p>
+                ) : (
+                    <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {stickers.map((sticker) => {
+                            const isSelected =
+                                selectedSticker?.id === sticker.id;
+
+                            return (
+                                <button
+                                    key={sticker.id}
+                                    type="button"
+                                    data-testid={`kiosk-sticker-${sticker.id}`}
+                                    aria-pressed={isSelected}
+                                    disabled={isSaving}
+                                    onClick={() => {
+                                        onActivity();
+                                        setError(null);
+                                        setSelectedSticker(sticker);
+                                    }}
+                                    className={`flex min-h-28 items-center justify-center overflow-hidden rounded-xl border bg-neutral-950 p-4 transition focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 ${
+                                        isSelected
+                                            ? 'border-blue-400 ring-1 ring-blue-400'
+                                            : 'border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900/50'
+                                    }`}
+                                >
+                                    {sticker.thumbnailPath ? (
+                                        <img
+                                            src={sticker.thumbnailPath}
+                                            alt={sticker.name}
+                                            className="max-h-20 max-w-full object-contain"
+                                        />
+                                    ) : (
+                                        <img
+                                            src={sticker.assetPath}
+                                            alt={sticker.name}
+                                            className="max-h-20 max-w-full object-contain"
+                                        />
+                                    )}
+                                    <span className="sr-only">
+                                        {sticker.name}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                    <Button
+                        type="button"
+                        size="lg"
+                        disabled={!selectedSticker || isSaving}
+                        onClick={() => void continueWithSticker()}
+                        className="min-h-12 bg-neutral-100 px-7 text-neutral-950 hover:bg-white"
+                    >
+                        {isSaving ? 'Saving…' : 'Continue'}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        disabled={!selectedSticker || isSaving}
+                        onClick={() => {
+                            onActivity();
+                            setSelectedSticker(null);
+                            setError(null);
+                        }}
+                        className="min-h-12 border-neutral-800 bg-neutral-950 px-7 text-neutral-100 hover:bg-neutral-900 hover:text-white"
+                    >
+                        Clear selection
+                    </Button>
                 </div>
-            )}
-
-            <Button
-                type="button"
-                size="lg"
-                disabled={!selectedSticker || isSaving}
-                onClick={() => {
-                    if (!selectedSticker) {
-                        return;
-                    }
-
-                    onActivity();
-                    onContinue(selectedSticker);
-                }}
-            >
-                Continue
-            </Button>
+            </div>
         </div>
     );
 }

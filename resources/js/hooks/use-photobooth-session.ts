@@ -58,6 +58,7 @@ export type StickerDesignOption = {
     thumbnailPath: string | null;
 };
 
+/** Reads the active session token from per-tab browser storage. */
 const readStoredToken = (): string | null => {
     if (typeof window === 'undefined') {
         return null;
@@ -66,6 +67,7 @@ const readStoredToken = (): string | null => {
     return window.sessionStorage.getItem(STORAGE_KEY);
 };
 
+/** Stores or clears the active session token without using persistent local storage. */
 const storeToken = (token: string | null): void => {
     if (typeof window === 'undefined') {
         return;
@@ -78,6 +80,7 @@ const storeToken = (token: string | null): void => {
     }
 };
 
+/** Reads Laravel's XSRF cookie for standalone public kiosk requests. */
 const readXsrfToken = (): string | null => {
     if (typeof document === 'undefined') {
         return null;
@@ -98,6 +101,7 @@ export function usePhotoboothSession() {
         () => readStoredToken() !== null,
     );
 
+    /** Creates a new backend-owned kiosk session and stores its public token. */
     const startSession = useCallback(async (): Promise<
         { ok: true; session: PhotoboothSession } | StartSessionFailure
     > => {
@@ -130,6 +134,14 @@ export function usePhotoboothSession() {
         return { ok: true, session: created };
     }, []);
 
+    /** Clears browser-visible session state after completion or an unrecoverable reset. */
+    const resetSession = useCallback((): void => {
+        storeToken(null);
+        setSession(null);
+        setIsResuming(false);
+    }, []);
+
+    /** Redeems a voucher against the active backend session. */
     const redeemVoucher = useCallback(
         async (code: string): Promise<{ ok: true } | ActionFailure> => {
             if (!session) {
@@ -186,6 +198,7 @@ export function usePhotoboothSession() {
         [session],
     );
 
+    /** Fetches the repository-filtered set of enabled templates. */
     const fetchTemplates = useCallback(async (): Promise<
         PhotoTemplateOption[]
     > => {
@@ -200,6 +213,7 @@ export function usePhotoboothSession() {
         return body.templates;
     }, []);
 
+    /** Persists the selected template for the active session. */
     const selectTemplate = useCallback(
         async (
             photoTemplateId: number,
@@ -262,6 +276,7 @@ export function usePhotoboothSession() {
         [session],
     );
 
+    /** Fetches enabled stickers compatible with the selected session template. */
     const fetchStickers = useCallback(async (): Promise<
         StickerDesignOption[]
     > => {
@@ -279,6 +294,7 @@ export function usePhotoboothSession() {
         return body.stickers;
     }, [session]);
 
+    /** Persists the final sticker selection for the active session. */
     const selectSticker = useCallback(
         async (
             stickerDesignId: number,
@@ -337,6 +353,7 @@ export function usePhotoboothSession() {
         [session],
     );
 
+    /** Confirms the existing backend preview boundary for the active session. */
     const confirmPreview = useCallback(async (): Promise<
         { ok: true } | ActionFailure
     > => {
@@ -382,6 +399,7 @@ export function usePhotoboothSession() {
         }
     }, [session]);
 
+    /** Uploads one captured JPEG frame to the active session's public-disk boundary. */
     const uploadCaptureShot = useCallback(
         async (dataUrl: string): Promise<string | null> => {
             if (!session) {
@@ -415,6 +433,7 @@ export function usePhotoboothSession() {
         [session],
     );
 
+    /** Queues final output generation using stored shot paths whenever possible. */
     const composeFinalOutput = useCallback(
         async (
             photos: string[],
@@ -484,8 +503,14 @@ export function usePhotoboothSession() {
         [session],
     );
 
+    /**
+     * Creates one Maya checkout and returns the backend-rendered QR alongside
+     * the trusted checkout URL. React never generates or authorizes payment
+     * state itself.
+     */
     const createPayment = useCallback(async (): Promise<
-        { ok: true; checkoutUrl: string } | ActionFailure
+        | { ok: true; checkoutUrl: string; checkoutQrCode: string }
+        | ActionFailure
     > => {
         if (!session) {
             return { ok: false, message: 'No active session.', expired: false };
@@ -505,10 +530,11 @@ export function usePhotoboothSession() {
 
             const body = (await response.json()) as {
                 checkoutUrl?: string;
+                checkoutQrCode?: string;
                 message?: string;
             };
 
-            if (!response.ok || !body.checkoutUrl) {
+            if (!response.ok || !body.checkoutUrl || !body.checkoutQrCode) {
                 return {
                     ok: false,
                     message:
@@ -517,7 +543,11 @@ export function usePhotoboothSession() {
                 };
             }
 
-            return { ok: true, checkoutUrl: body.checkoutUrl };
+            return {
+                ok: true,
+                checkoutUrl: body.checkoutUrl,
+                checkoutQrCode: body.checkoutQrCode,
+            };
         } catch {
             return {
                 ok: false,
@@ -527,6 +557,7 @@ export function usePhotoboothSession() {
         }
     }, [session]);
 
+    /** Refreshes the active backend session used by payment, processing, and print polls. */
     const refreshSession =
         useCallback(async (): Promise<PhotoboothSession | null> => {
             if (!session) {
@@ -556,6 +587,7 @@ export function usePhotoboothSession() {
             }
         }, [session]);
 
+    // Resume the active session after refresh and discard stale/invalid tokens.
     useEffect(() => {
         const token = readStoredToken();
 
@@ -583,6 +615,7 @@ export function usePhotoboothSession() {
     return {
         session,
         startSession,
+        resetSession,
         isResuming,
         redeemVoucher,
         fetchTemplates,

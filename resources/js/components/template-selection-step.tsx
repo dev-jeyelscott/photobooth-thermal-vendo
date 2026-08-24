@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { KioskErrorState } from '@/components/kiosk-error-state';
+import { Button } from '@/components/ui/button';
 import type { PhotoTemplateOption } from '@/hooks/use-photobooth-session';
 import { NETWORK_ERROR_MESSAGE } from '@/hooks/use-photobooth-session';
 
@@ -7,8 +8,8 @@ type SelectTemplateResult =
     { ok: true } | { ok: false; message: string; expired: boolean };
 
 /**
- * Lets the customer browse enabled photo templates and pick one, submitting
- * the selection to the active photobooth session before advancing.
+ * Lets the customer browse enabled photo templates, preview a local selection,
+ * and persist that selection only when the customer explicitly continues.
  */
 export function TemplateSelectionStep({
     fetchTemplates,
@@ -26,8 +27,10 @@ export function TemplateSelectionStep({
     onBackToStart: () => void;
 }) {
     const [templates, setTemplates] = useState<PhotoTemplateOption[]>([]);
+    const [selectedTemplate, setSelectedTemplate] =
+        useState<PhotoTemplateOption | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectingId, setSelectingId] = useState<number | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [networkError, setNetworkError] = useState(false);
 
@@ -38,6 +41,12 @@ export function TemplateSelectionStep({
             .then((result) => {
                 if (!cancelled) {
                     setTemplates(result);
+                    setSelectedTemplate(result[0] ?? null);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setNetworkError(true);
                 }
             })
             .finally(() => {
@@ -51,19 +60,23 @@ export function TemplateSelectionStep({
         };
     }, [fetchTemplates]);
 
-    const choose = async (template: PhotoTemplateOption) => {
-        if (selectingId !== null) {
+    /**
+     * Persists the currently highlighted template through the existing backend
+     * transition and advances only after the authoritative selection succeeds.
+     */
+    const useSelectedTemplate = async () => {
+        if (!selectedTemplate || isSaving) {
             return;
         }
 
         onActivity();
-        setSelectingId(template.id);
+        setIsSaving(true);
         setError(null);
         setNetworkError(false);
 
-        const result = await selectTemplate(template.id);
+        const result = await selectTemplate(selectedTemplate.id);
 
-        setSelectingId(null);
+        setIsSaving(false);
 
         if (!result.ok) {
             if (result.expired) {
@@ -83,7 +96,7 @@ export function TemplateSelectionStep({
             return;
         }
 
-        onSelected(template);
+        onSelected(selectedTemplate);
     };
 
     if (networkError) {
@@ -99,59 +112,113 @@ export function TemplateSelectionStep({
     return (
         <div
             data-testid="kiosk-select-template"
-            className="flex w-full max-w-4xl flex-col items-center gap-4 text-center sm:gap-6"
+            className="flex w-full flex-col items-center text-center"
         >
-            <h2 className="text-2xl font-semibold sm:text-3xl">
-                Choose a Template
+            <p className="text-xs font-semibold tracking-[0.18em] text-neutral-400 uppercase">
+                Step 2 of the session
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-neutral-50 sm:text-4xl lg:text-[2.6rem]">
+                Choose a template
             </h2>
-            <p className="text-sm text-neutral-300 sm:text-base">
-                Pick a layout for your photos. This screen will reset
-                automatically if left idle.
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-400 sm:text-base">
+                Only enabled templates are shown. Each choice makes the required
+                photo count clear before capture.
             </p>
 
             {error && (
                 <p
                     role="alert"
                     data-testid="kiosk-template-error"
-                    className="text-sm text-red-400"
+                    className="mt-5 rounded-xl border border-red-900/70 bg-red-950/30 px-4 py-3 text-sm text-red-300"
                 >
                     {error}
                 </p>
             )}
 
             {isLoading ? (
-                <p className="text-sm text-neutral-400">Loading templates...</p>
-            ) : (
-                <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {templates.map((template) => (
-                        <button
-                            key={template.id}
-                            type="button"
-                            data-testid={`kiosk-template-${template.id}`}
-                            disabled={selectingId !== null}
-                            onClick={() => choose(template)}
-                            className="flex flex-col items-center gap-2 rounded-xl border border-white/20 bg-white/5 p-3 text-center transition hover:bg-white/10 disabled:pointer-events-none disabled:opacity-50"
-                        >
-                            {template.thumbnailPath ? (
-                                <img
-                                    src={template.thumbnailPath}
-                                    alt={template.name}
-                                    className="aspect-square w-full rounded-lg object-cover"
-                                />
-                            ) : (
-                                <div className="aspect-square w-full rounded-lg bg-white/10" />
-                            )}
-                            <span className="text-sm font-medium sm:text-base">
-                                {template.name}
-                            </span>
-                            <span className="text-xs text-neutral-400">
-                                {template.photoSlots} photo
-                                {template.photoSlots === 1 ? '' : 's'}
-                            </span>
-                        </button>
+                <div className="mt-8 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {Array.from({ length: 4 }, (_, index) => (
+                        <div
+                            key={index}
+                            className="h-72 animate-pulse rounded-xl border border-neutral-800 bg-neutral-900/60"
+                        />
                     ))}
                 </div>
+            ) : templates.length === 0 ? (
+                <p className="mt-8 rounded-xl border border-neutral-800 px-5 py-6 text-sm text-neutral-400">
+                    No templates are currently available.
+                </p>
+            ) : (
+                <div className="mt-8 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {templates.map((template) => {
+                        const isSelected = selectedTemplate?.id === template.id;
+
+                        return (
+                            <button
+                                key={template.id}
+                                type="button"
+                                data-testid={`kiosk-template-${template.id}`}
+                                aria-pressed={isSelected}
+                                disabled={isSaving}
+                                onClick={() => {
+                                    onActivity();
+                                    setError(null);
+                                    setSelectedTemplate(template);
+                                }}
+                                className={`rounded-xl border bg-neutral-950 p-3 text-left transition focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 ${
+                                    isSelected
+                                        ? 'border-blue-400 ring-1 ring-blue-400'
+                                        : 'border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900/50'
+                                }`}
+                            >
+                                {template.thumbnailPath ? (
+                                    <img
+                                        src={template.thumbnailPath}
+                                        alt={`${template.name} template preview`}
+                                        className="aspect-[4/3] w-full rounded-lg bg-neutral-900 object-cover"
+                                    />
+                                ) : (
+                                    <div className="grid aspect-[4/3] w-full place-items-center rounded-lg bg-neutral-900 p-3">
+                                        <div className="grid h-full w-full gap-2 rounded-md border-[10px] border-neutral-800 bg-neutral-800">
+                                            {Array.from(
+                                                {
+                                                    length: Math.min(
+                                                        template.photoSlots,
+                                                        6,
+                                                    ),
+                                                },
+                                                (_, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className="rounded bg-gradient-to-br from-neutral-600 to-neutral-800"
+                                                    />
+                                                ),
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                <span className="mt-3 block text-sm font-semibold text-neutral-100 sm:text-base">
+                                    {template.name}
+                                </span>
+                                <span className="mt-0.5 block text-xs text-neutral-500">
+                                    {template.photoSlots} photo
+                                    {template.photoSlots === 1 ? '' : 's'}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
             )}
+
+            <Button
+                type="button"
+                size="lg"
+                disabled={!selectedTemplate || isSaving}
+                onClick={() => void useSelectedTemplate()}
+                className="mt-7 min-h-12 bg-neutral-100 px-8 text-neutral-950 hover:bg-white"
+            >
+                {isSaving ? 'Saving…' : 'Use selected template'}
+            </Button>
         </div>
     );
 }

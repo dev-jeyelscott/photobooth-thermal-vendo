@@ -15,15 +15,25 @@ const template: PhotoTemplateOption = {
     printHeightMm: 150,
 };
 
+const secondTemplate: PhotoTemplateOption = {
+    ...template,
+    id: 2,
+    name: 'Four Frame',
+    photoSlots: 4,
+};
+
 describe('TemplateSelectionStep', () => {
-    it('lists fetched templates and selects one', async () => {
+    it('highlights a template locally and persists only after explicit confirmation', async () => {
         const user = userEvent.setup();
+        const selectTemplate = vi.fn().mockResolvedValue({ ok: true });
         const onSelected = vi.fn();
 
         render(
             <TemplateSelectionStep
-                fetchTemplates={vi.fn().mockResolvedValue([template])}
-                selectTemplate={vi.fn().mockResolvedValue({ ok: true })}
+                fetchTemplates={vi
+                    .fn()
+                    .mockResolvedValue([template, secondTemplate])}
+                selectTemplate={selectTemplate}
                 onSelected={onSelected}
                 onActivity={vi.fn()}
                 onExpired={vi.fn()}
@@ -31,15 +41,26 @@ describe('TemplateSelectionStep', () => {
             />,
         );
 
-        const option = await screen.findByTestId('kiosk-template-1');
-        await user.click(option);
+        const firstOption = await screen.findByTestId('kiosk-template-1');
+        const secondOption = screen.getByTestId('kiosk-template-2');
+
+        expect(firstOption).toHaveAttribute('aria-pressed', 'true');
+        await user.click(secondOption);
+
+        expect(secondOption).toHaveAttribute('aria-pressed', 'true');
+        expect(selectTemplate).not.toHaveBeenCalled();
+
+        await user.click(
+            screen.getByRole('button', { name: 'Use selected template' }),
+        );
 
         await waitFor(() => {
-            expect(onSelected).toHaveBeenCalledWith(template);
+            expect(selectTemplate).toHaveBeenCalledWith(2);
+            expect(onSelected).toHaveBeenCalledWith(secondTemplate);
         });
     });
 
-    it('shows an inline error when selection is rejected', async () => {
+    it('shows an inline error when the confirmed selection is rejected', async () => {
         const user = userEvent.setup();
 
         render(
@@ -57,7 +78,10 @@ describe('TemplateSelectionStep', () => {
             />,
         );
 
-        await user.click(await screen.findByTestId('kiosk-template-1'));
+        await screen.findByTestId('kiosk-template-1');
+        await user.click(
+            screen.getByRole('button', { name: 'Use selected template' }),
+        );
 
         expect(
             await screen.findByTestId('kiosk-template-error'),
@@ -83,14 +107,17 @@ describe('TemplateSelectionStep', () => {
             />,
         );
 
-        await user.click(await screen.findByTestId('kiosk-template-1'));
+        await screen.findByTestId('kiosk-template-1');
+        await user.click(
+            screen.getByRole('button', { name: 'Use selected template' }),
+        );
 
         await waitFor(() => {
             expect(onExpired).toHaveBeenCalled();
         });
     });
 
-    it('shows a network error state and allows retrying', async () => {
+    it('shows a network error state and allows retrying the selection screen', async () => {
         const user = userEvent.setup();
 
         render(
@@ -108,8 +135,10 @@ describe('TemplateSelectionStep', () => {
             />,
         );
 
-        await user.click(await screen.findByTestId('kiosk-template-1'));
-
+        await screen.findByTestId('kiosk-template-1');
+        await user.click(
+            screen.getByRole('button', { name: 'Use selected template' }),
+        );
         await user.click(
             await screen.findByRole('button', { name: 'Try Again' }),
         );

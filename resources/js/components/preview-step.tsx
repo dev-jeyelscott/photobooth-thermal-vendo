@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { KioskErrorState } from '@/components/kiosk-error-state';
+import { PhotoCompositionPreview } from '@/components/photo-composition-preview';
 import { Button } from '@/components/ui/button';
 import type {
     PhotoTemplateOption,
@@ -10,87 +11,10 @@ import { NETWORK_ERROR_MESSAGE } from '@/hooks/use-photobooth-session';
 type ConfirmPreviewResult =
     { ok: true } | { ok: false; message: string; expired: boolean };
 
-const CANVAS_SCALE = 4;
 /**
- * Must stay numerically identical to
- * App\Services\ColorCompositionService::STICKER_SIZE_RATIO /
- * STICKER_MARGIN_RATIO (app/Services/ColorCompositionService.php), which is
- * the source of truth for the final print composition.
- */
-const STICKER_SIZE_RATIO = 0.22;
-const STICKER_MARGIN_RATIO = 0.03;
-
-/**
- * Mirrors Intervention Image's ->cover() semantics used by
- * ColorCompositionService::compose(): scales the source image so it fully
- * covers the destination rectangle while preserving aspect ratio, then
- * crops any overflow evenly from the center.
- */
-const coverSourceRect = (
-    image: HTMLImageElement,
-    destWidth: number,
-    destHeight: number,
-): { sx: number; sy: number; sWidth: number; sHeight: number } => {
-    const scale = Math.max(
-        destWidth / image.naturalWidth,
-        destHeight / image.naturalHeight,
-    );
-
-    const sWidth = destWidth / scale;
-    const sHeight = destHeight / scale;
-
-    return {
-        sx: (image.naturalWidth - sWidth) / 2,
-        sy: (image.naturalHeight - sHeight) / 2,
-        sWidth,
-        sHeight,
-    };
-};
-
-type LayoutSlot = {
-    slot: number;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-};
-
-const readLayoutSlots = (
-    layoutConfig: Record<string, unknown> | null,
-): LayoutSlot[] => {
-    const slots = layoutConfig?.slots;
-
-    if (!Array.isArray(slots)) {
-        return [];
-    }
-
-    return slots
-        .filter(
-            (slot): slot is LayoutSlot =>
-                typeof slot === 'object' &&
-                slot !== null &&
-                typeof (slot as LayoutSlot).x === 'number' &&
-                typeof (slot as LayoutSlot).y === 'number' &&
-                typeof (slot as LayoutSlot).width === 'number' &&
-                typeof (slot as LayoutSlot).height === 'number',
-        )
-        .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
-};
-
-const loadImage = (source: string): Promise<HTMLImageElement> =>
-    new Promise((resolve, reject) => {
-        const image = new Image();
-        image.crossOrigin = 'anonymous';
-        image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error(`Failed to load ${source}`));
-        image.src = source;
-    });
-
-/**
- * Composes the customer's captured photos onto the selected template's
- * layout_config slot coordinates, overlays the selected sticker, and lets
- * the customer confirm the composition or go back to retake shots or
- * reselect a sticker before the session advances toward processing.
+ * Presents the repository-consistent final composition, lets the customer
+ * retake or reselect a sticker, and only advances after the backend confirms
+ * the existing preview transition.
  */
 export function PreviewStep({
     capturedPhotos,
@@ -115,101 +39,14 @@ export function PreviewStep({
     onExpired: () => void;
     onBackToStart: () => void;
 }) {
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [isConfirming, setIsConfirming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [networkError, setNetworkError] = useState(false);
 
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        const context = canvas?.getContext('2d');
-
-        if (!canvas || !context) {
-            return;
-        }
-
-        let cancelled = false;
-
-        canvas.width = template.printWidthMm * CANVAS_SCALE;
-        canvas.height = template.printHeightMm * CANVAS_SCALE;
-
-        const compose = async () => {
-            context.fillStyle = '#ffffff';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-
-            const slots = readLayoutSlots(template.layoutConfig);
-
-            for (let index = 0; index < template.photoSlots; index += 1) {
-                const photo = capturedPhotos[index];
-                const slot = slots[index];
-
-                if (!photo || !slot) {
-                    continue;
-                }
-
-                const image = await loadImage(photo);
-
-                if (cancelled) {
-                    return;
-                }
-
-                const destWidth = slot.width * CANVAS_SCALE;
-                const destHeight = slot.height * CANVAS_SCALE;
-                const { sx, sy, sWidth, sHeight } = coverSourceRect(
-                    image,
-                    destWidth,
-                    destHeight,
-                );
-
-                context.drawImage(
-                    image,
-                    sx,
-                    sy,
-                    sWidth,
-                    sHeight,
-                    slot.x * CANVAS_SCALE,
-                    slot.y * CANVAS_SCALE,
-                    destWidth,
-                    destHeight,
-                );
-            }
-
-            if (sticker) {
-                const stickerImage = await loadImage(sticker.assetPath);
-
-                if (cancelled) {
-                    return;
-                }
-
-                const stickerSize = canvas.width * STICKER_SIZE_RATIO;
-                const margin = canvas.width * STICKER_MARGIN_RATIO;
-                const stickerSource = coverSourceRect(
-                    stickerImage,
-                    stickerSize,
-                    stickerSize,
-                );
-
-                context.drawImage(
-                    stickerImage,
-                    stickerSource.sx,
-                    stickerSource.sy,
-                    stickerSource.sWidth,
-                    stickerSource.sHeight,
-                    canvas.width - stickerSize - margin,
-                    canvas.height - stickerSize - margin,
-                    stickerSize,
-                    stickerSize,
-                );
-            }
-        };
-
-        void compose();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [capturedPhotos, template, sticker]);
-
+    /**
+     * Confirms the preview through the existing session endpoint and preserves
+     * the repository's expired-session and network-recovery behavior.
+     */
     const confirm = async () => {
         if (isConfirming) {
             return;
@@ -258,65 +95,89 @@ export function PreviewStep({
     return (
         <div
             data-testid="kiosk-preview"
-            className="flex w-full max-w-2xl flex-col items-center gap-4 text-center sm:gap-6"
+            className="grid w-full items-center gap-8 lg:grid-cols-[minmax(17rem,0.9fr)_minmax(0,1.25fr)] lg:gap-14"
         >
-            <h2 className="text-2xl font-semibold sm:text-3xl">
-                Review Your Photos
-            </h2>
-            <p className="text-sm text-neutral-300 sm:text-base">
-                This is a preview of your final print. Confirm to continue, or
-                go back to make changes.
-            </p>
+            <div className="flex justify-center lg:justify-start">
+                <PhotoCompositionPreview
+                    capturedPhotos={capturedPhotos}
+                    template={template}
+                    sticker={sticker}
+                    testId="kiosk-preview-canvas"
+                    className="w-auto max-w-full"
+                />
+            </div>
 
-            {error && (
-                <p
-                    role="alert"
-                    data-testid="kiosk-preview-error"
-                    className="text-sm text-red-400"
-                >
-                    {error}
+            <div className="mx-auto w-full max-w-2xl lg:mx-0">
+                <p className="text-xs font-semibold tracking-[0.18em] text-neutral-400 uppercase">
+                    Final preview
                 </p>
-            )}
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-neutral-50 sm:text-4xl lg:text-[2.6rem]">
+                    Review your photos
+                </h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-400 sm:text-base">
+                    The preview uses the same template slot, crop, and sticker
+                    composition rules as the final generated output.
+                </p>
 
-            <canvas
-                ref={canvasRef}
-                data-testid="kiosk-preview-canvas"
-                className="w-full max-w-md rounded-xl border border-white/20 bg-white shadow-lg"
-            />
+                {error && (
+                    <p
+                        role="alert"
+                        data-testid="kiosk-preview-error"
+                        className="mt-5 rounded-xl border border-red-900/70 bg-red-950/30 px-4 py-3 text-sm text-red-300"
+                    >
+                        {error}
+                    </p>
+                )}
 
-            <div className="flex flex-wrap justify-center gap-3">
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="lg"
-                    disabled={isConfirming}
-                    onClick={() => {
-                        onActivity();
-                        onRetakePhotos();
-                    }}
-                >
-                    Retake Photos
-                </Button>
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="lg"
-                    disabled={isConfirming}
-                    onClick={() => {
-                        onActivity();
-                        onChangeSticker();
-                    }}
-                >
-                    Change Sticker
-                </Button>
-                <Button
-                    type="button"
-                    size="lg"
-                    disabled={isConfirming}
-                    onClick={confirm}
-                >
-                    Confirm
-                </Button>
+                <div className="mt-7 rounded-xl border border-neutral-800 p-5">
+                    <p className="text-xs text-neutral-500">Selected</p>
+                    <p className="mt-1 text-base font-semibold text-neutral-100 sm:text-lg">
+                        {template.name} · {template.photoSlots} photo
+                        {template.photoSlots === 1 ? '' : 's'} ·{' '}
+                        {sticker ? `${sticker.name} sticker` : 'No sticker'}
+                    </p>
+                    <p className="mt-2 text-sm text-neutral-400">
+                        Confirm only when the composition looks right.
+                    </p>
+                </div>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        disabled={isConfirming}
+                        onClick={() => {
+                            onActivity();
+                            onRetakePhotos();
+                        }}
+                        className="min-h-12 border-neutral-800 bg-neutral-950 px-6 text-neutral-100 hover:bg-neutral-900 hover:text-white"
+                    >
+                        Retake photos
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        disabled={isConfirming}
+                        onClick={() => {
+                            onActivity();
+                            onChangeSticker();
+                        }}
+                        className="min-h-12 border-neutral-800 bg-neutral-950 px-6 text-neutral-100 hover:bg-neutral-900 hover:text-white"
+                    >
+                        Change sticker
+                    </Button>
+                    <Button
+                        type="button"
+                        size="lg"
+                        disabled={isConfirming}
+                        onClick={confirm}
+                        className="min-h-12 bg-neutral-100 px-7 text-neutral-950 hover:bg-white"
+                    >
+                        {isConfirming ? 'Confirming…' : 'Confirm preview'}
+                    </Button>
+                </div>
             </div>
         </div>
     );

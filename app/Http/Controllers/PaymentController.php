@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Payments\CreateMayaCheckout;
+use App\Actions\Payments\GenerateCheckoutQrCode;
 use App\Enums\PaymentStatus;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\PhotoboothSession;
@@ -23,10 +24,14 @@ class PaymentController extends Controller
     ];
 
     /**
-     * Create a Maya checkout session for the given photobooth session.
+     * Create a Maya checkout for the active session and return both the trusted
+     * checkout URL and a server-rendered QR representation for the kiosk.
      */
-    public function store(string $sessionToken, CreateMayaCheckout $createMayaCheckout): JsonResponse
-    {
+    public function store(
+        string $sessionToken,
+        CreateMayaCheckout $createMayaCheckout,
+        GenerateCheckoutQrCode $generateCheckoutQrCode,
+    ): JsonResponse {
         $session = PhotoboothSession::where('session_token', $sessionToken)->first();
 
         if (! $session) {
@@ -49,6 +54,7 @@ class PaymentController extends Controller
 
         return response()->json([
             'checkoutUrl' => $result['checkoutUrl'],
+            'checkoutQrCode' => $generateCheckoutQrCode->handle($result['checkoutUrl']),
         ], 201);
     }
 }

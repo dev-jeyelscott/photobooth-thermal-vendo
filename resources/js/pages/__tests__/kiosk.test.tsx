@@ -221,9 +221,7 @@ describe('Kiosk', () => {
 
         expect(screen.getByTestId('kiosk-welcome')).toBeInTheDocument();
 
-        await user.click(
-            screen.getByRole('button', { name: 'Click to Start' }),
-        );
+        await user.click(screen.getByRole('button', { name: 'Pay via QR' }));
 
         await waitFor(() => {
             expect(global.fetch).toHaveBeenCalledWith(
@@ -256,7 +254,7 @@ describe('Kiosk', () => {
         // The checkout action must use the large touch-target Button
         // treatment, not a plain text link, to stay touch-first.
         expect(checkoutLink).toHaveAttribute('data-slot', 'button');
-        expect(checkoutLink.className).toContain('h-10');
+        expect(checkoutLink.className).toContain('min-h-12');
 
         await act(async () => {
             vi.advanceTimersByTime(3000);
@@ -289,6 +287,7 @@ describe('Kiosk', () => {
 
                     return jsonResponse(200, {
                         checkoutUrl: 'https://pay.example.test/checkout',
+                        checkoutQrCode: 'data:image/svg+xml;base64,PHN2Zy8+',
                     }) as unknown as Response;
                 }
 
@@ -393,6 +392,7 @@ describe('Kiosk', () => {
 
                     return jsonResponse(200, {
                         checkoutUrl: 'https://pay.example.test/checkout',
+                        checkoutQrCode: 'data:image/svg+xml;base64,PHN2Zy8+',
                     }) as unknown as Response;
                 }
 
@@ -556,6 +556,10 @@ describe('Kiosk', () => {
         await user.click(await screen.findByTestId('kiosk-template-1'));
 
         await user.click(
+            screen.getByRole('button', { name: 'Use selected template' }),
+        );
+
+        await user.click(
             await screen.findByRole('button', { name: 'complete capture' }),
         );
 
@@ -575,7 +579,7 @@ describe('Kiosk', () => {
         await user.click(screen.getByRole('button', { name: 'Continue' }));
 
         await user.click(
-            await screen.findByRole('button', { name: 'Confirm' }),
+            await screen.findByRole('button', { name: 'Confirm preview' }),
         );
 
         await act(async () => {
@@ -679,6 +683,10 @@ describe('Kiosk', () => {
         await user.click(await screen.findByTestId('kiosk-template-1'));
 
         await user.click(
+            screen.getByRole('button', { name: 'Use selected template' }),
+        );
+
+        await user.click(
             await screen.findByRole('button', { name: 'complete capture' }),
         );
 
@@ -698,7 +706,7 @@ describe('Kiosk', () => {
         await user.click(screen.getByRole('button', { name: 'Continue' }));
 
         await user.click(
-            await screen.findByRole('button', { name: 'Confirm' }),
+            await screen.findByRole('button', { name: 'Confirm preview' }),
         );
 
         await act(async () => {
@@ -775,6 +783,10 @@ describe('Kiosk', () => {
         const templateOption = await screen.findByTestId('kiosk-template-1');
         await user.click(templateOption);
 
+        await user.click(
+            screen.getByRole('button', { name: 'Use selected template' }),
+        );
+
         // Phase 4: capture workflow. The component is tested separately and
         // stubbed here so this test can focus on the complete kiosk state flow.
         expect(
@@ -783,12 +795,6 @@ describe('Kiosk', () => {
 
         await user.click(
             screen.getByRole('button', { name: 'complete capture' }),
-        );
-
-        expect(await screen.findByTestId('kiosk-captured')).toBeInTheDocument();
-
-        await user.click(
-            screen.getByRole('button', { name: 'Choose a Sticker' }),
         );
 
         // Phase 5: sticker selection.
@@ -805,7 +811,7 @@ describe('Kiosk', () => {
 
         // Preview confirmation queues final composition and enters processing.
         await user.click(
-            await screen.findByRole('button', { name: 'Confirm' }),
+            await screen.findByRole('button', { name: 'Confirm preview' }),
         );
 
         expect(
@@ -831,25 +837,18 @@ describe('Kiosk', () => {
 
         await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
         await user.type(screen.getByTestId('kiosk-voucher-input'), 'FREE-2026');
-        await user.click(
-            screen.getByRole('button', { name: 'Redeem Voucher' }),
+
+        expect(window.sessionStorage.getItem('photobooth.session_token')).toBe(
+            SESSION_TOKEN,
         );
-
-        await user.click(await screen.findByTestId('kiosk-template-1'));
-
-        await user.click(
-            await screen.findByRole('button', { name: 'complete capture' }),
-        );
-
-        expect(await screen.findByTestId('kiosk-captured')).toBeInTheDocument();
 
         await user.click(screen.getByRole('button', { name: 'Back to Start' }));
 
         expect(screen.getByTestId('kiosk-welcome')).toBeInTheDocument();
-        expect(screen.queryByTestId('kiosk-captured')).not.toBeInTheDocument();
+        expect(
+            window.sessionStorage.getItem('photobooth.session_token'),
+        ).toBeNull();
 
-        // Voucher input state was cleared, so restarting the enter-voucher
-        // flow starts from a blank field rather than the previous code.
         await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
 
         expect(screen.getByTestId('kiosk-voucher-input')).toHaveValue('');
