@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { InputHTMLAttributes, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StickerForm from './sticker-form';
@@ -83,11 +83,29 @@ const existingSticker = {
 };
 
 /**
- * Resolve the primary sticker asset file input without coupling tests to the
- * decorative required-field marker rendered alongside its visible label.
+ * Resolve the primary sticker asset input without coupling the test to the
+ * decorative required marker rendered inside its visible label.
  */
 function getStickerAssetInput(): HTMLElement {
     return screen.getByLabelText(/^Sticker asset/);
+}
+
+/**
+ * Resolve the Asset Upload card so selected-file metadata assertions remain
+ * scoped to the upload experience rather than matching the summary sidebar.
+ */
+function getAssetUploadSection(): HTMLElement {
+    const heading = screen.getByRole('heading', {
+        name: 'Asset Upload',
+    });
+
+    const section = heading.closest('[data-slot="card"]');
+
+    if (!(section instanceof HTMLElement)) {
+        throw new Error('Unable to locate the Asset Upload card.');
+    }
+
+    return section;
 }
 
 beforeEach(() => {
@@ -292,8 +310,16 @@ describe('sticker form browser payload contract', () => {
 
         expect(input).toHaveAttribute('name', 'asset');
         expect(input).toBeRequired();
-        expect(screen.getByText('sparkle.png')).toBeInTheDocument();
-        expect(screen.getByText(/image\/png/)).toBeInTheDocument();
+
+        const assetUploadSection = getAssetUploadSection();
+
+        expect(
+            within(assetUploadSection).getByText('sparkle.png'),
+        ).toBeInTheDocument();
+
+        expect(
+            within(assetUploadSection).getByText(/image\/png/),
+        ).toBeInTheDocument();
     });
 
     it('revokes temporary object URLs when the form unmounts', () => {
