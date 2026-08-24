@@ -464,7 +464,7 @@ class DashboardController extends Controller
                     'paymentMethod' => $session->payment_method?->value,
                     'status' => $session->status->value,
                     'printStatus' => $session->printJob?->status->value,
-                    'amount' => $session->payment?->amount ?? $session->price,
+                    'amount' => $session->payment->amount ?? $session->price,
                     'currency' => $session->currency,
                 ];
             })
