@@ -12,7 +12,6 @@ import {
     Settings,
     Sticker,
     Ticket,
-    TriangleAlert,
     Users,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
