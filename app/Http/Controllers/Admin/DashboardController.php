@@ -9,7 +9,9 @@ use App\Enums\PrintJobStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\PhotoboothSession;
+use App\Models\PhotoTemplate;
 use App\Models\PrintJob;
+use App\Models\StickerDesign;
 use App\Models\Voucher;
 use App\Services\Settings;
 use Illuminate\Support\Carbon;
@@ -22,6 +24,11 @@ class DashboardController extends Controller
      * The number of recent activity items displayed on the dashboard.
      */
     private const int RECENT_ACTIVITY_LIMIT = 5;
+
+    /**
+     * The number of recent customer sessions displayed on the dashboard.
+     */
+    private const int RECENT_SESSIONS_LIMIT = 5;
 
     /**
      * The number of calendar days displayed by the dashboard trend chart.
@@ -50,6 +57,7 @@ class DashboardController extends Controller
             $now->copy()->endOfMonth(),
         ];
 
+        $trendRange = $this->trendRange($now);
         $todayStats = $this->completedSessionStats($today);
         $yesterdayStats = $this->completedSessionStats($yesterday);
         $monthStats = $this->completedSessionStats($month);
@@ -61,6 +69,10 @@ class DashboardController extends Controller
 
         return Inertia::render('admin/dashboard', [
             'currency' => (string) Settings::get('currency'),
+            'period' => [
+                'startDate' => $trendRange[0]->toDateString(),
+                'endDate' => $trendRange[1]->toDateString(),
+            ],
             'summary' => [
                 'today' => $todayStats,
                 'thisMonth' => $monthStats,
@@ -82,10 +94,12 @@ class DashboardController extends Controller
                     $printJobCounts['failed'],
                 ),
             ],
-            'trend' => $this->trend(),
+            'trend' => $this->trend($trendRange),
             'paymentMethods' => $this->paymentMethodBreakdown($today),
             'operations' => $this->operations($printJobCounts),
             'recentActivity' => $this->recentActivity(),
+            'recentSessions' => $this->recentSessions(),
+            'resources' => $this->resourceSummary($now),
         ]);
     }
 
@@ -156,6 +170,7 @@ class DashboardController extends Controller
      * @return array{
      *     failedPayments: int,
      *     pendingPayments: int,
+     *     pendingPaymentTotal: string,
      *     failedPrintJobs: int,
      *     total: int
      * }
@@ -179,17 +194,44 @@ class DashboardController extends Controller
             $paymentCounts[PaymentStatus::Pending->value] ?? 0
         );
 
+        $pendingPaymentTotal = Payment::query()
+            ->where('status', PaymentStatus::Pending)
+            ->sum('amount');
+
         return [
             'failedPayments' => $failedPayments,
             'pendingPayments' => $pendingPayments,
+            'pendingPaymentTotal' => number_format(
+                (float) $pendingPaymentTotal,
+                2,
+                '.',
+                '',
+            ),
             'failedPrintJobs' => $failedPrintJobs,
             'total' => $failedPayments + $pendingPayments + $failedPrintJobs,
         ];
     }
 
     /**
+     * Build the exact calendar range used by the seven-day trend.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function trendRange(Carbon $now): array
+    {
+        $end = $now->copy()->endOfDay();
+        $start = $end
+            ->copy()
+            ->subDays(self::TREND_DAYS - 1)
+            ->startOfDay();
+
+        return [$start, $end];
+    }
+
+    /**
      * Build a seven-day trend of completed sessions and successful-payment sales.
      *
+     * @param  array{0: Carbon, 1: Carbon}  $range
      * @return array<int, array{
      *     date: string,
      *     label: string,
@@ -197,13 +239,9 @@ class DashboardController extends Controller
      *     sessions: int
      * }>
      */
-    private function trend(): array
+    private function trend(array $range): array
     {
-        $end = Carbon::now()->endOfDay();
-        $start = $end
-            ->copy()
-            ->subDays(self::TREND_DAYS - 1)
-            ->startOfDay();
+        [$start, $end] = $range;
 
         $sessionsPerDay = PhotoboothSession::query()
             ->selectRaw('date(updated_at) as day')
@@ -339,6 +377,98 @@ class DashboardController extends Controller
                 'gallery_expiration_hours',
             ),
         ];
+    }
+
+    /**
+     * Build the compact resource counts shown in dashboard management cards.
+     *
+     * @return array{
+     *     templates: array{active: int, inactive: int},
+     *     stickers: array{active: int, inactive: int},
+     *     vouchers: array{available: int, remainingUses: int}
+     * }
+     */
+    private function resourceSummary(Carbon $now): array
+    {
+        $availableVouchers = Voucher::query()
+            ->where('active', true)
+            ->where(function ($query) use ($now) {
+                $query
+                    ->whereNull('valid_from')
+                    ->orWhere('valid_from', '<=', $now);
+            })
+            ->where(function ($query) use ($now) {
+                $query
+                    ->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', $now);
+            })
+            ->whereColumn('usage_count', '<', 'usage_limit')
+            ->get(['usage_limit', 'usage_count']);
+
+        $remainingVoucherUses = (int) $availableVouchers->sum(
+            static fn (Voucher $voucher): int => max(
+                0,
+                $voucher->usage_limit - $voucher->usage_count,
+            ),
+        );
+
+        return [
+            'templates' => [
+                'active' => PhotoTemplate::query()
+                    ->where('active', true)
+                    ->count(),
+                'inactive' => PhotoTemplate::query()
+                    ->where('active', false)
+                    ->count(),
+            ],
+            'stickers' => [
+                'active' => StickerDesign::query()
+                    ->where('active', true)
+                    ->count(),
+                'inactive' => StickerDesign::query()
+                    ->where('active', false)
+                    ->count(),
+            ],
+            'vouchers' => [
+                'available' => $availableVouchers->count(),
+                'remainingUses' => $remainingVoucherUses,
+            ],
+        ];
+    }
+
+    /**
+     * Present the latest sessions for the dashboard without exposing public session tokens.
+     *
+     * @return array<int, array{
+     *     reference: string,
+     *     startedAt: string|null,
+     *     paymentMethod: string|null,
+     *     status: string,
+     *     printStatus: string|null,
+     *     amount: string|null,
+     *     currency: string|null
+     * }>
+     */
+    private function recentSessions(): array
+    {
+        return PhotoboothSession::query()
+            ->with(['payment', 'printJob'])
+            ->orderByDesc('started_at')
+            ->orderByDesc('id')
+            ->limit(self::RECENT_SESSIONS_LIMIT)
+            ->get()
+            ->map(static function (PhotoboothSession $session): array {
+                return [
+                    'reference' => sprintf('TS-%06d', $session->id),
+                    'startedAt' => $session->started_at?->toIso8601String(),
+                    'paymentMethod' => $session->payment_method?->value,
+                    'status' => $session->status->value,
+                    'printStatus' => $session->printJob?->status->value,
+                    'amount' => $session->payment?->amount ?? $session->price,
+                    'currency' => $session->currency,
+                ];
+            })
+            ->all();
     }
 
     /**

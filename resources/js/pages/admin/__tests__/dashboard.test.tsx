@@ -27,8 +27,11 @@ vi.mock('recharts', () => ({
     ComposedChart: ({ children }: { children: ReactNode }) => (
         <div data-testid="sales-sessions-trend">{children}</div>
     ),
-    Bar: () => null,
+    PieChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    Pie: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    Area: () => null,
     Line: () => null,
+    Cell: () => null,
     CartesianGrid: () => null,
     XAxis: () => null,
     YAxis: () => null,
@@ -39,6 +42,10 @@ import Dashboard from '../dashboard';
 
 const baseProps: ComponentProps<typeof Dashboard> = {
     currency: 'PHP',
+    period: {
+        startDate: '2026-08-17',
+        endDate: '2026-08-23',
+    },
     summary: {
         today: {
             count: 6,
@@ -55,9 +62,10 @@ const baseProps: ComponentProps<typeof Dashboard> = {
         },
         needsAttention: {
             failedPayments: 1,
-            pendingPayments: 1,
+            pendingPayments: 2,
+            pendingPaymentTotal: '50.00',
             failedPrintJobs: 1,
-            total: 3,
+            total: 4,
         },
     },
     trend: [
@@ -116,86 +124,115 @@ const baseProps: ComponentProps<typeof Dashboard> = {
         failedPrintJobs: 1,
         galleryExpirationHours: 168,
     },
-    recentActivity: [
+    recentSessions: [
         {
-            type: 'session_completed',
-            title: 'Session completed',
-            description: 'PHP 100.00 via Maya',
-            occurredAt: new Date().toISOString(),
+            reference: 'TS-000101',
+            startedAt: '2026-08-23T10:30:00+08:00',
+            paymentMethod: 'maya',
+            status: 'completed',
+            printStatus: 'printed',
+            amount: '150.00',
+            currency: 'PHP',
         },
         {
-            type: 'voucher',
-            title: 'Voucher redeemed',
-            description: 'THERMA-DEMO-1, 1 of 1 uses',
-            occurredAt: new Date().toISOString(),
+            reference: 'TS-000100',
+            startedAt: '2026-08-23T10:15:00+08:00',
+            paymentMethod: 'voucher',
+            status: 'payment_pending',
+            printStatus: null,
+            amount: '150.00',
+            currency: 'PHP',
         },
     ],
+    resources: {
+        templates: {
+            active: 12,
+            inactive: 2,
+        },
+        stickers: {
+            active: 18,
+            inactive: 3,
+        },
+        vouchers: {
+            available: 56,
+            remainingUses: 74,
+        },
+    },
 };
 
 describe('admin dashboard', () => {
-    it('renders the reference-oriented dashboard using real operator data', () => {
+    it('renders the reference-oriented operator dashboard from real props', () => {
         render(<Dashboard {...baseProps} />);
 
         expect(
             screen.getByRole('heading', { name: 'Dashboard' }),
         ).toBeInTheDocument();
-
         expect(
-            screen.getByText('Your booth performance at a glance'),
+            screen.getByText('Operator overview for ThermaSnap.'),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText('Aug 17, 2026 - Aug 23, 2026'),
         ).toBeInTheDocument();
 
         expect(screen.getByText("Today's Sales")).toBeInTheDocument();
+        expect(screen.getByText('Sessions Today')).toBeInTheDocument();
+        expect(screen.getAllByText('Pending Payments')).toHaveLength(2);
+        expect(screen.getAllByText('Failed Print Jobs')).toHaveLength(2);
         expect(screen.getByText('₱150')).toBeInTheDocument();
-
-        expect(
-            screen.getByText('Completed Sessions Today'),
-        ).toBeInTheDocument();
-
-        expect(screen.getByText('Monthly Sales')).toBeInTheDocument();
-        expect(screen.getByText('Needs Attention')).toBeInTheDocument();
-
+        expect(screen.getByText('₱50')).toBeInTheDocument();
+        expect(screen.getByText('₱50 total')).toBeInTheDocument();
         expect(screen.getByText('25%')).toBeInTheDocument();
         expect(screen.getAllByText('vs yesterday')).toHaveLength(2);
 
-        expect(
-            screen.getByText('vs previous month to date'),
-        ).toBeInTheDocument();
-
         expect(screen.getByTestId('sales-sessions-trend')).toBeInTheDocument();
-
         expect(
             screen.getByRole('img', {
-                name: 'Session mix today: 4 Maya sessions, 2 voucher sessions',
+                name: 'Payment methods today: 4 Maya sessions, 2 voucher sessions',
             }),
         ).toBeInTheDocument();
+        expect(
+            screen.getByText('Payment Methods Breakdown'),
+        ).toBeInTheDocument();
+        expect(screen.getByText('Needs Attention')).toBeInTheDocument();
 
         expect(
-            screen.getByText('Booth Status / Operations'),
+            screen.getByRole('table', { name: 'Recent sessions' }),
         ).toBeInTheDocument();
+        expect(screen.getByText('TS-000101')).toBeInTheDocument();
+        expect(screen.getAllByText('Maya QR').length).toBeGreaterThan(0);
+        expect(screen.getByText('Not queued')).toBeInTheDocument();
 
-        expect(screen.getByText('Recent Activity')).toBeInTheDocument();
+        expect(screen.getByText('Active Templates')).toBeInTheDocument();
+        expect(screen.getByText('Active Stickers')).toBeInTheDocument();
+        expect(screen.getByText('Available Vouchers')).toBeInTheDocument();
+        expect(screen.getByText('2 inactive')).toBeInTheDocument();
+        expect(screen.getByText('3 inactive')).toBeInTheDocument();
+        expect(screen.getByText('74 uses remaining')).toBeInTheDocument();
 
         expect(
             screen.getByRole('link', { name: /Open Kiosk/i }),
         ).toHaveAttribute('href', '/kiosk');
-
         expect(
             screen.getByRole('link', { name: /Create Voucher/i }),
         ).toHaveAttribute('href', '/admin/vouchers/create');
-
         expect(
-            screen.getByRole('link', { name: /Manage Templates/i }),
+            screen.getByRole('link', { name: 'Manage Templates' }),
         ).toHaveAttribute('href', '/admin/templates');
-
         expect(
-            screen.getByRole('link', { name: /View Issues/i }),
-        ).toHaveAttribute(
-            'href',
-            expect.stringContaining('print_status=failed'),
-        );
+            screen.getByRole('link', { name: 'Manage Stickers' }),
+        ).toHaveAttribute('href', '/admin/stickers');
+        expect(
+            screen.getByRole('link', { name: 'Manage Vouchers' }),
+        ).toHaveAttribute('href', '/admin/vouchers');
+
+        const issueLinks = screen
+            .getAllByRole('link')
+            .filter((link) => link.getAttribute('href')?.includes('status='));
+
+        expect(issueLinks.length).toBeGreaterThan(0);
     });
 
-    it('renders safe empty and comparison states when activity is unavailable', () => {
+    it('renders safe empty states without fabricating comparisons or activity', () => {
         render(
             <Dashboard
                 {...baseProps}
@@ -216,11 +253,16 @@ describe('admin dashboard', () => {
                     needsAttention: {
                         failedPayments: 0,
                         pendingPayments: 0,
+                        pendingPaymentTotal: '0.00',
                         failedPrintJobs: 0,
                         total: 0,
                     },
                 }}
-                trend={[]}
+                trend={baseProps.trend.map((point) => ({
+                    ...point,
+                    sales: 0,
+                    sessions: 0,
+                }))}
                 paymentMethods={{
                     total: 0,
                     maya: 0,
@@ -233,24 +275,30 @@ describe('admin dashboard', () => {
                     failedPrintJobs: 0,
                     galleryExpirationHours: 168,
                 }}
-                recentActivity={[]}
+                recentSessions={[]}
+                resources={{
+                    templates: { active: 0, inactive: 0 },
+                    stickers: { active: 0, inactive: 0 },
+                    vouchers: { available: 0, remainingUses: 0 },
+                }}
             />,
         );
 
         expect(screen.getAllByText('No prior-period comparison')).toHaveLength(
-            3,
+            2,
         );
-
-        expect(screen.getByText('No trend data yet.')).toBeInTheDocument();
-
+        expect(
+            screen.getByText('No completed session trend data yet.'),
+        ).toBeInTheDocument();
         expect(
             screen.getByText('No completed sessions today.'),
         ).toBeInTheDocument();
-
         expect(
-            screen.getByText('No operator action is required'),
+            screen.getByText('No operator action required'),
         ).toBeInTheDocument();
-
-        expect(screen.getByText('No recent activity yet.')).toBeInTheDocument();
+        expect(
+            screen.getByText('No customer sessions yet.'),
+        ).toBeInTheDocument();
+        expect(screen.getByText('No failed print jobs')).toBeInTheDocument();
     });
 });

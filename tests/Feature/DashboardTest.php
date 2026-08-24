@@ -6,7 +6,9 @@ use App\Enums\PhotoboothSessionStatus;
 use App\Enums\PrintJobStatus;
 use App\Models\Payment;
 use App\Models\PhotoboothSession;
+use App\Models\PhotoTemplate;
 use App\Models\PrintJob;
+use App\Models\StickerDesign;
 use App\Models\User;
 use App\Models\Voucher;
 use Illuminate\Support\Carbon;
@@ -29,14 +31,41 @@ test('authenticated users can visit the dashboard', function () {
         );
 });
 
-test('dashboard exposes operator focused aggregates and real period comparisons', function () {
+test('dashboard exposes reference ready operator aggregates from durable data', function () {
     $this->travelTo(Carbon::parse('2026-08-23 12:00:00'));
 
     $user = User::factory()->create();
 
+    $activeTemplate = PhotoTemplate::factory()->create();
+    PhotoTemplate::factory()->create();
+    PhotoTemplate::factory()->inactive()->create();
+
+    StickerDesign::factory()->count(2)->create();
+    StickerDesign::factory()->inactive()->create();
+
+    $redeemedVoucher = Voucher::factory()->create([
+        'code' => 'THERMA-DEMO-1',
+        'usage_limit' => 3,
+        'usage_count' => 1,
+        'created_at' => now()->subMinutes(45),
+        'updated_at' => now()->subMinutes(45),
+    ]);
+
+    Voucher::factory()->create([
+        'usage_limit' => 5,
+        'usage_count' => 2,
+    ]);
+
+    Voucher::factory()->expired()->create();
+    Voucher::factory()->exhausted()->create();
+    Voucher::factory()->inactive()->create();
+
     $todayMayaSession = PhotoboothSession::factory()->create([
+        'photo_template_id' => $activeTemplate->id,
         'status' => PhotoboothSessionStatus::Completed,
         'payment_method' => PaymentMethod::Maya,
+        'price' => '100.00',
+        'currency' => 'PHP',
         'started_at' => now()->subHour(),
         'created_at' => now()->subHour(),
         'updated_at' => now()->subHour(),
@@ -50,26 +79,24 @@ test('dashboard exposes operator focused aggregates and real period comparisons'
         'updated_at' => now()->subHour(),
     ]);
 
-    $voucher = Voucher::factory()->create([
-        'code' => 'THERMA-DEMO-1',
-        'usage_limit' => 2,
-        'usage_count' => 1,
-        'created_at' => now()->subMinutes(45),
-        'updated_at' => now()->subMinutes(45),
-    ]);
-
-    PhotoboothSession::factory()->create([
+    $todayVoucherSession = PhotoboothSession::factory()->create([
+        'photo_template_id' => $activeTemplate->id,
         'status' => PhotoboothSessionStatus::Completed,
         'payment_method' => PaymentMethod::Voucher,
-        'voucher_id' => $voucher->id,
+        'voucher_id' => $redeemedVoucher->id,
+        'price' => '100.00',
+        'currency' => 'PHP',
         'started_at' => now()->subMinutes(40),
         'created_at' => now()->subMinutes(40),
         'updated_at' => now()->subMinutes(40),
     ]);
 
     $monthlySession = PhotoboothSession::factory()->create([
+        'photo_template_id' => $activeTemplate->id,
         'status' => PhotoboothSessionStatus::Completed,
         'payment_method' => PaymentMethod::Maya,
+        'price' => '50.00',
+        'currency' => 'PHP',
         'started_at' => now()->subDays(5),
         'created_at' => now()->subDays(5),
         'updated_at' => now()->subDays(5),
@@ -84,8 +111,11 @@ test('dashboard exposes operator focused aggregates and real period comparisons'
     ]);
 
     $yesterdaySession = PhotoboothSession::factory()->create([
+        'photo_template_id' => $activeTemplate->id,
         'status' => PhotoboothSessionStatus::Completed,
         'payment_method' => PaymentMethod::Maya,
+        'price' => '80.00',
+        'currency' => 'PHP',
         'started_at' => now()->subDay()->subHour(),
         'created_at' => now()->subDay()->subHour(),
         'updated_at' => now()->subDay()->subHour(),
@@ -100,8 +130,11 @@ test('dashboard exposes operator focused aggregates and real period comparisons'
     ]);
 
     $previousMonthSession = PhotoboothSession::factory()->create([
+        'photo_template_id' => $activeTemplate->id,
         'status' => PhotoboothSessionStatus::Completed,
         'payment_method' => PaymentMethod::Maya,
+        'price' => '120.00',
+        'currency' => 'PHP',
         'started_at' => Carbon::parse('2026-07-10 10:00:00'),
         'created_at' => Carbon::parse('2026-07-10 10:00:00'),
         'updated_at' => Carbon::parse('2026-07-10 10:00:00'),
@@ -115,14 +148,40 @@ test('dashboard exposes operator focused aggregates and real period comparisons'
         'updated_at' => Carbon::parse('2026-07-10 10:00:00'),
     ]);
 
+    $failedPaymentSession = PhotoboothSession::factory()->create([
+        'photo_template_id' => $activeTemplate->id,
+        'status' => PhotoboothSessionStatus::PaymentPending,
+        'payment_method' => PaymentMethod::Maya,
+        'price' => '20.00',
+        'currency' => 'PHP',
+        'started_at' => now()->subMinutes(15),
+        'created_at' => now()->subMinutes(15),
+        'updated_at' => now()->subMinutes(15),
+    ]);
+
     Payment::factory()->create([
+        'photobooth_session_id' => $failedPaymentSession->id,
+        'method' => PaymentMethod::Maya,
         'status' => PaymentStatus::Failed,
         'amount' => '20.00',
         'created_at' => now()->subMinutes(15),
         'updated_at' => now()->subMinutes(15),
     ]);
 
+    $pendingPaymentSession = PhotoboothSession::factory()->create([
+        'photo_template_id' => $activeTemplate->id,
+        'status' => PhotoboothSessionStatus::PaymentPending,
+        'payment_method' => PaymentMethod::Maya,
+        'price' => '20.00',
+        'currency' => 'PHP',
+        'started_at' => now()->subMinutes(10),
+        'created_at' => now()->subMinutes(10),
+        'updated_at' => now()->subMinutes(10),
+    ]);
+
     Payment::factory()->create([
+        'photobooth_session_id' => $pendingPaymentSession->id,
+        'method' => PaymentMethod::Maya,
         'status' => PaymentStatus::Pending,
         'amount' => '20.00',
         'created_at' => now()->subMinutes(10),
@@ -130,12 +189,14 @@ test('dashboard exposes operator focused aggregates and real period comparisons'
     ]);
 
     PrintJob::factory()->create([
+        'photobooth_session_id' => $todayMayaSession->id,
         'status' => PrintJobStatus::Pending,
         'created_at' => now()->subMinutes(8),
         'updated_at' => now()->subMinutes(8),
     ]);
 
     PrintJob::factory()->failed()->create([
+        'photobooth_session_id' => $todayVoucherSession->id,
         'created_at' => now()->subMinutes(2),
         'updated_at' => now()->subMinutes(2),
     ]);
@@ -147,6 +208,8 @@ test('dashboard exposes operator focused aggregates and real period comparisons'
             fn (Assert $page) => $page
                 ->component('admin/dashboard')
                 ->where('currency', 'PHP')
+                ->where('period.startDate', '2026-08-17')
+                ->where('period.endDate', '2026-08-23')
                 ->where('summary.today.count', 2)
                 ->where('summary.today.salesTotal', '100.00')
                 ->where('summary.thisMonth.count', 4)
@@ -156,6 +219,7 @@ test('dashboard exposes operator focused aggregates and real period comparisons'
                 ->where('summary.comparison.monthSalesVsPreviousPeriod', 91.7)
                 ->where('summary.needsAttention.failedPayments', 1)
                 ->where('summary.needsAttention.pendingPayments', 1)
+                ->where('summary.needsAttention.pendingPaymentTotal', '20.00')
                 ->where('summary.needsAttention.failedPrintJobs', 1)
                 ->where('summary.needsAttention.total', 3)
                 ->has('trend', 7)
@@ -171,7 +235,21 @@ test('dashboard exposes operator focused aggregates and real period comparisons'
                 ->where('operations.galleryExpirationHours', 168)
                 ->has('recentActivity', 5)
                 ->where('recentActivity.0.type', 'print_failure')
-                ->where('recentActivity.0.title', 'Print job failed'),
+                ->has('recentSessions', 5)
+                ->where(
+                    'recentSessions.0.reference',
+                    sprintf('TS-%06d', $pendingPaymentSession->id),
+                )
+                ->where('recentSessions.0.paymentMethod', 'maya')
+                ->where('recentSessions.0.status', 'payment_pending')
+                ->where('recentSessions.0.amount', '20.00')
+                ->where('recentSessions.0.currency', 'PHP')
+                ->where('resources.templates.active', 2)
+                ->where('resources.templates.inactive', 1)
+                ->where('resources.stickers.active', 2)
+                ->where('resources.stickers.inactive', 1)
+                ->where('resources.vouchers.available', 2)
+                ->where('resources.vouchers.remainingUses', 5),
         );
 });
 
@@ -179,10 +257,14 @@ test('dashboard does not fabricate percentage comparisons without a prior baseli
     $this->travelTo(Carbon::parse('2026-08-23 12:00:00'));
 
     $user = User::factory()->create();
+    $template = PhotoTemplate::factory()->create();
 
     $session = PhotoboothSession::factory()->create([
+        'photo_template_id' => $template->id,
         'status' => PhotoboothSessionStatus::Completed,
         'payment_method' => PaymentMethod::Maya,
+        'price' => '100.00',
+        'currency' => 'PHP',
         'created_at' => now()->subHour(),
         'updated_at' => now()->subHour(),
     ]);
@@ -202,6 +284,7 @@ test('dashboard does not fabricate percentage comparisons without a prior baseli
             fn (Assert $page) => $page
                 ->where('summary.comparison.todaySalesVsYesterday', null)
                 ->where('summary.comparison.todaySessionsVsYesterday', null)
-                ->where('summary.comparison.monthSalesVsPreviousPeriod', null),
+                ->where('summary.comparison.monthSalesVsPreviousPeriod', null)
+                ->where('summary.needsAttention.pendingPaymentTotal', '0.00'),
         );
 });
