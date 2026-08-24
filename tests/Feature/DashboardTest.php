@@ -54,11 +54,24 @@ test('dashboard exposes reference ready operator aggregates from durable data', 
     Voucher::factory()->create([
         'usage_limit' => 5,
         'usage_count' => 2,
+        'created_at' => now()->subHours(2),
+        'updated_at' => now()->subHours(2),
     ]);
 
-    Voucher::factory()->expired()->create();
-    Voucher::factory()->exhausted()->create();
-    Voucher::factory()->inactive()->create();
+    Voucher::factory()->expired()->create([
+        'created_at' => now()->subHours(2),
+        'updated_at' => now()->subHours(2),
+    ]);
+
+    Voucher::factory()->exhausted()->create([
+        'created_at' => now()->subHours(2),
+        'updated_at' => now()->subHours(2),
+    ]);
+
+    Voucher::factory()->inactive()->create([
+        'created_at' => now()->subHours(2),
+        'updated_at' => now()->subHours(2),
+    ]);
 
     $todayMayaSession = PhotoboothSession::factory()->create([
         'photo_template_id' => $activeTemplate->id,
