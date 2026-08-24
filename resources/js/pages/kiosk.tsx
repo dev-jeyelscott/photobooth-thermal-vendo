@@ -582,7 +582,7 @@ export default function Kiosk({
         <>
             <Head title="Photobooth Kiosk" />
             <KioskShell step={progressStep}>
-                {showKioskError && kioskError ? (
+                {showKioskError && kioskError && (
                     <KioskPanel className="max-w-3xl py-14 sm:py-16">
                         <KioskErrorState
                             kind={kioskError}
@@ -599,10 +599,12 @@ export default function Kiosk({
                             }
                         />
                     </KioskPanel>
-                ) : (
+                )}
+
+                {!showKioskError && (
                     <>
                         {activeStep === 'welcome' && (
-                            <KioskPanel className="max-w-6xl px-6 py-10 sm:px-10 sm:py-12 lg:px-14">
+                            <KioskPanel className="max-w-6xl px-6 py-10 sm:px-10 sm:py-12 lg:px-14 landscape:py-8">
                                 <div
                                     data-testid="kiosk-welcome"
                                     className="mx-auto max-w-4xl text-center"
@@ -1060,30 +1062,23 @@ export default function Kiosk({
                                                     description="Random public token, temporary access"
                                                     success
                                                 />
-                                                <CompletionStatusRow
-                                                    title="Thermal print"
-                                                    description={
-                                                        printFailed
-                                                            ? 'Print failed. Digital media remains available.'
-                                                            : printDelayed
-                                                              ? 'Your receipt is taking longer than expected to print. Your digital photos are already available.'
-                                                              : isPrinting
-                                                                ? 'Receipt is printing through the configured driver.'
-                                                                : 'Print completed successfully.'
-                                                    }
-                                                    success={!printFailed}
-                                                    failed={printFailed}
-                                                    pending={
-                                                        isPrinting &&
-                                                        !printFailed
-                                                    }
-                                                    dataTestId={
-                                                        printFailed
-                                                            ? 'kiosk-error-print-failure'
-                                                            : undefined
-                                                    }
-                                                    descriptionTestId="kiosk-printing-status"
-                                                />
+                                                {printFailed ? (
+                                                    <KioskErrorState kind="print-failure" />
+                                                ) : (
+                                                    <CompletionStatusRow
+                                                        title="Thermal print"
+                                                        description={
+                                                            printDelayed
+                                                                ? 'Your receipt is taking longer than expected to print. Your digital photos are already available.'
+                                                                : isPrinting
+                                                                  ? 'Receipt is printing through the configured driver.'
+                                                                  : 'Print completed successfully.'
+                                                        }
+                                                        success={!isPrinting}
+                                                        pending={isPrinting}
+                                                        descriptionTestId="kiosk-printing-status"
+                                                    />
+                                                )}
                                             </div>
 
                                             <Button
