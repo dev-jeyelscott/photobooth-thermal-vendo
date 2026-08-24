@@ -17,37 +17,38 @@ class ColorCompositionService
     private const MILLIMETERS_PER_INCH = 25.4;
 
     /**
-     * Size and margin of the sticker overlay relative to the canvas width,
-     * matching the ratios used to render the customer-facing preview.
+     * Size and margin of the sticker overlay relative to the canvas width.
      */
     private const STICKER_SIZE_RATIO = 0.22;
 
     private const STICKER_MARGIN_RATIO = 0.03;
 
     /**
-     * Contrast boost applied to the grayscale derivative so thermal printers,
-     * which have a narrower tonal range than digital displays, retain
-     * visible separation between light and dark areas.
+     * Contrast boost applied to the grayscale thermal derivative.
      */
     private const THERMAL_CONTRAST_LEVEL = 20;
 
     public function __construct(private readonly ImageManager $imageManager) {}
 
     /**
-     * Compose the confirmed captured photos onto the template snapshot's
-     * layout_config slots and overlay the selected sticker snapshot,
-     * producing a single print-ready color image.
+     * Compose photos into their millimeter slots, place the full transparent
+     * template frame above them, then place the optional sticker top-most.
      *
-     * @param  array{layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}  $template  Snapshot of the rendering-critical template configuration.
-     * @param  list<string>  $photos  Raw image sources (data URIs, base64, or binary), in shot order.
-     * @param  array{asset_path: string, placement?: array{size_ratio?: float, margin_ratio?: float}|null}|null  $sticker  Snapshot of the selected sticker's rendering-critical configuration.
+     * @param  array{layout_path?: string|null, layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}  $template
+     * @param  list<string>  $photos
+     * @param  array{asset_path: string, placement?: array{size_ratio?: float, margin_ratio?: float}|null}|null  $sticker
      */
-    public function compose(array $template, array $photos, ?array $sticker): ImageInterface
-    {
+    public function compose(
+        array $template,
+        array $photos,
+        ?array $sticker,
+    ): ImageInterface {
         $canvasWidth = $this->millimetersToPixels($template['print_width_mm']);
         $canvasHeight = $this->millimetersToPixels($template['print_height_mm']);
 
-        $canvas = $this->imageManager->createImage($canvasWidth, $canvasHeight)->fill('#ffffff');
+        $canvas = $this->imageManager
+            ->createImage($canvasWidth, $canvasHeight)
+            ->fill('#ffffff');
 
         foreach ($this->layoutSlots($template) as $index => $slot) {
             if (! isset($photos[$index])) {
@@ -57,21 +58,43 @@ class ColorCompositionService
             $slotWidth = $this->millimetersToPixels($slot['width']);
             $slotHeight = $this->millimetersToPixels($slot['height']);
 
-            $photo = $this->imageManager->decode($photos[$index])->cover($slotWidth, $slotHeight);
+            $photo = $this->imageManager
+                ->decode($photos[$index])
+                ->cover($slotWidth, $slotHeight);
 
-            $canvas->insert($photo, $this->millimetersToPixels($slot['x']), $this->millimetersToPixels($slot['y']));
+            $canvas->insert(
+                $photo,
+                $this->millimetersToPixels($slot['x']),
+                $this->millimetersToPixels($slot['y']),
+            );
+        }
+
+        $layoutPath = $template['layout_path'] ?? null;
+
+        if (is_string($layoutPath) && $layoutPath !== '') {
+            $this->overlayTemplateFrame(
+                $canvas,
+                $layoutPath,
+                $canvasWidth,
+                $canvasHeight,
+            );
         }
 
         if ($sticker !== null) {
-            $this->overlaySticker($canvas, $sticker['asset_path'], $canvasWidth, $sticker['placement'] ?? null);
+            $this->overlaySticker(
+                $canvas,
+                $sticker['asset_path'],
+                $canvasWidth,
+                $sticker['placement'] ?? null,
+            );
         }
 
         return $canvas;
     }
 
     /**
-     * Derive a grayscale, contrast-boosted version of an already-composed
-     * image for thermal printing, without recomposing the layout.
+     * Derive a grayscale, contrast-boosted version of the fully composed
+     * image so the frame is automatically included in the thermal output.
      */
     public function toBlackAndWhite(ImageInterface $composite): ImageInterface
     {
@@ -81,11 +104,37 @@ class ColorCompositionService
     }
 
     /**
-     * @param  array{size_ratio?: float, margin_ratio?: float}|null  $placement  Sticker-specific size/margin ratios, falling back to the hardcoded constants when absent.
+     * Decode and stretch the immutable frame asset to the exact print canvas.
+     * Normal source-over insertion preserves PNG/WebP alpha and keeps frame
+     * artwork above the captured photos.
      */
-    private function overlaySticker(ImageInterface $canvas, string $assetPath, int $canvasWidth, ?array $placement): void
-    {
-        $stickerImage = $this->imageManager->decode(Storage::disk('public')->get($assetPath));
+    private function overlayTemplateFrame(
+        ImageInterface $canvas,
+        string $assetPath,
+        int $canvasWidth,
+        int $canvasHeight,
+    ): void {
+        $templateFrame = $this->imageManager
+            ->decode(Storage::disk('public')->get($assetPath))
+            ->resize($canvasWidth, $canvasHeight);
+
+        $canvas->insert($templateFrame);
+    }
+
+    /**
+     * Overlay the selected sticker using its snapshotted placement ratios.
+     *
+     * @param  array{size_ratio?: float, margin_ratio?: float}|null  $placement
+     */
+    private function overlaySticker(
+        ImageInterface $canvas,
+        string $assetPath,
+        int $canvasWidth,
+        ?array $placement,
+    ): void {
+        $stickerImage = $this->imageManager->decode(
+            Storage::disk('public')->get($assetPath),
+        );
 
         $sizeRatio = $placement['size_ratio'] ?? self::STICKER_SIZE_RATIO;
         $marginRatio = $placement['margin_ratio'] ?? self::STICKER_MARGIN_RATIO;
@@ -103,7 +152,9 @@ class ColorCompositionService
     }
 
     /**
-     * @param  array{layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}  $template
+     * Read ordered validated-looking slot geometry from the template snapshot.
+     *
+     * @param  array{layout_config: array<string, mixed>|null, photo_slots: int}  $template
      * @return list<array{x: int, y: int, width: int, height: int}>
      */
     private function layoutSlots(array $template): array
@@ -129,8 +180,13 @@ class ColorCompositionService
         return array_values($slots->all());
     }
 
+    /**
+     * Convert integer millimeters into the established 300 DPI pixel space.
+     */
     private function millimetersToPixels(int $millimeters): int
     {
-        return (int) round($millimeters / self::MILLIMETERS_PER_INCH * self::CANVAS_DPI);
+        return (int) round(
+            $millimeters / self::MILLIMETERS_PER_INCH * self::CANVAS_DPI,
+        );
     }
 }

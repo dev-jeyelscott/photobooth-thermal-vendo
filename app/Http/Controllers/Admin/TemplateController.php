@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\PhotoboothSessionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreTemplateRequest;
 use App\Http\Requests\Admin\UpdateTemplateRequest;
@@ -64,7 +65,10 @@ class TemplateController extends Controller
             $thumbnail = $request->file('thumbnail');
 
             if ($thumbnail instanceof UploadedFile) {
-                $thumbnailPath = $this->storePublicAsset($thumbnail, 'templates/thumbnails');
+                $thumbnailPath = $this->storePublicAsset(
+                    $thumbnail,
+                    'templates/thumbnails',
+                );
                 $storedPaths[] = $thumbnailPath;
             }
 
@@ -81,9 +85,13 @@ class TemplateController extends Controller
                 'print_width_mm' => $validated['print_width_mm'],
                 'print_height_mm' => $validated['print_height_mm'],
                 'active' => $request->boolean('active', true),
-                'sort_order' => $validated['sort_order'] ?? ((int) PhotoTemplate::max('sort_order') + 1),
+                'sort_order' => $validated['sort_order']
+                    ?? ((int) PhotoTemplate::max('sort_order') + 1),
                 'printer_compatibility' => isset($validated['printer_compatibility'])
-                    ? json_decode((string) $validated['printer_compatibility'], true)
+                    ? json_decode(
+                        (string) $validated['printer_compatibility'],
+                        true,
+                    )
                     : null,
             ]);
         } catch (Throwable $exception) {
@@ -92,7 +100,10 @@ class TemplateController extends Controller
             throw $exception;
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Template created.')]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Template created.'),
+        ]);
 
         return to_route('admin.templates.index');
     }
@@ -108,10 +119,13 @@ class TemplateController extends Controller
     }
 
     /**
-     * Update an existing template's fields and assets.
+     * Update an existing template while protecting frame revisions already
+     * referenced by session snapshots.
      */
-    public function update(UpdateTemplateRequest $request, PhotoTemplate $template): RedirectResponse
-    {
+    public function update(
+        UpdateTemplateRequest $request,
+        PhotoTemplate $template,
+    ): RedirectResponse {
         $validated = $request->validated();
         $storedPaths = [];
         $replacedPaths = [];
@@ -129,7 +143,10 @@ class TemplateController extends Controller
             'active' => $request->boolean('active'),
             'sort_order' => $validated['sort_order'] ?? 0,
             'printer_compatibility' => isset($validated['printer_compatibility'])
-                ? json_decode((string) $validated['printer_compatibility'], true)
+                ? json_decode(
+                    (string) $validated['printer_compatibility'],
+                    true,
+                )
                 : null,
         ];
 
@@ -139,24 +156,50 @@ class TemplateController extends Controller
             if ($layout instanceof UploadedFile) {
                 $layoutPath = $this->storePublicAsset($layout, 'templates');
                 $storedPaths[] = $layoutPath;
-                $replacedPaths[] = $template->layout_path;
                 $attributes['layout_path'] = $layoutPath;
             }
 
             $thumbnail = $request->file('thumbnail');
 
             if ($thumbnail instanceof UploadedFile) {
-                $thumbnailPath = $this->storePublicAsset($thumbnail, 'templates/thumbnails');
+                $thumbnailPath = $this->storePublicAsset(
+                    $thumbnail,
+                    'templates/thumbnails',
+                );
                 $storedPaths[] = $thumbnailPath;
-
-                if ($template->thumbnail_path !== null) {
-                    $replacedPaths[] = $template->thumbnail_path;
-                }
-
                 $attributes['thumbnail_path'] = $thumbnailPath;
             }
 
-            $template->updateOrFail($attributes);
+            DB::transaction(function () use (
+                $template,
+                $attributes,
+                &$replacedPaths,
+            ): void {
+                $lockedTemplate = PhotoTemplate::query()
+                    ->whereKey($template->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if (array_key_exists('layout_path', $attributes)) {
+                    $this->backfillActiveSessionLayoutSnapshots($lockedTemplate);
+
+                    if (! $this->isLayoutAssetSnapshotted(
+                        $lockedTemplate,
+                        $lockedTemplate->layout_path,
+                    )) {
+                        $replacedPaths[] = $lockedTemplate->layout_path;
+                    }
+                }
+
+                if (
+                    array_key_exists('thumbnail_path', $attributes)
+                    && $lockedTemplate->thumbnail_path !== null
+                ) {
+                    $replacedPaths[] = $lockedTemplate->thumbnail_path;
+                }
+
+                $lockedTemplate->updateOrFail($attributes);
+            });
         } catch (Throwable $exception) {
             $this->deletePublicAssets($storedPaths);
 
@@ -165,7 +208,10 @@ class TemplateController extends Controller
 
         $this->deletePublicAssets($replacedPaths);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Template updated.')]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Template updated.'),
+        ]);
 
         return to_route('admin.templates.index');
     }
@@ -181,7 +227,9 @@ class TemplateController extends Controller
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => $active ? __('Template enabled.') : __('Template disabled.'),
+            'message' => $active
+                ? __('Template enabled.')
+                : __('Template disabled.'),
         ]);
 
         return to_route('admin.templates.index');
@@ -197,9 +245,11 @@ class TemplateController extends Controller
             'ordered_ids.*' => ['integer', 'exists:photo_templates,id'],
         ]);
 
-        DB::transaction(function () use ($validated) {
+        DB::transaction(function () use ($validated): void {
             foreach ($validated['ordered_ids'] as $position => $id) {
-                PhotoTemplate::whereKey($id)->update(['sort_order' => $position]);
+                PhotoTemplate::whereKey($id)->update([
+                    'sort_order' => $position,
+                ]);
             }
         });
 
@@ -225,7 +275,10 @@ class TemplateController extends Controller
         $template->deleteOrFail();
         $this->deletePublicAssets($assetPaths);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Template deleted.')]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Template deleted.'),
+        ]);
 
         return to_route('admin.templates.index');
     }
@@ -261,37 +314,102 @@ class TemplateController extends Controller
     }
 
     /**
-     * Store one template asset on the repository-mandated public filesystem disk.
+     * Add the current immutable layout path to active legacy snapshots before
+     * replacing the live template frame.
      */
-    private function storePublicAsset(UploadedFile $file, string $directory): string
-    {
+    private function backfillActiveSessionLayoutSnapshots(
+        PhotoTemplate $template,
+    ): void {
+        $sessions = $template->photoboothSessions()
+            ->whereIn('status', [
+                PhotoboothSessionStatus::TemplateSelected->value,
+                PhotoboothSessionStatus::Capturing->value,
+                PhotoboothSessionStatus::Customizing->value,
+                PhotoboothSessionStatus::Processing->value,
+            ])
+            ->get();
+
+        foreach ($sessions as $session) {
+            $snapshot = $session->template_snapshot;
+
+            if (
+                is_array($snapshot)
+                && array_key_exists('layout_path', $snapshot)
+            ) {
+                continue;
+            }
+
+            $snapshot ??= [
+                'name' => $template->name,
+                'layout_config' => $template->layout_config,
+                'photo_slots' => $template->photo_slots,
+                'print_width_mm' => $template->print_width_mm,
+                'print_height_mm' => $template->print_height_mm,
+            ];
+
+            $snapshot['layout_path'] = $template->layout_path;
+
+            $session->updateOrFail([
+                'template_snapshot' => $snapshot,
+            ]);
+        }
+    }
+
+    /**
+     * Determine whether a durable session snapshot still references this exact
+     * immutable layout revision.
+     */
+    private function isLayoutAssetSnapshotted(
+        PhotoTemplate $template,
+        string $layoutPath,
+    ): bool {
+        return $template->photoboothSessions()
+            ->where('template_snapshot->layout_path', $layoutPath)
+            ->exists();
+    }
+
+    /**
+     * Store one template asset on the repository-mandated public disk.
+     */
+    private function storePublicAsset(
+        UploadedFile $file,
+        string $directory,
+    ): string {
         $path = $file->store($directory, 'public');
 
         if (! is_string($path)) {
-            throw new RuntimeException("Unable to store template asset in [{$directory}].");
+            throw new RuntimeException(
+                "Unable to store template asset in [{$directory}].",
+            );
         }
 
         return $path;
     }
 
     /**
-     * Decode a validated layout configuration into its persisted array representation.
+     * Decode validated layout JSON into its persisted array representation.
      *
      * @return array<string, mixed>
      */
     private function decodeLayoutConfiguration(string $configuration): array
     {
-        $decoded = json_decode($configuration, true, flags: JSON_THROW_ON_ERROR);
+        $decoded = json_decode(
+            $configuration,
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
 
         if (! is_array($decoded) || array_is_list($decoded)) {
-            throw new RuntimeException('The validated template layout configuration is invalid.');
+            throw new RuntimeException(
+                'The validated template layout configuration is invalid.',
+            );
         }
 
         return $decoded;
     }
 
     /**
-     * Delete unique template asset paths from the public filesystem disk.
+     * Delete unique unreferenced template asset paths from the public disk.
      *
      * @param  array<int, string>  $paths
      */
@@ -301,6 +419,8 @@ class TemplateController extends Controller
             return;
         }
 
-        Storage::disk('public')->delete(array_values(array_unique($paths)));
+        Storage::disk('public')->delete(
+            array_values(array_unique($paths)),
+        );
     }
 }

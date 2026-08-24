@@ -25,7 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $currency
  * @property PaymentMethod|null $payment_method
  * @property int|null $required_capture_count
- * @property array{layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}|null $template_snapshot
+ * @property array{name?: string, layout_path?: string, layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}|null $template_snapshot
  * @property array<string, mixed>|null $sticker_snapshot
  * @property Carbon|null $started_at
  * @property Carbon|null $expires_at

@@ -6,10 +6,10 @@ import type {
 import { cn } from '@/lib/utils';
 
 const CANVAS_SCALE = 4;
+
 /**
  * Keep these ratios numerically identical to
- * App\Services\ColorCompositionService::STICKER_SIZE_RATIO and
- * STICKER_MARGIN_RATIO so browser previews match generated output.
+ * App\Services\ColorCompositionService so browser previews match output.
  */
 const STICKER_SIZE_RATIO = 0.22;
 const STICKER_MARGIN_RATIO = 0.03;
@@ -30,11 +30,17 @@ const coverSourceRect = (
     image: HTMLImageElement,
     destWidth: number,
     destHeight: number,
-): { sx: number; sy: number; sWidth: number; sHeight: number } => {
+): {
+    sx: number;
+    sy: number;
+    sWidth: number;
+    sHeight: number;
+} => {
     const scale = Math.max(
         destWidth / image.naturalWidth,
         destHeight / image.naturalHeight,
     );
+
     const sWidth = destWidth / scale;
     const sHeight = destHeight / scale;
 
@@ -47,8 +53,7 @@ const coverSourceRect = (
 };
 
 /**
- * Reads validated-looking template slots for preview rendering while ignoring
- * malformed entries instead of allowing browser preview code to throw.
+ * Reads validated-looking template slots for browser preview rendering.
  */
 const readLayoutSlots = (
     layoutConfig: Record<string, unknown> | null,
@@ -74,11 +79,12 @@ const readLayoutSlots = (
 
 /**
  * Loads a browser image with anonymous CORS enabled so public-disk assets can
- * be composed into a canvas without changing their repository storage rules.
+ * be safely used by Canvas when storage CORS is configured.
  */
 const loadImage = (source: string): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
         const image = new Image();
+
         image.crossOrigin = 'anonymous';
         image.onload = () => resolve(image);
         image.onerror = () => reject(new Error(`Failed to load ${source}`));
@@ -86,9 +92,8 @@ const loadImage = (source: string): Promise<HTMLImageElement> =>
     });
 
 /**
- * Draws the same photo-slot and sticker composition used by the final preview,
- * allowing both sticker selection and confirmation screens to share one
- * rendering implementation.
+ * Draw the same canonical composition ordering as ColorCompositionService:
+ * white base, captured photos, transparent template frame, then sticker.
  */
 export function PhotoCompositionPreview({
     capturedPhotos,
@@ -118,6 +123,9 @@ export function PhotoCompositionPreview({
         canvas.width = template.printWidthMm * CANVAS_SCALE;
         canvas.height = template.printHeightMm * CANVAS_SCALE;
 
+        /**
+         * Compose the current customer preview without persisting any state.
+         */
         const compose = async () => {
             context.fillStyle = '#ffffff';
             context.fillRect(0, 0, canvas.width, canvas.height);
@@ -140,6 +148,7 @@ export function PhotoCompositionPreview({
 
                 const destWidth = slot.width * CANVAS_SCALE;
                 const destHeight = slot.height * CANVAS_SCALE;
+
                 const source = coverSourceRect(image, destWidth, destHeight);
 
                 context.drawImage(
@@ -155,6 +164,22 @@ export function PhotoCompositionPreview({
                 );
             }
 
+            if (template.layoutUrl) {
+                const templateImage = await loadImage(template.layoutUrl);
+
+                if (cancelled) {
+                    return;
+                }
+
+                context.drawImage(
+                    templateImage,
+                    0,
+                    0,
+                    canvas.width,
+                    canvas.height,
+                );
+            }
+
             if (!sticker) {
                 return;
             }
@@ -166,7 +191,9 @@ export function PhotoCompositionPreview({
             }
 
             const stickerSize = canvas.width * STICKER_SIZE_RATIO;
+
             const margin = canvas.width * STICKER_MARGIN_RATIO;
+
             const stickerSource = coverSourceRect(
                 stickerImage,
                 stickerSize,

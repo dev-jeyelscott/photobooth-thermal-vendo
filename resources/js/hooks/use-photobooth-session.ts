@@ -44,6 +44,7 @@ type StartSessionFailure = {
 export type PhotoTemplateOption = {
     id: number;
     name: string;
+    layoutUrl?: string | null;
     thumbnailPath: string | null;
     photoSlots: number;
     layoutConfig: Record<string, unknown> | null;

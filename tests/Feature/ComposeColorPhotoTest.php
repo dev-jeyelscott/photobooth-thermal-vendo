@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Processing\ComposeColorPhoto;
 use App\Enums\PhotoboothSessionStatus;
 use App\Jobs\ProcessPrintJob;
 use App\Models\CapturedMedia;
@@ -36,6 +37,8 @@ test('composing the final color photo uses the template snapshot taken at select
         'print_width_mm' => 100,
         'print_height_mm' => 50,
     ]);
+
+    storeComposeColorPhotoTransparentFrame($template);
 
     $session = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::Paid,
@@ -107,6 +110,8 @@ test('composing the final color photo uses the sticker placement snapshot taken 
         'print_height_mm' => 100,
     ]);
 
+    storeComposeColorPhotoTransparentFrame($template);
+
     $session = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::Paid,
         'photo_template_id' => null,
@@ -154,6 +159,8 @@ test('re-submitting composition after a session has already advanced past Proces
         'print_height_mm' => 50,
     ]);
 
+    storeComposeColorPhotoTransparentFrame($template);
+
     $session = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::Paid,
         'photo_template_id' => null,
@@ -195,6 +202,8 @@ test('re-running composition while a session is still Processing overwrites the 
         'print_height_mm' => 50,
     ]);
 
+    storeComposeColorPhotoTransparentFrame($template);
+
     $session = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::Processing,
         'photo_template_id' => $template->id,
@@ -219,3 +228,90 @@ test('re-running composition while a session is still Processing overwrites the 
 
     Queue::assertPushed(ProcessPrintJob::class, 1);
 });
+
+test('legacy template snapshot without layout_path falls back to the existing live frame', function () {
+    Storage::fake('public');
+    Queue::fake([ProcessPrintJob::class]);
+
+    $template = PhotoTemplate::factory()->create([
+        'photo_slots' => 1,
+        'layout_config' => [
+            'slots' => [
+                [
+                    'slot' => 1,
+                    'x' => 0,
+                    'y' => 0,
+                    'width' => 50,
+                    'height' => 50,
+                ],
+            ],
+        ],
+        'print_width_mm' => 50,
+        'print_height_mm' => 50,
+    ]);
+
+    storeComposeColorPhotoTransparentFrame($template);
+
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Customizing,
+        'photo_template_id' => $template->id,
+        'template_snapshot' => [
+            'layout_config' => $template->layout_config,
+            'photo_slots' => 1,
+            'print_width_mm' => 50,
+            'print_height_mm' => 50,
+        ],
+    ]);
+
+    $photo = 'data:image/png;base64,'.base64_encode(
+        composeColorPhotoTestPng(),
+    );
+
+    $capturedMedia = app(ComposeColorPhoto::class)->handle(
+        $session,
+        [$photo],
+    );
+
+    expect($capturedMedia)
+        ->not->toBeNull()
+        ->and($capturedMedia->color_path)
+        ->not->toBeNull();
+
+    Storage::disk('public')->assertExists(
+        $capturedMedia->color_path,
+    );
+});
+
+/**
+ * Store a fully transparent frame so snapshot-aware composition tests retain
+ * their previous visual expectations while exercising the real frame layer.
+ */
+function storeComposeColorPhotoTransparentFrame(PhotoTemplate $template): void
+{
+    $image = imagecreatetruecolor(20, 20);
+
+    imagealphablending($image, false);
+    imagesavealpha($image, true);
+
+    imagefill(
+        $image,
+        0,
+        0,
+        imagecolorallocatealpha(
+            $image,
+            255,
+            255,
+            255,
+            127,
+        ),
+    );
+
+    ob_start();
+    imagepng($image);
+    imagedestroy($image);
+
+    Storage::disk('public')->put(
+        $template->layout_path,
+        ob_get_clean(),
+    );
+}

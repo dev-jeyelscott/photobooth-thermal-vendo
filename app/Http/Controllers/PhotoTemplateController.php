@@ -7,6 +7,7 @@ use App\Models\PhotoboothSession;
 use App\Models\PhotoTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class PhotoTemplateController extends Controller
 {
@@ -24,6 +25,7 @@ class PhotoTemplateController extends Controller
                 'name' => $template->name,
                 'slug' => $template->slug,
                 'orientation' => $template->orientation,
+                'layoutUrl' => Storage::disk('public')->url($template->layout_path),
                 'thumbnailPath' => $template->thumbnail_path,
                 'photoSlots' => $template->photo_slots,
                 'layoutConfig' => $template->layout_config,
@@ -37,9 +39,15 @@ class PhotoTemplateController extends Controller
     /**
      * Select a template for the given photobooth session.
      */
-    public function store(string $sessionToken, Request $request, SelectPhotoTemplate $selectPhotoTemplate): JsonResponse
-    {
-        $session = PhotoboothSession::where('session_token', $sessionToken)->first();
+    public function store(
+        string $sessionToken,
+        Request $request,
+        SelectPhotoTemplate $selectPhotoTemplate,
+    ): JsonResponse {
+        $session = PhotoboothSession::where(
+            'session_token',
+            $sessionToken,
+        )->first();
 
         if (! $session) {
             return response()->json(['message' => 'Session not found.'], 404);
@@ -49,7 +57,10 @@ class PhotoTemplateController extends Controller
             'photoTemplateId' => ['required', 'integer'],
         ]);
 
-        $selected = $selectPhotoTemplate->handle($session, $validated['photoTemplateId']);
+        $selected = $selectPhotoTemplate->handle(
+            $session,
+            $validated['photoTemplateId'],
+        );
 
         if (! $selected) {
             return response()->json([

@@ -26,14 +26,9 @@ class ComposeColorPhoto
      * Compose the session's confirmed captured photos into the final color
      * print, a grayscale thermal-print-optimized derivative, and an animated
      * GIF for digital delivery, advancing the session to Processing and
-     * persisting the result paths to captured_media.color_path,
-     * captured_media.bw_path, and captured_media.gif_path.
+     * persisting the result paths to captured_media.
      *
-     * Returns null when the session is expired, has no template selected,
-     * is not in a state that can reach Processing, or too few photos were
-     * supplied for the template's photo slots.
-     *
-     * @param  list<string>  $photos  Raw image sources (data URIs, base64, or binary), in shot order.
+     * @param  list<string>  $photos
      */
     public function handle(PhotoboothSession $session, array $photos): ?CapturedMedia
     {
@@ -43,9 +38,17 @@ class ComposeColorPhoto
 
         $templateSnapshot = $this->templateSnapshot($session);
 
-        $composite = $this->colorComposition->compose($templateSnapshot, $photos, $this->stickerSnapshot($session));
+        $composite = $this->colorComposition->compose(
+            $templateSnapshot,
+            $photos,
+            $this->stickerSnapshot($session),
+        );
+
         $blackAndWhite = $this->colorComposition->toBlackAndWhite($composite);
-        $gif = $this->gifComposition->compose($photos, (float) config('photobooth.gif_frame_duration_seconds'));
+        $gif = $this->gifComposition->compose(
+            $photos,
+            (float) config('photobooth.gif_frame_duration_seconds'),
+        );
 
         $colorPath = 'captures/'.$session->session_token.'-color.jpg';
         $bwPath = 'captures/'.$session->session_token.'-bw.jpg';
@@ -63,8 +66,15 @@ class ComposeColorPhoto
 
         Storage::disk('public')->put($gifPath, (string) $gif);
 
-        return DB::transaction(function () use ($session, $colorPath, $bwPath, $gifPath): CapturedMedia {
-            $session = PhotoboothSession::whereKey($session->id)->lockForUpdate()->first();
+        return DB::transaction(function () use (
+            $session,
+            $colorPath,
+            $bwPath,
+            $gifPath,
+        ): CapturedMedia {
+            $session = PhotoboothSession::whereKey($session->id)
+                ->lockForUpdate()
+                ->first();
 
             $existingMedia = $session->capturedMedia()->first();
 
@@ -89,7 +99,9 @@ class ComposeColorPhoto
                     'color_path' => $colorPath,
                     'bw_path' => $bwPath,
                     'gif_path' => $gifPath,
-                    'expires_at' => now()->addHours((int) config('photobooth.gallery_expiration_hours')),
+                    'expires_at' => now()->addHours(
+                        (int) config('photobooth.gallery_expiration_hours'),
+                    ),
                 ],
             );
 
@@ -103,9 +115,7 @@ class ComposeColorPhoto
 
     /**
      * Determine whether the session and supplied photos are eligible for
-     * composition, expiring the session as a side effect if its deadline has
-     * passed. Used both to fast-fail the request before a job is queued and
-     * to guard the queued job itself against stale or invalid state.
+     * composition.
      *
      * @param  list<string>  $photos
      */
@@ -134,28 +144,34 @@ class ComposeColorPhoto
     }
 
     /**
-     * Resolve the rendering-critical template configuration from the
-     * session's snapshot, taken at template-selection time, so later edits
-     * to the PhotoTemplate do not affect an in-flight or completed session.
-     * Falls back to the live relation only if the session predates
-     * snapshotting.
+     * Resolve rendering-critical template configuration from the immutable
+     * selection-time snapshot. Historical snapshots that predate layout_path
+     * may fall back to a still-existing live public-disk frame.
      *
-     * @return array{layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}
+     * @return array{layout_path: string|null, layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}
      */
     private function templateSnapshot(PhotoboothSession $session): array
     {
         if ($session->template_snapshot !== null) {
+            $snapshot = $session->template_snapshot;
+
+            $layoutPath = array_key_exists('layout_path', $snapshot)
+                ? (is_string($snapshot['layout_path']) ? $snapshot['layout_path'] : null)
+                : $this->legacyLayoutPath($session);
+
             return [
-                'layout_config' => $session->template_snapshot['layout_config'],
-                'photo_slots' => $session->template_snapshot['photo_slots'],
-                'print_width_mm' => $session->template_snapshot['print_width_mm'],
-                'print_height_mm' => $session->template_snapshot['print_height_mm'],
+                'layout_path' => $layoutPath,
+                'layout_config' => $snapshot['layout_config'],
+                'photo_slots' => $snapshot['photo_slots'],
+                'print_width_mm' => $snapshot['print_width_mm'],
+                'print_height_mm' => $snapshot['print_height_mm'],
             ];
         }
 
         $template = $session->photoTemplate;
 
         return [
+            'layout_path' => $this->legacyLayoutPath($session),
             'layout_config' => $template->layout_config,
             'photo_slots' => $template->photo_slots,
             'print_width_mm' => $template->print_width_mm,
@@ -164,11 +180,27 @@ class ComposeColorPhoto
     }
 
     /**
-     * Resolve the rendering-critical sticker configuration from the
-     * session's snapshot, taken at sticker-selection time, so a later edit
-     * to the StickerDesign's asset does not affect an in-flight or
-     * completed session. Falls back to the live relation only if the
-     * session predates snapshotting.
+     * Return a legacy live-template frame only when its public-disk asset still
+     * exists. Newly created snapshots do not use this fallback.
+     */
+    private function legacyLayoutPath(PhotoboothSession $session): ?string
+    {
+        $layoutPath = $session->photoTemplate?->layout_path;
+
+        if (
+            ! is_string($layoutPath)
+            || $layoutPath === ''
+            || ! Storage::disk('public')->exists($layoutPath)
+        ) {
+            return null;
+        }
+
+        return $layoutPath;
+    }
+
+    /**
+     * Resolve the selected sticker from its immutable session snapshot or,
+     * for legacy sessions, the existing live relationship.
      *
      * @return array{asset_path: string, placement: array<string, mixed>|null}|null
      */
