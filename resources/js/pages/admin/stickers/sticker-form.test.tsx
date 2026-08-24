@@ -82,6 +82,14 @@ const existingSticker = {
     templateIds: [7],
 };
 
+/**
+ * Resolve the primary sticker asset file input without coupling tests to the
+ * decorative required-field marker rendered alongside its visible label.
+ */
+function getStickerAssetInput(): HTMLElement {
+    return screen.getByLabelText(/^Sticker asset/);
+}
+
 beforeEach(() => {
     formErrors.current = {};
     createObjectUrlMock.mockClear();
@@ -141,12 +149,12 @@ describe('sticker form browser payload contract', () => {
             />,
         );
 
-        expect(screen.getByLabelText('Name')).toHaveAttribute('name', 'name');
-
-        expect(screen.getByLabelText('Sticker asset')).toHaveAttribute(
+        expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAttribute(
             'name',
-            'asset',
+            'name',
         );
+
+        expect(getStickerAssetInput()).toHaveAttribute('name', 'asset');
 
         expect(screen.getByLabelText('Thumbnail (optional)')).toHaveAttribute(
             'name',
@@ -175,7 +183,7 @@ describe('sticker form browser payload contract', () => {
             />,
         );
 
-        const createAsset = screen.getByLabelText('Sticker asset');
+        const createAsset = getStickerAssetInput();
 
         expect(createAsset).toHaveAttribute('type', 'file');
         expect(createAsset).toBeRequired();
@@ -196,7 +204,7 @@ describe('sticker form browser payload contract', () => {
             />,
         );
 
-        expect(screen.getByLabelText('Sticker asset')).not.toBeRequired();
+        expect(getStickerAssetInput()).not.toBeRequired();
     });
 
     it('submits compatible template ids using the expected array field', () => {
@@ -250,7 +258,9 @@ describe('sticker form browser payload contract', () => {
         ).toHaveAttribute('href', existingSticker.assetUrl);
 
         expect(
-            screen.getByRole('link', { name: 'View current thumbnail' }),
+            screen.getByRole('link', {
+                name: /^View current thumbnail/,
+            }),
         ).toHaveAttribute('href', existingSticker.thumbnailUrl);
     });
 
@@ -266,7 +276,7 @@ describe('sticker form browser payload contract', () => {
             type: 'image/png',
         });
 
-        const input = screen.getByLabelText('Sticker asset');
+        const input = getStickerAssetInput();
 
         fireEvent.change(input, {
             target: {
@@ -298,7 +308,7 @@ describe('sticker form browser payload contract', () => {
             type: 'image/png',
         });
 
-        fireEvent.change(screen.getByLabelText('Sticker asset'), {
+        fireEvent.change(getStickerAssetInput(), {
             target: {
                 files: [file],
             },
@@ -323,7 +333,9 @@ describe('sticker form accessibility', () => {
             />,
         );
 
-        const nameInput = screen.getByLabelText('Name');
+        const nameInput = screen.getByRole('textbox', {
+            name: 'Name',
+        });
 
         expect(nameInput).toHaveAttribute('aria-invalid', 'true');
         expect(nameInput).toHaveAttribute('aria-describedby', 'name-error');
