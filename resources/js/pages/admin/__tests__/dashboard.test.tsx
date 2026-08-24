@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { ComponentProps, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -174,12 +174,20 @@ describe('admin dashboard', () => {
             screen.getByText('Aug 17, 2026 - Aug 23, 2026'),
         ).toBeInTheDocument();
 
-        expect(screen.getByText("Today's Sales")).toBeInTheDocument();
-        expect(screen.getByText('Sessions Today')).toBeInTheDocument();
+        const kpiRegion = screen.getByRole('region', {
+            name: 'Dashboard key performance indicators',
+        });
+
+        expect(
+            within(kpiRegion).getByText("Today's Sales"),
+        ).toBeInTheDocument();
+        expect(
+            within(kpiRegion).getByText('Sessions Today'),
+        ).toBeInTheDocument();
         expect(screen.getAllByText('Pending Payments')).toHaveLength(2);
         expect(screen.getAllByText('Failed Print Jobs')).toHaveLength(2);
-        expect(screen.getByText('₱150')).toBeInTheDocument();
-        expect(screen.getByText('₱50')).toBeInTheDocument();
+        expect(within(kpiRegion).getByText('₱150')).toBeInTheDocument();
+        expect(within(kpiRegion).getByText('₱50')).toBeInTheDocument();
         expect(screen.getByText('₱50 total')).toBeInTheDocument();
         expect(screen.getByText('25%')).toBeInTheDocument();
         expect(screen.getAllByText('vs yesterday')).toHaveLength(2);
