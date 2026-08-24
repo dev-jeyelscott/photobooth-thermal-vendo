@@ -2,6 +2,7 @@ import {
     fireEvent,
     render as testingLibraryRender,
     screen,
+    within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement, ReactNode } from 'react';
@@ -172,7 +173,7 @@ describe('template form browser payload contract', () => {
             />,
         );
 
-        expect(screen.getByLabelText('Layout Asset')).toBeRequired();
+        expect(screen.getByLabelText(/^Layout Asset/)).toBeRequired();
 
         unmount();
 
@@ -186,7 +187,7 @@ describe('template form browser payload contract', () => {
             />,
         );
 
-        expect(screen.getByLabelText('Layout Asset')).not.toBeRequired();
+        expect(screen.getByLabelText(/^Layout Asset/)).not.toBeRequired();
     });
 
     it('renders usable links for current stored assets', () => {
@@ -226,14 +227,14 @@ describe('template form browser payload contract', () => {
             type: 'image/png',
         });
 
-        await user.upload(screen.getByLabelText('Layout Asset'), file);
+        await user.upload(screen.getByLabelText(/^Layout Asset/), file);
 
         expect(screen.getByAltText('Layout Asset preview')).toHaveAttribute(
             'src',
             'blob:new-layout.png',
         );
 
-        expect(screen.getByLabelText('Layout Asset')).toHaveAttribute(
+        expect(screen.getByLabelText(/^Layout Asset/)).toHaveAttribute(
             'name',
             'layout',
         );
@@ -247,11 +248,11 @@ describe('template form browser payload contract', () => {
             />,
         );
 
-        expect(screen.getByLabelText('Photo Slots')).toHaveValue(1);
+        expect(screen.getByLabelText(/^Photo Slots/)).toHaveValue(1);
 
         await user.click(screen.getByRole('button', { name: 'Add Slot' }));
 
-        expect(screen.getByLabelText('Photo Slots')).toHaveValue(2);
+        expect(screen.getByLabelText(/^Photo Slots/)).toHaveValue(2);
 
         const layoutInput = container.querySelector(
             'input[name="layout_config"]',
@@ -270,7 +271,7 @@ describe('template form browser payload contract', () => {
 
         await user.click(screen.getByRole('button', { name: 'Remove slot 2' }));
 
-        expect(screen.getByLabelText('Photo Slots')).toHaveValue(1);
+        expect(screen.getByLabelText(/^Photo Slots/)).toHaveValue(1);
     });
 
     it('applies valid advanced JSON back into the canonical slot state', async () => {
@@ -312,7 +313,7 @@ describe('template form browser payload contract', () => {
 
         await user.click(screen.getByRole('button', { name: 'Apply JSON' }));
 
-        expect(screen.getByLabelText('Photo Slots')).toHaveValue(2);
+        expect(screen.getByLabelText(/^Photo Slots/)).toHaveValue(2);
 
         const layoutInput = container.querySelector(
             'input[name="layout_config"]',
@@ -352,7 +353,7 @@ describe('template form browser payload contract', () => {
             screen.getByText('Layout JSON must be valid JSON.'),
         ).toHaveAttribute('role', 'alert');
 
-        expect(screen.getByLabelText('Photo Slots')).toHaveValue(1);
+        expect(screen.getByLabelText(/^Photo Slots/)).toHaveValue(1);
     });
 });
 
@@ -368,10 +369,18 @@ describe('template form edit presentation', () => {
             />,
         );
 
-        expect(screen.getByText('Template Summary')).toBeInTheDocument();
-        expect(screen.getByText('100 mm × 150 mm')).toBeInTheDocument();
+        const summaryHeading = screen.getByText('Template Summary');
+        const summaryCard = summaryHeading.closest('[data-slot="card"]');
+
+        expect(summaryCard).not.toBeNull();
+        expect(
+            within(summaryCard as HTMLElement).getByText('100 mm × 150 mm'),
+        ).toBeInTheDocument();
+        expect(
+            within(summaryCard as HTMLElement).getByText('Inactive'),
+        ).toBeInTheDocument();
+
         expect(screen.getByText('Template Metadata')).toBeInTheDocument();
-        expect(screen.getByText('Inactive')).toBeInTheDocument();
     });
 
     it('uses the existing Wayfinder destroy form inside the confirmation dialog', async () => {
@@ -388,11 +397,15 @@ describe('template form edit presentation', () => {
         );
 
         await user.click(
-            screen.getByRole('button', { name: 'Delete Template' }),
+            screen.getByRole('button', {
+                name: 'Delete Template',
+            }),
         );
 
         expect(
-            screen.getByRole('heading', { name: 'Delete template?' }),
+            screen.getByRole('heading', {
+                name: 'Delete template?',
+            }),
         ).toBeInTheDocument();
 
         const deleteForm = document.querySelector(
@@ -416,7 +429,7 @@ describe('template form accessibility', () => {
             />,
         );
 
-        const nameInput = screen.getByLabelText('Template Name');
+        const nameInput = screen.getByLabelText(/^Template Name/);
 
         expect(nameInput).toHaveAttribute('aria-invalid', 'true');
         expect(nameInput).toHaveAttribute('aria-describedby', 'name-error');
