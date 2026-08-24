@@ -12,8 +12,8 @@ import TemplateForm, {
     detectBoundedTransparentRegion,
     normalizedRectangleFromPoints,
     normalizedRectangleToMillimeters,
-    type TransparencyImageData,
 } from './template-form';
+import type { TransparencyImageData } from './template-form';
 
 const formErrors = vi.hoisted(() => ({
     current: {} as Record<string, string>,

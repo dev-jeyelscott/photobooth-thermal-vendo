@@ -14,13 +14,8 @@ import {
     TriangleAlert,
     Upload,
 } from 'lucide-react';
-import {
-    useEffect,
-    useRef,
-    useState,
-    type PointerEvent as ReactPointerEvent,
-    type ReactNode,
-} from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import TemplateController from '@/actions/App/Http/Controllers/Admin/TemplateController';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
