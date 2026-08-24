@@ -135,7 +135,7 @@ describe('template management calculations', () => {
         });
     });
 
-    it('filters by search and status and sorts without mutating priority order', () => {
+    it('filters by search, status, and photo slots and sorts without mutating display order', () => {
         expect(
             filterAndSortTemplates(templates, 'legacy', 'all', 'priority').map(
                 (template) => template.id,
@@ -147,6 +147,12 @@ describe('template management calculations', () => {
                 (template) => template.id,
             ),
         ).toEqual([4]);
+
+        expect(
+            filterAndSortTemplates(templates, '', 'all', 'priority', '2').map(
+                (template) => template.id,
+            ),
+        ).toEqual([2, 3]);
 
         expect(
             filterAndSortTemplates(templates, '', 'all', 'name').map(
@@ -162,7 +168,7 @@ describe('template management calculations', () => {
 });
 
 describe('templates index page', () => {
-    it('renders the operator-focused summary and template payload', () => {
+    it('renders the redesigned summary, management table, and template payload', () => {
         render(<TemplatesIndex templates={templates} />);
 
         expect(
@@ -170,7 +176,7 @@ describe('templates index page', () => {
         ).toBeInTheDocument();
 
         expect(
-            screen.getByRole('link', { name: 'New Template' }),
+            screen.getByRole('link', { name: 'Create Template' }),
         ).toHaveAttribute('href', '/admin/templates/create');
 
         expect(
@@ -178,15 +184,26 @@ describe('templates index page', () => {
         ).toBeInTheDocument();
 
         expect(
-            within(screen.getByLabelText('Active')).getByText('3'),
+            within(screen.getByLabelText('Active Templates')).getByText('3'),
         ).toBeInTheDocument();
 
         expect(
-            within(screen.getByLabelText('Inactive')).getByText('1'),
+            within(screen.getByLabelText('Inactive Templates')).getByText('1'),
         ).toBeInTheDocument();
 
         expect(
-            within(screen.getByLabelText('Avg Photo Slots')).getByText('2.3'),
+            within(screen.getByLabelText('Average Photo Slots')).getByText(
+                '2.3',
+            ),
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByRole('table', { name: 'Photo templates' }),
+        ).toBeInTheDocument();
+
+        const table = screen.getByRole('table', { name: 'Photo templates' });
+        expect(
+            within(table).getByRole('columnheader', { name: 'Display Order' }),
         ).toBeInTheDocument();
     });
 
@@ -205,11 +222,11 @@ describe('templates index page', () => {
         rerender(<TemplatesIndex templates={refreshedTemplates} />);
 
         expect(
-            within(screen.getByLabelText('Active')).getByText('2'),
+            within(screen.getByLabelText('Active Templates')).getByText('2'),
         ).toBeInTheDocument();
 
         expect(
-            within(screen.getByLabelText('Inactive')).getByText('2'),
+            within(screen.getByLabelText('Inactive Templates')).getByText('2'),
         ).toBeInTheDocument();
 
         expect(
@@ -283,7 +300,7 @@ describe('templates index page', () => {
         );
     });
 
-    it('exposes accessible drag, toggle, edit, and delete controls', () => {
+    it('exposes accessible drag, toggle, edit, move, and delete controls', () => {
         render(<TemplatesIndex templates={templates} />);
 
         expect(
@@ -298,18 +315,17 @@ describe('templates index page', () => {
             }),
         ).toBeInTheDocument();
 
-        const editLinks = screen.getAllByRole('link', {
-            name: 'Edit',
-        });
+        expect(
+            screen.getByRole('link', {
+                name: 'Edit ThermaSnap Classic Strip',
+            }),
+        ).toHaveAttribute('href', '/admin/templates/1/edit');
 
-        expect(editLinks).toHaveLength(4);
-
-        expect(editLinks.map((link) => link.getAttribute('href'))).toEqual([
-            '/admin/templates/1/edit',
-            '/admin/templates/2/edit',
-            '/admin/templates/3/edit',
-            '/admin/templates/4/edit',
-        ]);
+        expect(
+            screen.getByRole('button', {
+                name: 'Move ThermaSnap Classic Strip down',
+            }),
+        ).toBeInTheDocument();
 
         expect(
             screen.getByRole('button', {
@@ -324,7 +340,7 @@ describe('templates index page', () => {
         expect(screen.getByText('No templates yet.')).toBeInTheDocument();
 
         expect(
-            screen.getByRole('link', { name: 'New Template' }),
+            screen.getByRole('link', { name: 'Create Template' }),
         ).toHaveAttribute('href', '/admin/templates/create');
     });
 });

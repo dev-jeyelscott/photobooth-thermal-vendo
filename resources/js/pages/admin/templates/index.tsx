@@ -24,7 +24,6 @@ import {
     GripVertical,
     ImageIcon,
     Images,
-    Info,
     LayoutGrid,
     Pencil,
     Plus,
@@ -88,7 +87,7 @@ type TemplateSummary = {
     averagePhotoSlots: string;
 };
 
-type SummaryTone = 'primary' | 'success' | 'warning' | 'info';
+type SummaryTone = 'primary' | 'success' | 'neutral' | 'info';
 
 /**
  * Calculate high-level template statistics directly from the existing page
@@ -113,14 +112,15 @@ export function getTemplateSummary(templates: Template[]): TemplateSummary {
 }
 
 /**
- * Apply the page's client-side search, status filter, and visual sorting while
- * preserving the server-backed priority order when Priority is selected.
+ * Apply the page's client-side search, status filter, photo-slot filter, and
+ * visual sorting while preserving server-backed display order by default.
  */
 export function filterAndSortTemplates(
     templates: Template[],
     search: string,
     statusFilter: TemplateStatusFilter,
     sortOption: TemplateSortOption,
+    photoSlotsFilter = 'all',
 ): Template[] {
     const normalizedSearch = search.trim().toLowerCase();
 
@@ -136,7 +136,11 @@ export function filterAndSortTemplates(
             (statusFilter === 'active' && template.active) ||
             (statusFilter === 'inactive' && !template.active);
 
-        return matchesSearch && matchesStatus;
+        const matchesPhotoSlots =
+            photoSlotsFilter === 'all' ||
+            template.photoSlots === Number(photoSlotsFilter);
+
+        return matchesSearch && matchesStatus && matchesPhotoSlots;
     });
 
     if (sortOption === 'priority') {
@@ -157,7 +161,7 @@ export function filterAndSortTemplates(
 }
 
 /**
- * Render one concise summary card with a consistent semantic visual treatment.
+ * Render one compact summary metric using the canonical semantic color system.
  */
 function SummaryCard({
     label,
@@ -173,35 +177,38 @@ function SummaryCard({
     tone: SummaryTone;
 }) {
     const toneClasses: Record<SummaryTone, string> = {
-        primary:
-            'bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300',
-        success:
-            'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
-        warning:
-            'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
-        info: 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300',
+        primary: 'bg-primary/10 text-primary',
+        success: 'bg-success-subtle text-success',
+        neutral: 'bg-muted text-muted-foreground',
+        info: 'bg-info-subtle text-info',
     };
 
     return (
         <Card
             aria-label={label}
-            className="gap-0 px-5 py-5 shadow-sm transition-shadow hover:shadow-md"
+            className="gap-0 rounded-xl px-5 py-4 shadow-xs"
         >
-            <div className="flex items-center gap-4">
-                <div
-                    className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${toneClasses[tone]}`}
-                >
-                    {icon}
-                </div>
-
+            <div className="flex min-h-20 items-center justify-between gap-4">
                 <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground">{label}</p>
-                    <p className="mt-0.5 text-2xl font-semibold tracking-tight">
+                    <div className="flex items-center gap-1.5">
+                        <p className="text-card-title">{label}</p>
+                        <span
+                            className="size-1.5 rounded-full bg-muted-foreground/35"
+                            aria-hidden="true"
+                        />
+                    </div>
+                    <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
                         {value}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 text-caption text-muted-foreground">
                         {description}
                     </p>
+                </div>
+
+                <div
+                    className={`flex size-12 shrink-0 items-center justify-center rounded-full ${toneClasses[tone]}`}
+                >
+                    {icon}
                 </div>
             </div>
         </Card>
@@ -215,7 +222,7 @@ function SummaryCard({
 function TemplatePreview({ template }: { template: Template }) {
     if (template.thumbnailUrl !== null) {
         return (
-            <div className="flex size-[72px] items-center justify-center overflow-hidden rounded-lg border bg-muted/30 xl:size-20">
+            <div className="flex h-14 w-20 items-center justify-center overflow-hidden rounded-md border bg-muted/20">
                 <img
                     src={template.thumbnailUrl}
                     alt={`${template.name} preview`}
@@ -226,8 +233,8 @@ function TemplatePreview({ template }: { template: Template }) {
     }
 
     return (
-        <div className="flex size-[72px] items-center justify-center rounded-lg border bg-muted/40 text-muted-foreground xl:size-20">
-            <ImageIcon className="size-7" aria-hidden="true" />
+        <div className="flex h-14 w-20 items-center justify-center rounded-md border bg-muted/35 text-muted-foreground">
+            <ImageIcon className="size-5" aria-hidden="true" />
             <span className="sr-only">
                 Preview unavailable for {template.name}
             </span>
@@ -236,10 +243,37 @@ function TemplatePreview({ template }: { template: Template }) {
 }
 
 /**
- * Render a sortable template row and preserve all existing management actions.
+ * Render the active or inactive template state using canonical semantic status
+ * colors and a text label so state is never communicated by color alone.
+ */
+function TemplateStatusBadge({ active }: { active: boolean }) {
+    return (
+        <Badge
+            variant="outline"
+            className={
+                active
+                    ? 'gap-1.5 border-success/25 bg-success-subtle text-success-foreground'
+                    : 'gap-1.5 border-border bg-muted text-muted-foreground'
+            }
+        >
+            <span
+                className={`size-1.5 rounded-full ${
+                    active ? 'bg-success' : 'bg-muted-foreground'
+                }`}
+                aria-hidden="true"
+            />
+            {active ? 'Active' : 'Inactive'}
+        </Badge>
+    );
+}
+
+/**
+ * Render one sortable semantic table row while preserving edit, toggle,
+ * accessible arrow reordering, drag reordering, and guarded deletion.
  */
 function SortableTemplateRow({
     template,
+    displayOrder,
     reorderEnabled,
     reordering,
     canMoveUp,
@@ -247,6 +281,7 @@ function SortableTemplateRow({
     onMove,
 }: {
     template: Template;
+    displayOrder: number;
     reorderEnabled: boolean;
     reordering: boolean;
     canMoveUp: boolean;
@@ -267,189 +302,188 @@ function SortableTemplateRow({
     });
 
     return (
-        <div
+        <tr
             ref={setNodeRef}
             style={{
                 transform: CSS.Transform.toString(transform),
                 transition,
             }}
-            className={`grid grid-cols-[auto_72px_minmax(0,1fr)] items-center gap-3 border-t p-4 first:border-t-0 xl:grid-cols-[auto_80px_minmax(220px,1fr)_140px_110px_auto] xl:gap-4 ${
+            className={
                 isDragging
-                    ? 'relative z-10 bg-background shadow-lg'
-                    : 'bg-background'
-            }`}
+                    ? 'relative z-10 border-t bg-background shadow-md'
+                    : 'border-t bg-background transition-colors hover:bg-muted/20'
+            }
         >
-            <Button
-                ref={setActivatorNodeRef}
-                type="button"
-                variant="ghost"
-                size="icon"
-                disabled={!reorderEnabled || reordering}
-                aria-label={`Drag ${template.name} to reorder`}
-                className="cursor-grab text-muted-foreground active:cursor-grabbing"
-                {...attributes}
-                {...listeners}
-            >
-                <GripVertical aria-hidden="true" />
-            </Button>
-
-            <TemplatePreview template={template} />
-
-            <div className="min-w-0">
-                <p className="truncate font-semibold">{template.name}</p>
-                <p className="mt-1 text-sm text-muted-foreground capitalize">
-                    {template.orientation} · {template.printWidthMm} ×{' '}
-                    {template.printHeightMm} mm
-                </p>
-            </div>
-
-            <div className="col-start-3 flex items-center gap-3 xl:col-start-auto">
-                <Images
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                />
-                <div>
-                    <p className="text-xs text-muted-foreground">Photo Slots</p>
-                    <p className="text-sm font-semibold">
-                        {template.photoSlots}
-                    </p>
-                </div>
-            </div>
-
-            <div className="col-start-3 xl:col-start-auto">
-                <Badge
-                    variant="outline"
-                    className={
-                        template.active
-                            ? 'gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
-                            : 'gap-1.5 border-border bg-muted text-muted-foreground'
-                    }
+            <td className="w-12 px-2 py-table-y text-center">
+                <Button
+                    ref={setActivatorNodeRef}
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={!reorderEnabled || reordering}
+                    aria-label={`Drag ${template.name} to reorder`}
+                    className="size-8 cursor-grab text-muted-foreground active:cursor-grabbing"
+                    {...attributes}
+                    {...listeners}
                 >
-                    <span
-                        className={`size-1.5 rounded-full ${
-                            template.active
-                                ? 'bg-emerald-500'
-                                : 'bg-muted-foreground'
-                        }`}
+                    <GripVertical aria-hidden="true" />
+                </Button>
+            </td>
+
+            <td className="w-28 px-table-x py-table-y text-sm font-medium tabular-nums">
+                {displayOrder}
+            </td>
+
+            <td className="w-28 px-table-x py-table-y">
+                <TemplatePreview template={template} />
+            </td>
+
+            <td className="min-w-64 px-table-x py-table-y">
+                <p className="font-medium text-foreground">{template.name}</p>
+                <p className="mt-0.5 text-caption text-muted-foreground">
+                    {template.slug} · {template.orientation}
+                </p>
+            </td>
+
+            <td className="w-32 px-table-x py-table-y">
+                <div className="flex items-center gap-2">
+                    <Images
+                        className="size-4 text-muted-foreground"
                         aria-hidden="true"
                     />
-                    {template.active ? 'Active' : 'Inactive'}
-                </Badge>
-            </div>
+                    <span className="tabular-nums">{template.photoSlots}</span>
+                </div>
+            </td>
 
-            <div className="col-span-3 flex flex-wrap items-center gap-2 xl:col-span-1 xl:justify-end">
-                <Button asChild variant="outline" size="sm">
-                    <Link href={TemplateController.edit(template.id)}>
-                        <Pencil aria-hidden="true" />
-                        Edit
-                    </Link>
-                </Button>
+            <td className="w-32 px-table-x py-table-y tabular-nums">
+                {template.printWidthMm} × {template.printHeightMm}
+            </td>
 
-                <Form
-                    {...TemplateController.toggle.form(template.id)}
-                    options={{ preserveScroll: true }}
-                >
-                    {({ processing, submit }) => (
-                        <Switch
-                            checked={template.active}
-                            disabled={processing}
-                            onCheckedChange={() => submit()}
-                            aria-label={`${
-                                template.active ? 'Disable' : 'Enable'
-                            } ${template.name}`}
-                        />
-                    )}
-                </Form>
+            <td className="w-32 px-table-x py-table-y">
+                <TemplateStatusBadge active={template.active} />
+            </td>
 
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    disabled={!reorderEnabled || reordering || !canMoveUp}
-                    onClick={() => onMove(template.id, -1)}
-                    aria-label={`Move ${template.name} up`}
-                >
-                    <ArrowUp aria-hidden="true" />
-                </Button>
+            <td className="w-56 px-table-x py-table-y">
+                <div className="flex items-center justify-end gap-1.5">
+                    <Button asChild variant="outline" size="icon">
+                        <Link href={TemplateController.edit(template.id)}>
+                            <Pencil aria-hidden="true" />
+                            <span className="sr-only">
+                                Edit {template.name}
+                            </span>
+                        </Link>
+                    </Button>
 
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    disabled={!reorderEnabled || reordering || !canMoveDown}
-                    onClick={() => onMove(template.id, 1)}
-                    aria-label={`Move ${template.name} down`}
-                >
-                    <ArrowDown aria-hidden="true" />
-                </Button>
+                    <Form
+                        {...TemplateController.toggle.form(template.id)}
+                        options={{ preserveScroll: true }}
+                    >
+                        {({ processing, submit }) => (
+                            <Switch
+                                checked={template.active}
+                                disabled={processing}
+                                onCheckedChange={() => submit()}
+                                aria-label={`${
+                                    template.active ? 'Disable' : 'Enable'
+                                } ${template.name}`}
+                                className="data-[state=checked]:bg-success"
+                            />
+                        )}
+                    </Form>
 
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            aria-label={`Delete ${template.name}`}
-                            className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        >
-                            <Trash2 aria-hidden="true" />
-                        </Button>
-                    </DialogTrigger>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        disabled={!reorderEnabled || reordering || !canMoveUp}
+                        onClick={() => onMove(template.id, -1)}
+                        aria-label={`Move ${template.name} up`}
+                    >
+                        <ArrowUp aria-hidden="true" />
+                    </Button>
 
-                    <DialogContent>
-                        <DialogTitle>
-                            Delete &quot;{template.name}&quot;?
-                        </DialogTitle>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        disabled={!reorderEnabled || reordering || !canMoveDown}
+                        onClick={() => onMove(template.id, 1)}
+                        aria-label={`Move ${template.name} down`}
+                    >
+                        <ArrowDown aria-hidden="true" />
+                    </Button>
 
-                        <DialogDescription>
-                            This cannot be undone. Templates referenced by
-                            existing photobooth sessions cannot be deleted.
-                        </DialogDescription>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                aria-label={`Delete ${template.name}`}
+                                className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                                <Trash2 aria-hidden="true" />
+                            </Button>
+                        </DialogTrigger>
 
-                        <Form
-                            {...TemplateController.destroy.form(template.id)}
-                            options={{ preserveScroll: true }}
-                        >
-                            {({ processing, errors }) => (
-                                <>
-                                    {errors.template && (
-                                        <p className="text-sm text-destructive">
-                                            {errors.template}
-                                        </p>
-                                    )}
+                        <DialogContent>
+                            <DialogTitle>
+                                Delete &quot;{template.name}&quot;?
+                            </DialogTitle>
 
-                                    <DialogFooter className="gap-2">
-                                        <DialogClose asChild>
+                            <DialogDescription>
+                                This cannot be undone. Templates referenced by
+                                existing photobooth sessions cannot be deleted.
+                            </DialogDescription>
+
+                            <Form
+                                {...TemplateController.destroy.form(
+                                    template.id,
+                                )}
+                                options={{ preserveScroll: true }}
+                            >
+                                {({ processing, errors }) => (
+                                    <>
+                                        {errors.template && (
+                                            <p className="text-sm text-destructive">
+                                                {errors.template}
+                                            </p>
+                                        )}
+
+                                        <DialogFooter className="gap-2">
+                                            <DialogClose asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </DialogClose>
+
                                             <Button
-                                                type="button"
-                                                variant="secondary"
+                                                type="submit"
+                                                variant="destructive"
+                                                disabled={processing}
                                             >
-                                                Cancel
+                                                {processing
+                                                    ? 'Deleting...'
+                                                    : 'Delete Template'}
                                             </Button>
-                                        </DialogClose>
-
-                                        <Button
-                                            type="submit"
-                                            variant="destructive"
-                                            disabled={processing}
-                                        >
-                                            {processing
-                                                ? 'Deleting...'
-                                                : 'Delete Template'}
-                                        </Button>
-                                    </DialogFooter>
-                                </>
-                            )}
-                        </Form>
-                    </DialogContent>
-                </Dialog>
-            </div>
-        </div>
+                                        </DialogFooter>
+                                    </>
+                                )}
+                            </Form>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+            </td>
+        </tr>
     );
 }
 
 /**
- * Render the operator-focused template management experience.
+ * Render the operator-focused template management experience using the shared
+ * admin shell, canonical tokens, and the existing Laravel route contracts.
  */
 export default function TemplatesIndex({
     templates,
@@ -466,6 +500,7 @@ export default function TemplatesIndex({
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] =
         useState<TemplateStatusFilter>('all');
+    const [photoSlotsFilter, setPhotoSlotsFilter] = useState('all');
     const [sortOption, setSortOption] =
         useState<TemplateSortOption>('priority');
     const [reordering, setReordering] = useState(false);
@@ -488,6 +523,18 @@ export default function TemplatesIndex({
         [orderedTemplates],
     );
 
+    const photoSlotOptions = useMemo(
+        () =>
+            [
+                ...new Set(
+                    orderedTemplates.map((template) => template.photoSlots),
+                ),
+            ]
+                .sort((first, second) => first - second)
+                .map(String),
+        [orderedTemplates],
+    );
+
     const visibleTemplates = useMemo(
         () =>
             filterAndSortTemplates(
@@ -495,19 +542,20 @@ export default function TemplatesIndex({
                 search,
                 statusFilter,
                 sortOption,
+                photoSlotsFilter,
             ),
-        [orderedTemplates, search, statusFilter, sortOption],
+        [orderedTemplates, photoSlotsFilter, search, sortOption, statusFilter],
     );
 
     const reorderEnabled =
         search.trim() === '' &&
         statusFilter === 'all' &&
+        photoSlotsFilter === 'all' &&
         sortOption === 'priority';
 
     /**
      * Persist a complete ordered ID list through the existing backend reorder
-     * contract. The server payload remains authoritative after success or
-     * failure, while this local override provides immediate optimistic feedback.
+     * contract and keep the server payload authoritative after completion.
      */
     function persistOrder(nextTemplates: Template[]): void {
         setOptimisticTemplates(nextTemplates);
@@ -534,8 +582,8 @@ export default function TemplatesIndex({
     }
 
     /**
-     * Move one template a single position while retaining the complete kiosk
-     * priority list.
+     * Move one template a single priority position while retaining the complete
+     * kiosk order submitted to the backend.
      */
     function moveTemplate(templateId: number, direction: -1 | 1): void {
         if (!reorderEnabled || reordering) {
@@ -588,11 +636,12 @@ export default function TemplatesIndex({
     }
 
     /**
-     * Restore the management view to its default complete priority list.
+     * Restore the management view to the unfiltered server-backed display order.
      */
     function resetView(): void {
         setSearch('');
         setStatusFilter('all');
+        setPhotoSlotsFilter('all');
         setSortOption('priority');
     }
 
@@ -600,22 +649,21 @@ export default function TemplatesIndex({
         <>
             <Head title="Templates" />
 
-            <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 p-4 sm:p-6 lg:p-8">
+            <div className="flex w-full flex-col gap-section p-page md:p-page-desktop">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
-                        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                        <h1 className="text-page-title sm:text-2xl">
                             Templates
                         </h1>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            Manage the photo templates available in your kiosk.
-                            Templates at the top appear first.
+                        <p className="mt-1 text-body text-muted-foreground">
+                            Manage printable photo layouts for the photobooth.
                         </p>
                     </div>
 
-                    <Button asChild size="lg" className="self-start">
+                    <Button asChild className="self-start">
                         <Link href={create()}>
                             <Plus aria-hidden="true" />
-                            New Template
+                            Create Template
                         </Link>
                     </Button>
                 </div>
@@ -624,38 +672,46 @@ export default function TemplatesIndex({
                     <SummaryCard
                         label="Total Templates"
                         value={summary.total}
-                        description="All templates in your kiosk"
-                        icon={<LayoutGrid className="size-6" />}
+                        description="All time"
+                        icon={<LayoutGrid className="size-5" />}
                         tone="primary"
                     />
 
                     <SummaryCard
-                        label="Active"
+                        label="Active Templates"
                         value={summary.active}
-                        description="Currently enabled"
-                        icon={<CircleCheck className="size-6" />}
+                        description={
+                            summary.total === 0
+                                ? 'No templates yet'
+                                : `${((summary.active / summary.total) * 100).toFixed(1)}% of total`
+                        }
+                        icon={<CircleCheck className="size-5" />}
                         tone="success"
                     />
 
                     <SummaryCard
-                        label="Inactive"
+                        label="Inactive Templates"
                         value={summary.inactive}
-                        description="Currently disabled"
-                        icon={<CirclePause className="size-6" />}
-                        tone="warning"
+                        description={
+                            summary.total === 0
+                                ? 'No templates yet'
+                                : `${((summary.inactive / summary.total) * 100).toFixed(1)}% of total`
+                        }
+                        icon={<CirclePause className="size-5" />}
+                        tone="neutral"
                     />
 
                     <SummaryCard
-                        label="Avg Photo Slots"
+                        label="Average Photo Slots"
                         value={summary.averagePhotoSlots}
                         description="Across all templates"
-                        icon={<Images className="size-6" />}
+                        icon={<Images className="size-5" />}
                         tone="info"
                     />
                 </div>
 
-                <Card className="gap-0 overflow-hidden py-0 shadow-sm">
-                    <div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_220px_220px]">
+                <Card className="gap-0 overflow-hidden py-0 shadow-xs">
+                    <div className="grid gap-toolbar border-b p-4 md:grid-cols-2 xl:grid-cols-[minmax(18rem,1fr)_12rem_12rem_13rem]">
                         <div className="relative">
                             <Search
                                 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -697,6 +753,32 @@ export default function TemplatesIndex({
                         </Select>
 
                         <Select
+                            value={photoSlotsFilter}
+                            onValueChange={setPhotoSlotsFilter}
+                        >
+                            <SelectTrigger
+                                className="w-full"
+                                aria-label="Filter templates by photo slots"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">
+                                    All Photo Slots
+                                </SelectItem>
+                                {photoSlotOptions.map((photoSlots) => (
+                                    <SelectItem
+                                        key={photoSlots}
+                                        value={photoSlots}
+                                    >
+                                        {photoSlots}{' '}
+                                        {photoSlots === '1' ? 'slot' : 'slots'}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select
                             value={sortOption}
                             onValueChange={(value) =>
                                 setSortOption(value as TemplateSortOption)
@@ -710,14 +792,10 @@ export default function TemplatesIndex({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="priority">
-                                    Sort by: Priority
+                                    Display Order
                                 </SelectItem>
-                                <SelectItem value="name">
-                                    Sort by: Name
-                                </SelectItem>
-                                <SelectItem value="status">
-                                    Sort by: Status
-                                </SelectItem>
+                                <SelectItem value="name">Name</SelectItem>
+                                <SelectItem value="status">Status</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -729,7 +807,7 @@ export default function TemplatesIndex({
                             </div>
                             <div>
                                 <p className="font-medium">No templates yet.</p>
-                                <p className="mt-1 text-sm text-muted-foreground">
+                                <p className="mt-1 text-body text-muted-foreground">
                                     Create your first template to make it
                                     available in the kiosk.
                                 </p>
@@ -744,7 +822,7 @@ export default function TemplatesIndex({
                                 <p className="font-medium">
                                     No templates match your filters.
                                 </p>
-                                <p className="mt-1 text-sm text-muted-foreground">
+                                <p className="mt-1 text-body text-muted-foreground">
                                     Try another search or reset the current
                                     filters.
                                 </p>
@@ -770,57 +848,125 @@ export default function TemplatesIndex({
                                 )}
                                 strategy={verticalListSortingStrategy}
                             >
-                                <div>
-                                    {visibleTemplates.map((template) => {
-                                        const priorityIndex =
-                                            orderedTemplates.findIndex(
-                                                (candidate) =>
-                                                    candidate.id ===
-                                                    template.id,
-                                            );
+                                <div className="overflow-x-auto">
+                                    <table
+                                        className="w-full min-w-[1180px] border-collapse text-sm"
+                                        aria-label="Photo templates"
+                                    >
+                                        <thead className="bg-muted/35 text-caption text-muted-foreground">
+                                            <tr>
+                                                <th
+                                                    scope="col"
+                                                    className="w-12 px-2 py-3 text-center font-medium"
+                                                >
+                                                    <span className="sr-only">
+                                                        Reorder
+                                                    </span>
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="px-table-x py-3 text-left font-medium"
+                                                >
+                                                    Display Order
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="px-table-x py-3 text-left font-medium"
+                                                >
+                                                    Preview
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="px-table-x py-3 text-left font-medium"
+                                                >
+                                                    Template Name
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="px-table-x py-3 text-left font-medium"
+                                                >
+                                                    Photo Slots
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="px-table-x py-3 text-left font-medium"
+                                                >
+                                                    Print Size (mm)
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="px-table-x py-3 text-left font-medium"
+                                                >
+                                                    State
+                                                </th>
+                                                <th
+                                                    scope="col"
+                                                    className="px-table-x py-3 text-right font-medium"
+                                                >
+                                                    Actions
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {visibleTemplates.map(
+                                                (template) => {
+                                                    const priorityIndex =
+                                                        orderedTemplates.findIndex(
+                                                            (candidate) =>
+                                                                candidate.id ===
+                                                                template.id,
+                                                        );
 
-                                        return (
-                                            <SortableTemplateRow
-                                                key={template.id}
-                                                template={template}
-                                                reorderEnabled={reorderEnabled}
-                                                reordering={reordering}
-                                                canMoveUp={priorityIndex > 0}
-                                                canMoveDown={
-                                                    priorityIndex >= 0 &&
-                                                    priorityIndex <
-                                                        orderedTemplates.length -
-                                                            1
-                                                }
-                                                onMove={moveTemplate}
-                                            />
-                                        );
-                                    })}
+                                                    return (
+                                                        <SortableTemplateRow
+                                                            key={template.id}
+                                                            template={template}
+                                                            displayOrder={
+                                                                priorityIndex +
+                                                                1
+                                                            }
+                                                            reorderEnabled={
+                                                                reorderEnabled
+                                                            }
+                                                            reordering={
+                                                                reordering
+                                                            }
+                                                            canMoveUp={
+                                                                priorityIndex >
+                                                                0
+                                                            }
+                                                            canMoveDown={
+                                                                priorityIndex >=
+                                                                    0 &&
+                                                                priorityIndex <
+                                                                    orderedTemplates.length -
+                                                                        1
+                                                            }
+                                                            onMove={
+                                                                moveTemplate
+                                                            }
+                                                        />
+                                                    );
+                                                },
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </SortableContext>
                         </DndContext>
                     )}
 
                     {orderedTemplates.length > 0 && (
-                        <div className="border-t p-4">
-                            <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
-                                <Info
-                                    className="mt-0.5 size-5 shrink-0 text-primary"
-                                    aria-hidden="true"
-                                />
-                                <div>
-                                    <p className="text-sm font-medium">
-                                        {reorderEnabled
-                                            ? 'Drag the handle or use the arrows to reorder templates.'
-                                            : 'Reordering is paused while filters or another sort are active.'}
-                                    </p>
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        {reorderEnabled
-                                            ? 'Templates at the top appear first in the kiosk.'
-                                            : 'Clear the search, select All Statuses, and sort by Priority to change kiosk order.'}
-                                    </p>
-                                </div>
-                            </div>
+                        <div className="flex flex-col gap-1 border-t px-4 py-3 text-caption text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                            <span>
+                                Showing {visibleTemplates.length} of{' '}
+                                {orderedTemplates.length} templates
+                            </span>
+                            <span>
+                                {reorderEnabled
+                                    ? 'Drag rows or use the arrow controls to change kiosk display order.'
+                                    : 'Clear filters and select Display Order to enable reordering.'}
+                            </span>
                         </div>
                     )}
                 </Card>
