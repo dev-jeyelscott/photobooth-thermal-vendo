@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run from the ThermaSnap repository root after extracting this bundle.
+
+mkdir -p resources/js/pages/__tests__
+
+cat > resources/js/pages/welcome.tsx <<'EOF'
 import { Head, Link } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,7 +25,10 @@ type PhotoStripProps = {
  * Renders one decorative three-frame photostrip using the approved local
  * welcome-page photo asset.
  */
-function PhotoStrip({ className, monochromeFrames = [] }: PhotoStripProps) {
+function PhotoStrip({
+    className,
+    monochromeFrames = [],
+}: PhotoStripProps) {
     return (
         <div
             className={cn(
@@ -98,7 +109,9 @@ export default function Welcome() {
                                         size="lg"
                                         className="h-14 rounded-xl px-7 text-base motion-reduce:transition-none"
                                     >
-                                        <a href="#how-it-works">How it works</a>
+                                        <a href="#how-it-works">
+                                            How it works
+                                        </a>
                                     </Button>
                                 </div>
 
@@ -147,10 +160,81 @@ export default function Welcome() {
                 </main>
 
                 <footer className="px-6 pb-7 text-center text-xs text-muted-foreground sm:text-sm">
-                    {/* Public route /. Clear entry into the kiosk flow with no
-                    admin navigation. */}
+                    Public route /. Clear entry into the kiosk flow with no
+                    admin navigation.
                 </footer>
             </div>
         </>
     );
 }
+EOF
+
+cat > resources/js/pages/__tests__/welcome.test.tsx <<'EOF'
+import { render, screen } from '@testing-library/react';
+import type { AnchorHTMLAttributes, ReactNode } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+import Welcome from '@/pages/welcome';
+
+vi.mock('@inertiajs/react', () => ({
+    Head: () => null,
+    Link: ({
+        href,
+        children,
+        ...props
+    }: Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
+        href: string;
+        children: ReactNode;
+    }) => (
+        <a href={href} {...props}>
+            {children}
+        </a>
+    ),
+}));
+
+describe('welcome page', () => {
+    it('renders the public ThermaSnap entry experience', () => {
+        render(<Welcome />);
+
+        expect(
+            screen.getByRole('heading', {
+                level: 1,
+                name: 'Capture it. Print it. Take it with you.',
+            }),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText(
+                /A simple public entry point for the ThermaSnap experience\./,
+            ),
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByRole('link', { name: 'Start Photobooth' }),
+        ).toHaveAttribute('href', '/kiosk');
+        expect(
+            screen.getByRole('link', { name: 'How it works' }),
+        ).toHaveAttribute('href', '#how-it-works');
+
+        expect(screen.getByText('1. Start')).toBeInTheDocument();
+        expect(screen.getByText('2. Capture')).toBeInTheDocument();
+        expect(screen.getByText('3. Print & download')).toBeInTheDocument();
+    });
+
+    it('keeps the public page free of authenticated navigation', () => {
+        const { container } = render(<Welcome />);
+
+        expect(container.querySelector('#how-it-works')).toBeInTheDocument();
+        expect(
+            screen.queryByRole('link', { name: /dashboard/i }),
+        ).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole('link', { name: /log in/i }),
+        ).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole('link', { name: /register/i }),
+        ).not.toBeInTheDocument();
+    });
+});
+EOF
+
+composer wayfinder:generate
+npm run test -- resources/js/pages/__tests__/welcome.test.tsx
