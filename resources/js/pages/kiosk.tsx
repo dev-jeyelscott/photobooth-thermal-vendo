@@ -11,11 +11,8 @@ import { qrCode as galleryQrCode } from '@/actions/App/Http/Controllers/GalleryC
 import { CaptureStep } from '@/components/capture-step';
 import type { KioskErrorKind } from '@/components/kiosk-error-state';
 import { KioskErrorState } from '@/components/kiosk-error-state';
-import {
-    KioskPanel,
-    KioskShell,
-    type KioskProgressStep,
-} from '@/components/kiosk-shell';
+import { KioskPanel, KioskShell } from '@/components/kiosk-shell';
+import type { KioskProgressStep } from '@/components/kiosk-shell';
 import { PreviewStep } from '@/components/preview-step';
 import { StickerSelectionStep } from '@/components/sticker-selection-step';
 import { TemplateSelectionStep } from '@/components/template-selection-step';

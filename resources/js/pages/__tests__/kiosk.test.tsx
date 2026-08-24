@@ -138,7 +138,10 @@ const baseRoutes: Route[] = [
         pattern: /^\/kiosk\/sessions\/[^/]+\/payments$/,
         handler: () => ({
             status: 200,
-            body: { checkoutUrl: 'https://pay.example.test/checkout' },
+            body: {
+                checkoutUrl: 'https://pay.example.test/checkout',
+                checkoutQrCode: 'data:image/svg+xml;base64,PHN2Zy8+',
+            },
         }),
     },
     {
@@ -235,6 +238,9 @@ describe('Kiosk', () => {
         const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
+        paymentStatusState.status = 'pending';
+        paymentStatusState.paymentStatus = 'pending';
+
         render(<Kiosk paymentTimeoutSeconds={30} />);
 
         await user.click(screen.getByRole('button', { name: 'Pay via QR' }));
@@ -255,6 +261,9 @@ describe('Kiosk', () => {
         // treatment, not a plain text link, to stay touch-first.
         expect(checkoutLink).toHaveAttribute('data-slot', 'button');
         expect(checkoutLink.className).toContain('min-h-12');
+
+        paymentStatusState.status = 'paid';
+        paymentStatusState.paymentStatus = 'succeeded';
 
         await act(async () => {
             vi.advanceTimersByTime(3000);
@@ -563,10 +572,6 @@ describe('Kiosk', () => {
             await screen.findByRole('button', { name: 'complete capture' }),
         );
 
-        await user.click(
-            screen.getByRole('button', { name: 'Choose a Sticker' }),
-        );
-
         const stickerOption = await screen.findByTestId('kiosk-sticker-1');
         await user.click(stickerOption);
 
@@ -688,10 +693,6 @@ describe('Kiosk', () => {
 
         await user.click(
             await screen.findByRole('button', { name: 'complete capture' }),
-        );
-
-        await user.click(
-            screen.getByRole('button', { name: 'Choose a Sticker' }),
         );
 
         const stickerOption = await screen.findByTestId('kiosk-sticker-1');

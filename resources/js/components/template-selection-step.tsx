@@ -64,7 +64,7 @@ export function TemplateSelectionStep({
      * Persists the currently highlighted template through the existing backend
      * transition and advances only after the authoritative selection succeeds.
      */
-    const useSelectedTemplate = async () => {
+    const confirmSelectedTemplate = async () => {
         if (!selectedTemplate || isSaving) {
             return;
         }
@@ -214,7 +214,7 @@ export function TemplateSelectionStep({
                 type="button"
                 size="lg"
                 disabled={!selectedTemplate || isSaving}
-                onClick={() => void useSelectedTemplate()}
+                onClick={() => void confirmSelectedTemplate()}
                 className="mt-7 min-h-12 bg-neutral-100 px-8 text-neutral-950 hover:bg-white"
             >
                 {isSaving ? 'Saving…' : 'Use selected template'}
