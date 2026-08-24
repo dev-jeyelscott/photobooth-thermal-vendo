@@ -8,6 +8,36 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Build a valid deterministic template layout configuration for management tests.
+ */
+function templateManagementLayoutConfigJson(
+    int $slotCount = 3,
+    int $printWidth = 100,
+    int $printHeight = 150,
+): string {
+    $slots = [];
+    $baseHeight = intdiv($printHeight, $slotCount);
+    $remainder = $printHeight % $slotCount;
+    $currentY = 0;
+
+    for ($index = 0; $index < $slotCount; $index++) {
+        $height = $baseHeight + ($index < $remainder ? 1 : 0);
+
+        $slots[] = [
+            'slot' => $index + 1,
+            'x' => 0,
+            'y' => $currentY,
+            'width' => $printWidth,
+            'height' => $height,
+        ];
+
+        $currentY += $height;
+    }
+
+    return json_encode(['slots' => $slots], JSON_THROW_ON_ERROR);
+}
+
 test('template management exposes the expected Laravel route contract', function () {
     $expectations = [
         'admin.templates.index' => ['admin/templates', ['GET', 'HEAD']],
@@ -67,7 +97,7 @@ test('admin can list all templates with their active state', function () {
     );
 });
 
-test('admin edit receives the selected template and public asset urls', function () {
+test('admin edit receives the selected template assets layout configuration and metadata', function () {
     Storage::fake('public');
     $user = User::factory()->create();
     $template = PhotoTemplate::factory()->create([
@@ -88,12 +118,16 @@ test('admin edit receives the selected template and public asset urls', function
         ->where('template.layoutUrl', Storage::disk('public')->url($template->layout_path))
         ->where('template.thumbnailPath', $template->thumbnail_path)
         ->where('template.thumbnailUrl', Storage::disk('public')->url($template->thumbnail_path))
+        ->where('template.layoutConfig', $template->layout_config)
+        ->where('template.createdAt', $template->created_at?->toIso8601String())
+        ->where('template.updatedAt', $template->updated_at?->toIso8601String())
     );
 });
 
-test('admin can create a template with layout and thumbnail assets', function () {
+test('admin can create a template with assets and canonical layout configuration', function () {
     Storage::fake('public');
     $user = User::factory()->create();
+    $layoutConfig = templateManagementLayoutConfigJson(3, 100, 150);
 
     $response = $this->actingAs($user)->post(route('admin.templates.store'), [
         'name' => 'Classic Strip',
@@ -102,6 +136,7 @@ test('admin can create a template with layout and thumbnail assets', function ()
         'layout' => UploadedFile::fake()->image('layout.png'),
         'thumbnail' => UploadedFile::fake()->image('thumb.png'),
         'photo_slots' => 3,
+        'layout_config' => $layoutConfig,
         'print_width_mm' => 100,
         'print_height_mm' => 150,
         'active' => '1',
@@ -111,10 +146,14 @@ test('admin can create a template with layout and thumbnail assets', function ()
     $response->assertRedirect(route('admin.templates.index'));
 
     $template = PhotoTemplate::sole();
+
     expect($template->name)->toBe('Classic Strip')
         ->and($template->slug)->toBe('classic-strip')
         ->and($template->orientation)->toBe('portrait')
         ->and($template->photo_slots)->toBe(3)
+        ->and($template->layout_config)->toBe(
+            json_decode($layoutConfig, true, flags: JSON_THROW_ON_ERROR),
+        )
         ->and($template->active)->toBeTrue()
         ->and($template->sort_order)->toBe(2);
 
@@ -132,6 +171,7 @@ test('admin can explicitly create an inactive template', function () {
         'orientation' => 'portrait',
         'layout' => UploadedFile::fake()->image('layout.png'),
         'photo_slots' => 3,
+        'layout_config' => templateManagementLayoutConfigJson(3, 100, 150),
         'print_width_mm' => 100,
         'print_height_mm' => 150,
         'active' => '0',
@@ -139,6 +179,7 @@ test('admin can explicitly create an inactive template', function () {
     ]);
 
     $response->assertRedirect(route('admin.templates.index'));
+
     expect(PhotoTemplate::sole()->active)->toBeFalse();
 });
 
@@ -150,13 +191,93 @@ test('template creation requires a layout and validates printer compatibility js
         'slug' => 'invalid-template',
         'orientation' => 'portrait',
         'photo_slots' => 3,
+        'layout_config' => templateManagementLayoutConfigJson(3, 100, 150),
         'print_width_mm' => 100,
         'print_height_mm' => 150,
         'active' => '1',
         'printer_compatibility' => '{invalid-json}',
     ]);
 
-    $response->assertSessionHasErrors(['layout', 'printer_compatibility']);
+    $response->assertSessionHasErrors([
+        'layout',
+        'printer_compatibility',
+    ]);
+
+    expect(PhotoTemplate::query()->count())->toBe(0);
+});
+
+test('template creation rejects malformed layout configuration json', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post(route('admin.templates.store'), [
+        'name' => 'Malformed Layout',
+        'slug' => 'malformed-layout',
+        'orientation' => 'portrait',
+        'layout' => UploadedFile::fake()->image('layout.png'),
+        'photo_slots' => 1,
+        'layout_config' => '{invalid-json}',
+        'print_width_mm' => 100,
+        'print_height_mm' => 150,
+        'active' => '1',
+    ]);
+
+    $response->assertSessionHasErrors('layout_config');
+
+    expect(PhotoTemplate::query()->count())->toBe(0);
+});
+
+test('template creation rejects slots outside the configured print area', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+
+    $invalidLayout = json_encode([
+        'slots' => [
+            [
+                'slot' => 1,
+                'x' => 90,
+                'y' => 0,
+                'width' => 20,
+                'height' => 50,
+            ],
+        ],
+    ], JSON_THROW_ON_ERROR);
+
+    $response = $this->actingAs($user)->post(route('admin.templates.store'), [
+        'name' => 'Out of Bounds',
+        'slug' => 'out-of-bounds',
+        'orientation' => 'portrait',
+        'layout' => UploadedFile::fake()->image('layout.png'),
+        'photo_slots' => 1,
+        'layout_config' => $invalidLayout,
+        'print_width_mm' => 100,
+        'print_height_mm' => 150,
+        'active' => '1',
+    ]);
+
+    $response->assertSessionHasErrors('layout_config');
+
+    expect(PhotoTemplate::query()->count())->toBe(0);
+});
+
+test('template creation rejects layout slot count mismatches', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post(route('admin.templates.store'), [
+        'name' => 'Mismatched Slots',
+        'slug' => 'mismatched-slots',
+        'orientation' => 'portrait',
+        'layout' => UploadedFile::fake()->image('layout.png'),
+        'photo_slots' => 3,
+        'layout_config' => templateManagementLayoutConfigJson(2, 100, 150),
+        'print_width_mm' => 100,
+        'print_height_mm' => 150,
+        'active' => '1',
+    ]);
+
+    $response->assertSessionHasErrors('layout_config');
+
     expect(PhotoTemplate::query()->count())->toBe(0);
 });
 
@@ -168,8 +289,15 @@ test('admin can update through multipart-compatible method spoofing without repl
         'thumbnail_path' => 'templates/thumbnails/original.png',
         'active' => true,
     ]);
+
     Storage::disk('public')->put($template->layout_path, 'layout');
     Storage::disk('public')->put($template->thumbnail_path, 'thumbnail');
+
+    $layoutConfig = templateManagementLayoutConfigJson(
+        $template->photo_slots,
+        $template->print_width_mm,
+        $template->print_height_mm,
+    );
 
     $response = $this->actingAs($user)->post(route('admin.templates.update', $template), [
         '_method' => 'PUT',
@@ -177,6 +305,7 @@ test('admin can update through multipart-compatible method spoofing without repl
         'slug' => $template->slug,
         'orientation' => $template->orientation,
         'photo_slots' => $template->photo_slots,
+        'layout_config' => $layoutConfig,
         'print_width_mm' => $template->print_width_mm,
         'print_height_mm' => $template->print_height_mm,
         'active' => '0',
@@ -186,8 +315,12 @@ test('admin can update through multipart-compatible method spoofing without repl
     $response->assertRedirect(route('admin.templates.index'));
 
     $template->refresh();
+
     expect($template->name)->toBe('Updated Name')
         ->and($template->active)->toBeFalse()
+        ->and($template->layout_config)->toBe(
+            json_decode($layoutConfig, true, flags: JSON_THROW_ON_ERROR),
+        )
         ->and($template->layout_path)->toBe('templates/original.png')
         ->and($template->thumbnail_path)->toBe('templates/thumbnails/original.png');
 
@@ -205,6 +338,7 @@ test('admin can replace template assets through multipart-compatible method spoo
     ]);
     $oldLayoutPath = $template->layout_path;
     $oldThumbnailPath = $template->thumbnail_path;
+
     Storage::disk('public')->put($oldLayoutPath, 'original-layout');
     Storage::disk('public')->put($oldThumbnailPath, 'original-thumbnail');
 
@@ -216,6 +350,11 @@ test('admin can replace template assets through multipart-compatible method spoo
         'layout' => UploadedFile::fake()->image('new-layout.png'),
         'thumbnail' => UploadedFile::fake()->image('new-thumbnail.png'),
         'photo_slots' => $template->photo_slots,
+        'layout_config' => templateManagementLayoutConfigJson(
+            $template->photo_slots,
+            $template->print_width_mm,
+            $template->print_height_mm,
+        ),
         'print_width_mm' => $template->print_width_mm,
         'print_height_mm' => $template->print_height_mm,
         'active' => '1',
@@ -225,6 +364,7 @@ test('admin can replace template assets through multipart-compatible method spoo
     $response->assertRedirect(route('admin.templates.index'));
 
     $template->refresh();
+
     expect($template->name)->toBe('New Name')
         ->and($template->layout_path)->not->toBe($oldLayoutPath)
         ->and($template->thumbnail_path)->not->toBe($oldThumbnailPath);
@@ -245,6 +385,11 @@ test('admin can update a template without changing its unique slug', function ()
         'slug' => $template->slug,
         'orientation' => $template->orientation,
         'photo_slots' => $template->photo_slots,
+        'layout_config' => templateManagementLayoutConfigJson(
+            $template->photo_slots,
+            $template->print_width_mm,
+            $template->print_height_mm,
+        ),
         'print_width_mm' => $template->print_width_mm,
         'print_height_mm' => $template->print_height_mm,
         'active' => '1',
@@ -262,13 +407,20 @@ test('admin can toggle a template active flag', function () {
     $response = $this->actingAs($user)->patch(route('admin.templates.toggle', $template));
 
     $response->assertRedirect(route('admin.templates.index'));
+
     expect($template->fresh()->active)->toBeFalse();
 });
 
 test('admin can reorder templates and the new order affects public selection', function () {
     $user = User::factory()->create();
-    $first = PhotoTemplate::factory()->create(['name' => 'First', 'sort_order' => 0]);
-    $second = PhotoTemplate::factory()->create(['name' => 'Second', 'sort_order' => 1]);
+    $first = PhotoTemplate::factory()->create([
+        'name' => 'First',
+        'sort_order' => 0,
+    ]);
+    $second = PhotoTemplate::factory()->create([
+        'name' => 'Second',
+        'sort_order' => 1,
+    ]);
 
     $response = $this->actingAs($user)->patch(route('admin.templates.reorder'), [
         'ordered_ids' => [$second->id, $first->id],
@@ -280,12 +432,14 @@ test('admin can reorder templates and the new order affects public selection', f
         ->and($first->fresh()->sort_order)->toBe(1);
 
     $adminIndex = $this->actingAs($user)->get(route('admin.templates.index'));
+
     $adminIndex->assertInertia(fn ($page) => $page
         ->where('templates.0.id', $second->id)
         ->where('templates.1.id', $first->id)
     );
 
     $publicIndex = $this->getJson(route('templates.index'));
+
     $publicIndex->assertJsonPath('templates.0.id', $second->id);
     $publicIndex->assertJsonPath('templates.1.id', $first->id);
 });
@@ -297,15 +451,19 @@ test('admin can delete an unused template and its stored assets', function () {
         'layout_path' => 'templates/layout.png',
         'thumbnail_path' => 'templates/thumbnails/thumb.png',
     ]);
+
     $layoutPath = $template->layout_path;
     $thumbnailPath = $template->thumbnail_path;
+
     Storage::disk('public')->put($layoutPath, 'layout');
     Storage::disk('public')->put($thumbnailPath, 'thumbnail');
 
     $response = $this->actingAs($user)->delete(route('admin.templates.destroy', $template));
 
     $response->assertRedirect(route('admin.templates.index'));
+
     expect(PhotoTemplate::find($template->id))->toBeNull();
+
     Storage::disk('public')->assertMissing($layoutPath);
     Storage::disk('public')->assertMissing($thumbnailPath);
 });
@@ -316,18 +474,28 @@ test('deleting a template with associated sessions is rejected and preserves ass
     $template = PhotoTemplate::factory()->create([
         'layout_path' => 'templates/referenced.png',
     ]);
+
     Storage::disk('public')->put($template->layout_path, 'layout');
-    PhotoboothSession::factory()->create(['photo_template_id' => $template->id]);
+
+    PhotoboothSession::factory()->create([
+        'photo_template_id' => $template->id,
+    ]);
 
     $response = $this->actingAs($user)->delete(route('admin.templates.destroy', $template));
 
     $response->assertSessionHasErrors('template');
+
     expect(PhotoTemplate::find($template->id))->not->toBeNull();
+
     Storage::disk('public')->assertExists($template->layout_path);
 });
 
 test('photo_templates sort_order column is indexed', function () {
     $indexes = collect(Schema::getIndexes('photo_templates'));
 
-    expect($indexes->contains(fn ($index) => $index['columns'] === ['sort_order']))->toBeTrue();
+    expect(
+        $indexes->contains(
+            fn ($index) => $index['columns'] === ['sort_order'],
+        ),
+    )->toBeTrue();
 });

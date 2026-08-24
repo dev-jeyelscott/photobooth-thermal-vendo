@@ -75,12 +75,15 @@ class TemplateController extends Controller
                 'layout_path' => $layoutPath,
                 'thumbnail_path' => $thumbnailPath,
                 'photo_slots' => $validated['photo_slots'],
+                'layout_config' => $this->decodeLayoutConfiguration(
+                    (string) $validated['layout_config'],
+                ),
                 'print_width_mm' => $validated['print_width_mm'],
                 'print_height_mm' => $validated['print_height_mm'],
                 'active' => $request->boolean('active', true),
                 'sort_order' => $validated['sort_order'] ?? ((int) PhotoTemplate::max('sort_order') + 1),
                 'printer_compatibility' => isset($validated['printer_compatibility'])
-                    ? json_decode($validated['printer_compatibility'], true)
+                    ? json_decode((string) $validated['printer_compatibility'], true)
                     : null,
             ]);
         } catch (Throwable $exception) {
@@ -118,12 +121,15 @@ class TemplateController extends Controller
             'slug' => $validated['slug'],
             'orientation' => $validated['orientation'],
             'photo_slots' => $validated['photo_slots'],
+            'layout_config' => $this->decodeLayoutConfiguration(
+                (string) $validated['layout_config'],
+            ),
             'print_width_mm' => $validated['print_width_mm'],
             'print_height_mm' => $validated['print_height_mm'],
             'active' => $request->boolean('active'),
             'sort_order' => $validated['sort_order'] ?? 0,
             'printer_compatibility' => isset($validated['printer_compatibility'])
-                ? json_decode($validated['printer_compatibility'], true)
+                ? json_decode((string) $validated['printer_compatibility'], true)
                 : null,
         ];
 
@@ -201,7 +207,7 @@ class TemplateController extends Controller
     }
 
     /**
-     * Delete a template, unless it has associated photobooth sessions.
+     * Delete a template unless historical sessions still reference it.
      */
     public function destroy(PhotoTemplate $template): RedirectResponse
     {
@@ -225,7 +231,7 @@ class TemplateController extends Controller
     }
 
     /**
-     * Present a template for the frontend.
+     * Present a template using frontend-safe names and public asset URLs.
      *
      * @return array<string, mixed>
      */
@@ -243,14 +249,20 @@ class TemplateController extends Controller
                 ? Storage::disk('public')->url($template->thumbnail_path)
                 : null,
             'photoSlots' => $template->photo_slots,
+            'layoutConfig' => $template->layout_config,
             'printWidthMm' => $template->print_width_mm,
             'printHeightMm' => $template->print_height_mm,
             'active' => $template->active,
             'sortOrder' => $template->sort_order,
             'printerCompatibility' => $template->printer_compatibility,
+            'createdAt' => $template->created_at?->toIso8601String(),
+            'updatedAt' => $template->updated_at?->toIso8601String(),
         ];
     }
 
+    /**
+     * Store one template asset on the repository-mandated public filesystem disk.
+     */
     private function storePublicAsset(UploadedFile $file, string $directory): string
     {
         $path = $file->store($directory, 'public');
@@ -263,6 +275,24 @@ class TemplateController extends Controller
     }
 
     /**
+     * Decode a validated layout configuration into its persisted array representation.
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeLayoutConfiguration(string $configuration): array
+    {
+        $decoded = json_decode($configuration, true, flags: JSON_THROW_ON_ERROR);
+
+        if (! is_array($decoded) || array_is_list($decoded)) {
+            throw new RuntimeException('The validated template layout configuration is invalid.');
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * Delete unique template asset paths from the public filesystem disk.
+     *
      * @param  array<int, string>  $paths
      */
     private function deletePublicAssets(array $paths): void
