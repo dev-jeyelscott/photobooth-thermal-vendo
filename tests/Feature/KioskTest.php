@@ -34,9 +34,10 @@ test('the kiosk exposes an admin-configured capture countdown instead of the con
 
 test('the kiosk UI adapts across responsive breakpoints without device-specific assumptions', function () {
     $kiosk = file_get_contents(resource_path('js/pages/kiosk.tsx'));
+    $kioskShell = file_get_contents(resource_path('js/components/kiosk-shell.tsx'));
 
-    // Small (phone), medium (sm) and large (lg) breakpoints must all be represented
-    // so the layout scales across kiosk touchscreens, tablets, and phones.
+    // Small, medium, large, and landscape-responsive treatments must remain
+    // represented without relying on device or platform sniffing.
     expect($kiosk)->toContain('sm:')
         ->and($kiosk)->toContain('lg:')
         ->and($kiosk)->toContain('landscape:')
@@ -44,10 +45,11 @@ test('the kiosk UI adapts across responsive breakpoints without device-specific 
         ->and($kiosk)->not->toContain('navigator.platform')
         ->and($kiosk)->not->toContain('MSStream');
 
-    // Fullscreen-friendly: rely on the dynamic viewport height unit rather than
-    // 100vh, which does not account for mobile browser chrome.
-    expect($kiosk)->toContain('min-h-dvh')
-        ->and($kiosk)->not->toContain('min-h-screen');
+    // The shared kiosk shell owns the fullscreen viewport boundary after the
+    // redesign extracted common branding, progress, and page framing.
+    expect($kiosk)->toContain('<KioskShell')
+        ->and($kioskShell)->toContain('min-h-dvh')
+        ->and($kioskShell)->not->toContain('min-h-screen');
 });
 
 test('the idle timer responds to both touch and mouse activity', function () {
@@ -114,8 +116,18 @@ test('an active session exposes payment and print job status alongside the sessi
     $response = $this->getJson(route('kiosk.sessions.show', $session->session_token));
 
     $response->assertOk();
-    $response->assertJsonStructure(['sessionToken', 'status', 'startedAt', 'expiresAt', 'paymentStatus', 'printJobStatus']);
-    $response->assertJson(['paymentStatus' => null, 'printJobStatus' => null]);
+    $response->assertJsonStructure([
+        'sessionToken',
+        'status',
+        'startedAt',
+        'expiresAt',
+        'paymentStatus',
+        'printJobStatus',
+    ]);
+    $response->assertJson([
+        'paymentStatus' => null,
+        'printJobStatus' => null,
+    ]);
 });
 
 test('the kiosk wires a shared error-state component for every required failure scenario', function () {
