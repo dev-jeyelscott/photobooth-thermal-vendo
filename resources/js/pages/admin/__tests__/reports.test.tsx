@@ -50,6 +50,7 @@ vi.mock('recharts', () => ({
 
 import DailyReport from '../reports/daily';
 import MonthlyReport from '../reports/monthly';
+import RangeReport from '../reports/range';
 import {
     buildReportExportHref,
     calculateShare,
@@ -212,5 +213,126 @@ describe('reports workspace', () => {
         expect(
             screen.getByText('No activity for this period.'),
         ).toBeInTheDocument();
+    });
+
+    it('renders the redesigned date range report from repository-backed aggregates', () => {
+        render(
+            <RangeReport
+                start="2026-08-17"
+                end="2026-08-18"
+                report={{
+                    revenue: '200.00',
+                    successfulPayments: 2,
+                    failedPayments: 1,
+                    completedSessions: 2,
+                    voucherSessions: 1,
+                    failedPrintJobs: 1,
+                    totalSessions: 4,
+                    printedJobs: 1,
+                    printSuccessRate: 50,
+                    averageTicketSize: '100.00',
+                    dailyBreakdown: [
+                        {
+                            date: '2026-08-17',
+                            totalSessions: 2,
+                            completedSessions: 1,
+                            completedRate: 50,
+                            expiredOrAbandonedSessions: 1,
+                            expiredOrAbandonedRate: 50,
+                            revenue: '150.00',
+                            successfulPayments: 1,
+                            printedJobs: 1,
+                            failedPrintJobs: 0,
+                            printSuccessRate: 100,
+                            averageTicketSize: '150.00',
+                        },
+                        {
+                            date: '2026-08-18',
+                            totalSessions: 2,
+                            completedSessions: 1,
+                            completedRate: 50,
+                            expiredOrAbandonedSessions: 1,
+                            expiredOrAbandonedRate: 50,
+                            revenue: '50.00',
+                            successfulPayments: 1,
+                            printedJobs: 0,
+                            failedPrintJobs: 1,
+                            printSuccessRate: 0,
+                            averageTicketSize: '50.00',
+                        },
+                    ],
+                }}
+            />,
+        );
+
+        expect(
+            screen.getByRole('heading', { name: 'Date Range Report' }),
+        ).toBeInTheDocument();
+        expect(screen.getByText('Total Sessions')).toBeInTheDocument();
+        expect(screen.getAllByText('Revenue').length).toBeGreaterThan(0);
+        expect(
+            screen.getAllByText('Print Success Rate').length,
+        ).toBeGreaterThan(0);
+        expect(
+            screen.getAllByText('Average Ticket Size').length,
+        ).toBeGreaterThan(0);
+        expect(screen.getByTestId('range-sessions-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('range-revenue-chart')).toBeInTheDocument();
+        expect(screen.getByText('Daily Breakdown')).toBeInTheDocument();
+        expect(screen.getByText('Aug 17, 2026')).toBeInTheDocument();
+        expect(screen.getAllByText('₱150.00').length).toBeGreaterThan(0);
+
+        expect(screen.getByLabelText('Start date')).toHaveValue('2026-08-17');
+        expect(screen.getByLabelText('End date')).toHaveValue('2026-08-18');
+        expect(
+            screen.getByRole('link', { name: 'Export Report' }),
+        ).toHaveAttribute(
+            'href',
+            expect.stringContaining('/admin/reports/export'),
+        );
+        expect(
+            screen.getAllByRole('link', { name: 'View' })[0],
+        ).toHaveAttribute(
+            'href',
+            expect.stringContaining('/admin/reports/daily?date=2026-08-17'),
+        );
+
+        expect(screen.queryByText('Booth')).not.toBeInTheDocument();
+        expect(screen.queryByText('All Booths')).not.toBeInTheDocument();
+        expect(screen.queryByText('Active Booth')).not.toBeInTheDocument();
+    });
+
+    it('renders deliberate date range empty states without fabricated percentages', () => {
+        render(
+            <RangeReport
+                start="2026-08-01"
+                end="2026-08-02"
+                report={{
+                    revenue: '0.00',
+                    successfulPayments: 0,
+                    failedPayments: 0,
+                    completedSessions: 0,
+                    voucherSessions: 0,
+                    failedPrintJobs: 0,
+                    totalSessions: 0,
+                    printedJobs: 0,
+                    printSuccessRate: null,
+                    averageTicketSize: '0.00',
+                    dailyBreakdown: [],
+                }}
+            />,
+        );
+
+        expect(screen.getByText('No terminal print jobs')).toBeInTheDocument();
+        expect(
+            screen.getByText('No session activity to chart for this period.'),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText('No revenue activity to chart for this period.'),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByText('No activity for this period.'),
+        ).toBeInTheDocument();
+        expect(screen.queryByText('Infinity%')).not.toBeInTheDocument();
     });
 });

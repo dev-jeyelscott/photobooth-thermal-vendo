@@ -131,46 +131,152 @@ class ReportController extends Controller
     }
 
     /**
-     * Compute the sales report metrics for an arbitrary date range.
+     * Compute summary KPIs and the per-day breakdown for an arbitrary date range.
      *
      * @param  array{0: Carbon, 1: Carbon}  $range
-     * @return array{revenue: string, successfulPayments: int, failedPayments: int, completedSessions: int, voucherSessions: int, failedPrintJobs: int}
+     * @return array{
+     *     revenue: string,
+     *     successfulPayments: int,
+     *     failedPayments: int,
+     *     completedSessions: int,
+     *     voucherSessions: int,
+     *     failedPrintJobs: int,
+     *     totalSessions: int,
+     *     printedJobs: int,
+     *     printSuccessRate: float|null,
+     *     averageTicketSize: string,
+     *     dailyBreakdown: array<int, array{
+     *         date: string,
+     *         totalSessions: int,
+     *         completedSessions: int,
+     *         completedRate: float,
+     *         expiredOrAbandonedSessions: int,
+     *         expiredOrAbandonedRate: float,
+     *         revenue: string,
+     *         successfulPayments: int,
+     *         printedJobs: int,
+     *         failedPrintJobs: int,
+     *         printSuccessRate: float|null,
+     *         averageTicketSize: string,
+     *     }>,
+     * }
      */
     private function rangeStats(array $range): array
     {
         [$start, $end] = $range;
 
-        $successfulPaymentsQuery = fn () => Payment::query()
-            ->where('status', PaymentStatus::Success)
-            ->whereHas('photoboothSession', function ($query) use ($start, $end) {
-                $query->where('status', PhotoboothSessionStatus::Completed)
-                    ->whereBetween('updated_at', [$start, $end]);
-            });
+        $sessionStats = PhotoboothSession::query()
+            ->selectRaw('date(updated_at) as day')
+            ->selectRaw('count(*) as total_sessions')
+            ->selectRaw(
+                'sum(case when status = ? then 1 else 0 end) as completed_sessions',
+                [PhotoboothSessionStatus::Completed->value],
+            )
+            ->selectRaw(
+                'sum(case when status in (?, ?) then 1 else 0 end) as expired_or_abandoned_sessions',
+                [
+                    PhotoboothSessionStatus::Expired->value,
+                    PhotoboothSessionStatus::Abandoned->value,
+                ],
+            )
+            ->selectRaw(
+                'sum(case when status = ? and payment_method = ? then 1 else 0 end) as voucher_sessions',
+                [
+                    PhotoboothSessionStatus::Completed->value,
+                    PaymentMethod::Voucher->value,
+                ],
+            )
+            ->whereBetween('updated_at', [$start, $end])
+            ->groupBy('day')
+            ->get()
+            ->keyBy(fn (PhotoboothSession $row) => (string) $row->getAttribute('day'));
 
-        $revenue = (float) $successfulPaymentsQuery()->sum('amount');
-        $successfulPayments = $successfulPaymentsQuery()->count();
+        $paymentStats = Payment::query()
+            ->join('photobooth_sessions', 'photobooth_sessions.id', '=', 'payments.photobooth_session_id')
+            ->selectRaw('date(photobooth_sessions.updated_at) as day')
+            ->selectRaw('coalesce(sum(payments.amount), 0) as revenue')
+            ->selectRaw('count(*) as successful_payments')
+            ->where('payments.status', PaymentStatus::Success)
+            ->where('photobooth_sessions.status', PhotoboothSessionStatus::Completed)
+            ->whereBetween('photobooth_sessions.updated_at', [$start, $end])
+            ->groupBy('day')
+            ->get()
+            ->keyBy(fn (Payment $row) => (string) $row->getAttribute('day'));
+
+        $printStats = PrintJob::query()
+            ->join('photobooth_sessions', 'photobooth_sessions.id', '=', 'print_jobs.photobooth_session_id')
+            ->selectRaw('date(photobooth_sessions.updated_at) as day')
+            ->selectRaw(
+                'sum(case when print_jobs.status = ? then 1 else 0 end) as printed_jobs',
+                [PrintJobStatus::Printed->value],
+            )
+            ->selectRaw(
+                'sum(case when print_jobs.status = ? then 1 else 0 end) as failed_print_jobs',
+                [PrintJobStatus::Failed->value],
+            )
+            ->whereIn('print_jobs.status', [PrintJobStatus::Printed->value, PrintJobStatus::Failed->value])
+            ->whereBetween('photobooth_sessions.updated_at', [$start, $end])
+            ->groupBy('day')
+            ->get()
+            ->keyBy(fn (PrintJob $row) => (string) $row->getAttribute('day'));
+
+        $days = $sessionStats->keys()
+            ->merge($paymentStats->keys())
+            ->merge($printStats->keys())
+            ->unique()
+            ->sort()
+            ->values();
+
+        $dailyBreakdown = $days->map(function (int|string $day) use ($sessionStats, $paymentStats, $printStats): array {
+            $day = (string) $day;
+            $sessionRow = $sessionStats->get($day);
+            $paymentRow = $paymentStats->get($day);
+            $printRow = $printStats->get($day);
+
+            $totalSessions = (int) ($sessionRow?->getAttribute('total_sessions') ?? 0);
+            $completedSessions = (int) ($sessionRow?->getAttribute('completed_sessions') ?? 0);
+            $expiredOrAbandonedSessions = (int) ($sessionRow?->getAttribute('expired_or_abandoned_sessions') ?? 0);
+            $revenue = (float) ($paymentRow?->getAttribute('revenue') ?? 0);
+            $successfulPayments = (int) ($paymentRow?->getAttribute('successful_payments') ?? 0);
+            $printedJobs = (int) ($printRow?->getAttribute('printed_jobs') ?? 0);
+            $failedPrintJobs = (int) ($printRow?->getAttribute('failed_print_jobs') ?? 0);
+            $terminalPrintJobs = $printedJobs + $failedPrintJobs;
+
+            return [
+                'date' => $day,
+                'totalSessions' => $totalSessions,
+                'completedSessions' => $completedSessions,
+                'completedRate' => $this->calculatePercentage($completedSessions, $totalSessions),
+                'expiredOrAbandonedSessions' => $expiredOrAbandonedSessions,
+                'expiredOrAbandonedRate' => $this->calculatePercentage($expiredOrAbandonedSessions, $totalSessions),
+                'revenue' => number_format($revenue, 2, '.', ''),
+                'successfulPayments' => $successfulPayments,
+                'printedJobs' => $printedJobs,
+                'failedPrintJobs' => $failedPrintJobs,
+                'printSuccessRate' => $terminalPrintJobs > 0
+                    ? $this->calculatePercentage($printedJobs, $terminalPrintJobs)
+                    : null,
+                'averageTicketSize' => number_format(
+                    $successfulPayments > 0 ? $revenue / $successfulPayments : 0,
+                    2,
+                    '.',
+                    '',
+                ),
+            ];
+        })->all();
+
+        $totalSessions = (int) $sessionStats->sum(fn (PhotoboothSession $row) => (int) $row->getAttribute('total_sessions'));
+        $completedSessions = (int) $sessionStats->sum(fn (PhotoboothSession $row) => (int) $row->getAttribute('completed_sessions'));
+        $voucherSessions = (int) $sessionStats->sum(fn (PhotoboothSession $row) => (int) $row->getAttribute('voucher_sessions'));
+        $revenue = (float) $paymentStats->sum(fn (Payment $row) => (float) $row->getAttribute('revenue'));
+        $successfulPayments = (int) $paymentStats->sum(fn (Payment $row) => (int) $row->getAttribute('successful_payments'));
+        $printedJobs = (int) $printStats->sum(fn (PrintJob $row) => (int) $row->getAttribute('printed_jobs'));
+        $failedPrintJobs = (int) $printStats->sum(fn (PrintJob $row) => (int) $row->getAttribute('failed_print_jobs'));
+        $terminalPrintJobs = $printedJobs + $failedPrintJobs;
 
         $failedPayments = Payment::query()
             ->where('status', PaymentStatus::Failed)
             ->whereBetween('updated_at', [$start, $end])
-            ->count();
-
-        $completedSessions = PhotoboothSession::query()
-            ->where('status', PhotoboothSessionStatus::Completed)
-            ->whereBetween('updated_at', [$start, $end])
-            ->count();
-
-        $voucherSessions = PhotoboothSession::query()
-            ->where('status', PhotoboothSessionStatus::Completed)
-            ->where('payment_method', PaymentMethod::Voucher)
-            ->whereBetween('updated_at', [$start, $end])
-            ->count();
-
-        $failedPrintJobs = PrintJob::query()
-            ->where('status', PrintJobStatus::Failed)
-            ->whereHas('photoboothSession', function ($query) use ($start, $end) {
-                $query->whereBetween('updated_at', [$start, $end]);
-            })
             ->count();
 
         return [
@@ -180,7 +286,31 @@ class ReportController extends Controller
             'completedSessions' => $completedSessions,
             'voucherSessions' => $voucherSessions,
             'failedPrintJobs' => $failedPrintJobs,
+            'totalSessions' => $totalSessions,
+            'printedJobs' => $printedJobs,
+            'printSuccessRate' => $terminalPrintJobs > 0
+                ? $this->calculatePercentage($printedJobs, $terminalPrintJobs)
+                : null,
+            'averageTicketSize' => number_format(
+                $successfulPayments > 0 ? $revenue / $successfulPayments : 0,
+                2,
+                '.',
+                '',
+            ),
+            'dailyBreakdown' => $dailyBreakdown,
         ];
+    }
+
+    /**
+     * Calculate a one-decimal percentage while remaining safe for empty totals.
+     */
+    private function calculatePercentage(int $value, int $total): float
+    {
+        if ($total <= 0) {
+            return 0.0;
+        }
+
+        return round(($value / $total) * 100, 1);
     }
 
     /**

@@ -252,6 +252,12 @@ test('admin can view the date range report matching the sum of per-day daily rep
         'amount' => '150.00',
         'updated_at' => $dayOne->copy()->setTime(10, 0),
     ]);
+    PrintJob::factory()->for($mayaSession, 'photoboothSession')->printed()->create();
+
+    PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Expired,
+        'updated_at' => $dayOne->copy()->setTime(12, 0),
+    ]);
 
     $voucherSession = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::Completed,
@@ -263,13 +269,17 @@ test('admin can view the date range report matching the sum of per-day daily rep
         'method' => PaymentMethod::Voucher,
         'updated_at' => $dayTwo->copy()->setTime(11, 0),
     ]);
+    PrintJob::factory()->for($voucherSession, 'photoboothSession')->failed()->create();
+
+    PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Abandoned,
+        'updated_at' => $dayTwo->copy()->setTime(13, 0),
+    ]);
 
     Payment::factory()->create([
         'status' => PaymentStatus::Failed,
         'updated_at' => $dayTwo->copy()->setTime(12, 0),
     ]);
-
-    PrintJob::factory()->for($voucherSession, 'photoboothSession')->failed()->create();
 
     // Outside the selected range; must not be included.
     $otherSession = PhotoboothSession::factory()->create([
@@ -281,6 +291,7 @@ test('admin can view the date range report matching the sum of per-day daily rep
         'amount' => '999.00',
         'updated_at' => now()->subDays(30),
     ]);
+    PrintJob::factory()->for($otherSession, 'photoboothSession')->printed()->create();
 
     // Per-day daily report totals for the same range, summed manually.
     $dailyOneReport = null;
@@ -320,6 +331,78 @@ test('admin can view the date range report matching the sum of per-day daily rep
         ->where('report.completedSessions', $expectedCompletedSessions)
         ->where('report.voucherSessions', $expectedVoucherSessions)
         ->where('report.failedPrintJobs', 1)
+        ->where('report.totalSessions', 4)
+        ->where('report.printedJobs', 1)
+        ->where('report.printSuccessRate', 50.0)
+        ->where('report.averageTicketSize', '100.00')
+        ->where('report.dailyBreakdown', [
+            [
+                'date' => $dayOne->toDateString(),
+                'totalSessions' => 2,
+                'completedSessions' => 1,
+                'completedRate' => 50.0,
+                'expiredOrAbandonedSessions' => 1,
+                'expiredOrAbandonedRate' => 50.0,
+                'revenue' => '150.00',
+                'successfulPayments' => 1,
+                'printedJobs' => 1,
+                'failedPrintJobs' => 0,
+                'printSuccessRate' => 100.0,
+                'averageTicketSize' => '150.00',
+            ],
+            [
+                'date' => $dayTwo->toDateString(),
+                'totalSessions' => 2,
+                'completedSessions' => 1,
+                'completedRate' => 50.0,
+                'expiredOrAbandonedSessions' => 1,
+                'expiredOrAbandonedRate' => 50.0,
+                'revenue' => '50.00',
+                'successfulPayments' => 1,
+                'printedJobs' => 0,
+                'failedPrintJobs' => 1,
+                'printSuccessRate' => 0.0,
+                'averageTicketSize' => '50.00',
+            ],
+        ])
+    );
+});
+
+test('the range report excludes nonterminal print jobs from print success rate', function () {
+    $user = User::factory()->create();
+    $day = now()->subDays(5)->startOfDay();
+
+    $printedSession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'updated_at' => $day->copy()->setTime(9, 0),
+    ]);
+    PrintJob::factory()->for($printedSession, 'photoboothSession')->printed()->create();
+
+    $failedSession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'updated_at' => $day->copy()->setTime(10, 0),
+    ]);
+    PrintJob::factory()->for($failedSession, 'photoboothSession')->failed()->create();
+
+    $pendingSession = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Completed,
+        'updated_at' => $day->copy()->setTime(11, 0),
+    ]);
+    PrintJob::factory()->for($pendingSession, 'photoboothSession')->create();
+
+    $response = $this->actingAs($user)->get(route('admin.reports.range', [
+        'start' => $day->toDateString(),
+        'end' => $day->toDateString(),
+    ]));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->where('report.printedJobs', 1)
+        ->where('report.failedPrintJobs', 1)
+        ->where('report.printSuccessRate', 50.0)
+        ->where('report.dailyBreakdown.0.printedJobs', 1)
+        ->where('report.dailyBreakdown.0.failedPrintJobs', 1)
+        ->where('report.dailyBreakdown.0.printSuccessRate', 50.0)
     );
 });
 
@@ -342,6 +425,11 @@ test('the range report returns zeroed totals for a range with no activity', func
         ->where('report.completedSessions', 0)
         ->where('report.voucherSessions', 0)
         ->where('report.failedPrintJobs', 0)
+        ->where('report.totalSessions', 0)
+        ->where('report.printedJobs', 0)
+        ->where('report.printSuccessRate', null)
+        ->where('report.averageTicketSize', '0.00')
+        ->where('report.dailyBreakdown', [])
     );
 });
 
