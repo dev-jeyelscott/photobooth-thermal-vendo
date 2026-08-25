@@ -80,6 +80,14 @@ const existingVoucher = {
     redemptions: [],
 };
 
+/**
+ * Resolve the voucher code input without coupling the test to the decorative
+ * required marker rendered inside its visible label.
+ */
+function getVoucherCodeInput(): HTMLElement {
+    return screen.getByLabelText(/^Voucher code/);
+}
+
 describe('voucher form browser payload contract', () => {
     it('submits an explicit Laravel boolean value for active', () => {
         const { container } = render(
@@ -113,7 +121,7 @@ describe('voucher form browser payload contract', () => {
             />,
         );
 
-        expect(screen.getByLabelText('Voucher code')).toHaveValue('PROMO-2030');
+        expect(getVoucherCodeInput()).toHaveValue('PROMO-2030');
         expect(screen.getByLabelText('Valid from (optional)')).toHaveValue(
             '2030-01-02T03:04',
         );
@@ -152,7 +160,7 @@ describe('voucher form browser payload contract', () => {
             />,
         );
 
-        const codeInput = screen.getByLabelText('Voucher code');
+        const codeInput = getVoucherCodeInput();
         const usageInput = screen.getByLabelText('Usage limit');
 
         await user.type(codeInput, 'SUMMER25');
@@ -229,7 +237,7 @@ describe('voucher form accessibility', () => {
             />,
         );
 
-        const codeInput = screen.getByLabelText('Voucher code');
+        const codeInput = getVoucherCodeInput();
         expect(codeInput).toHaveAttribute('aria-invalid', 'true');
         expect(codeInput).toHaveAttribute('aria-describedby', 'code-error');
 
