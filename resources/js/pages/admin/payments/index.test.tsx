@@ -6,6 +6,7 @@ import PaymentsIndex, {
     formatPaymentAmount,
     formatPaymentDateTime,
     formatSummaryPercentage,
+    getPaymentPaginationSummary,
 } from './index';
 import type { Filters, Paginated, Payment, PaymentSummary } from './index';
 
@@ -27,11 +28,20 @@ vi.mock('@inertiajs/react', () => ({
     Link: ({
         href,
         children,
+        ...props
     }: {
         href: string | { url: string };
         children: ReactNode;
         preserveScroll?: boolean;
-    }) => <a href={typeof href === 'string' ? href : href.url}>{children}</a>,
+        'aria-current'?: 'page';
+    }) => (
+        <a
+            href={typeof href === 'string' ? href : href.url}
+            aria-current={props['aria-current']}
+        >
+            {children}
+        </a>
+    ),
     setLayoutProps: vi.fn(),
 }));
 
@@ -51,7 +61,7 @@ const emptyFilters: Filters = {
 };
 
 /**
- * Build a stable payment fixture while allowing focused per-test overrides.
+ * Build one repository-valid payment fixture with focused overrides.
  */
 function makePayment(overrides: Partial<Payment> = {}): Payment {
     return {
@@ -71,9 +81,12 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
 }
 
 /**
- * Build the Laravel-compatible pagination payload expected by the page.
+ * Build the Laravel paginator shape consumed by the Payments page.
  */
-function makePagination(data: Payment[]): Paginated<Payment> {
+function makePagination(
+    data: Payment[],
+    overrides: Partial<Paginated<Payment>> = {},
+): Paginated<Payment> {
     return {
         data,
         links: [
@@ -84,11 +97,12 @@ function makePagination(data: Payment[]): Paginated<Payment> {
         from: data.length > 0 ? 1 : null,
         to: data.length > 0 ? data.length : null,
         total: data.length,
+        ...overrides,
     };
 }
 
 /**
- * Render the Payments page with repository-valid defaults.
+ * Render Payments with repository-valid defaults for focused UI assertions.
  */
 function renderPage({
     payments = makePagination([makePayment()]),
@@ -128,6 +142,22 @@ describe('payment presentation helpers', () => {
         expect(formatPaginationLabel('&laquo; Previous')).toBe('Previous');
         expect(formatPaginationLabel('Next &raquo;')).toBe('Next');
     });
+
+    it('builds a compact locale-aware pagination summary', () => {
+        expect(
+            getPaymentPaginationSummary(
+                makePagination([makePayment()], {
+                    from: 1,
+                    to: 20,
+                    total: 1248,
+                }),
+            ),
+        ).toBe('Showing 1–20 of 1,248 payments');
+
+        expect(getPaymentPaginationSummary(makePagination([]))).toBe(
+            'Showing 0 of 0 payments',
+        );
+    });
 });
 
 describe('Payments page', () => {
@@ -137,69 +167,111 @@ describe('Payments page', () => {
         expect(
             within(screen.getByLabelText('Total Payments')).getByText('1,248'),
         ).toBeInTheDocument();
+
         expect(
             within(screen.getByLabelText('Successful Payments')).getByText(
                 '1,086',
             ),
         ).toBeInTheDocument();
+
         expect(
             within(screen.getByLabelText('Pending Payments')).getByText('102'),
         ).toBeInTheDocument();
+
         expect(
             within(screen.getByLabelText('Failed / Cancelled')).getByText('60'),
         ).toBeInTheDocument();
     });
 
-    it('keeps the page explicitly read only with no mutation actions', () => {
+    it('keeps immutable payment evidence explicitly read only', () => {
         renderPage();
 
         expect(screen.getByText('Read only')).toBeInTheDocument();
+
         expect(
             screen.queryByRole('link', { name: /edit/i }),
         ).not.toBeInTheDocument();
+
         expect(
             screen.queryByRole('button', { name: /delete/i }),
         ).not.toBeInTheDocument();
+
         expect(
             screen.queryByRole('button', { name: /refund/i }),
         ).not.toBeInTheDocument();
+
+        expect(screen.queryByText('Export Payments')).not.toBeInTheDocument();
+
+        expect(
+            screen.queryByRole('button', { name: /^view$/i }),
+        ).not.toBeInTheDocument();
     });
 
-    it('renders supported search, status, method, and date filters only', () => {
+    it('renders only the supported server-side filter contract', () => {
         renderPage();
 
         expect(screen.getByLabelText('Search')).toHaveAttribute(
             'name',
             'search',
         );
+
         expect(screen.getByLabelText('Status')).toHaveAttribute(
             'name',
             'status',
         );
-        expect(screen.getByLabelText('Method')).toHaveAttribute(
+
+        expect(screen.getByLabelText('Payment Method')).toHaveAttribute(
             'name',
             'method',
         );
+
+        expect(
+            screen.getByRole('group', { name: 'Date Range' }),
+        ).toBeInTheDocument();
+
+        expect(screen.getByLabelText('From')).toHaveAttribute('name', 'from');
+        expect(screen.getByLabelText('To')).toHaveAttribute('name', 'to');
+
+        expect(
+            screen.getByRole('button', { name: 'Apply filters' }),
+        ).toHaveAttribute('type', 'submit');
+
         expect(screen.queryByLabelText(/booth/i)).not.toBeInTheDocument();
-        expect(screen.queryByText('Export Payments')).not.toBeInTheDocument();
     });
 
-    it('preserves full provider and session identifiers for troubleshooting', () => {
+    it('preserves complete troubleshooting identifiers in the consolidated reference presentation', () => {
         renderPage();
 
         expect(
             screen.getAllByText('11111111-1111-4111-8111-000000000013').length,
         ).toBeGreaterThan(0);
+
         expect(
             screen.getAllByText('20000000-0000-4000-8000-000000000010').length,
         ).toBeGreaterThan(0);
+
         expect(
             screen.getAllByText('10000000-0000-4000-8000-000000000010').length,
         ).toBeGreaterThan(0);
-        expect(screen.getAllByText('Success').length).toBeGreaterThan(0);
+
+        expect(
+            screen.getByRole('columnheader', { name: 'Reference' }),
+        ).toBeInTheDocument();
     });
 
-    it('shows a clear-filter action only when server filters are active', () => {
+    it('renders accessible semantic payment status and method badges', () => {
+        renderPage();
+
+        expect(
+            screen.getAllByLabelText('Payment status: Success').length,
+        ).toBeGreaterThan(0);
+
+        expect(
+            screen.getAllByLabelText('Payment method: Maya').length,
+        ).toBeGreaterThan(0);
+    });
+
+    it('shows clear filters only when server filters are active', () => {
         const { rerender } = render(
             <PaymentsIndex
                 payments={makePagination([makePayment()])}
@@ -236,11 +308,22 @@ describe('Payments page', () => {
         });
 
         expect(screen.getByText('No payments found')).toBeInTheDocument();
+
         expect(
             screen.getByText(
                 'No payment evidence matches the current filters.',
             ),
         ).toBeInTheDocument();
+
         expect(screen.getByText('Showing 0 of 0 payments')).toBeInTheDocument();
+    });
+
+    it('marks the active paginator link for assistive technology', () => {
+        renderPage();
+
+        expect(screen.getByRole('link', { name: '1' })).toHaveAttribute(
+            'aria-current',
+            'page',
+        );
     });
 });

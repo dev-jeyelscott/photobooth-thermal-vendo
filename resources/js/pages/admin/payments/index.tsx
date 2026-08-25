@@ -55,7 +55,7 @@ export type Filters = {
     to: string | null;
 };
 
-type PaymentStatusPresentation = {
+type PaymentPresentation = {
     label: string;
     badgeClassName: string;
 };
@@ -70,7 +70,7 @@ type FilterSelectProps = {
     allLabel: string;
 };
 
-const paymentStatusPresentation: Record<string, PaymentStatusPresentation> = {
+const paymentStatusPresentation: Record<string, PaymentPresentation> = {
     success: {
         label: 'Success',
         badgeClassName:
@@ -92,6 +92,18 @@ const paymentStatusPresentation: Record<string, PaymentStatusPresentation> = {
     },
 };
 
+const paymentMethodPresentation: Record<string, PaymentPresentation> = {
+    maya: {
+        label: 'Maya',
+        badgeClassName:
+            'border-success/25 bg-success-subtle text-success-foreground',
+    },
+    voucher: {
+        label: 'Voucher',
+        badgeClassName: 'border-info/25 bg-info-subtle text-info-foreground',
+    },
+};
+
 /**
  * Convert enum-style values into readable operator labels.
  */
@@ -103,8 +115,8 @@ function formatEnumLabel(value: string): string {
 }
 
 /**
- * Convert a stored amount into a stable operator-facing value, using the
- * session currency only when that currency was actually persisted.
+ * Convert a stored amount into a stable operator-facing value while using only
+ * the persisted session currency when one is available.
  */
 export function formatPaymentAmount(
     value: string,
@@ -134,8 +146,8 @@ export function formatPaymentAmount(
 }
 
 /**
- * Format a persisted timestamp into a concise Philippine operator-facing
- * representation while preserving null as explicit missing evidence.
+ * Format a persisted timestamp for the Philippine operator interface while
+ * keeping missing evidence explicit.
  */
 export function formatPaymentDateTime(value: string | null): string {
     if (value === null) {
@@ -152,7 +164,7 @@ export function formatPaymentDateTime(value: string | null): string {
 }
 
 /**
- * Remove Laravel pagination entity decoration so links remain accessible text.
+ * Normalize Laravel paginator labels into plain accessible text.
  */
 export function formatPaginationLabel(label: string): string {
     return label
@@ -164,7 +176,7 @@ export function formatPaginationLabel(label: string): string {
 }
 
 /**
- * Format one all-time payment count as a safe percentage of the total.
+ * Format one summary count as a safe percentage of the authoritative total.
  */
 export function formatSummaryPercentage(value: number, total: number): string {
     if (total <= 0) {
@@ -175,7 +187,24 @@ export function formatSummaryPercentage(value: number, total: number): string {
 }
 
 /**
- * Render one compact all-time payment summary using canonical design tokens.
+ * Build the concise pagination summary shown below the payments table.
+ */
+export function getPaymentPaginationSummary<T>(
+    pagination: Paginated<T>,
+): string {
+    if (
+        pagination.total === 0 ||
+        pagination.from === null ||
+        pagination.to === null
+    ) {
+        return 'Showing 0 of 0 payments';
+    }
+
+    return `Showing ${pagination.from}–${pagination.to} of ${pagination.total.toLocaleString('en-PH')} payments`;
+}
+
+/**
+ * Render one compact all-time payment KPI using canonical semantic tokens.
  */
 function SummaryCard({
     label,
@@ -190,45 +219,56 @@ function SummaryCard({
     icon: ReactNode;
     tone: SummaryTone;
 }) {
-    const toneClasses: Record<SummaryTone, string> = {
+    const iconToneClasses: Record<SummaryTone, string> = {
         primary: 'bg-primary/10 text-primary',
         success: 'bg-success-subtle text-success',
         warning: 'bg-warning-subtle text-warning',
         destructive: 'bg-destructive/10 text-destructive',
     };
 
-    return (
-        <Card
-            aria-label={label}
-            className="gap-0 rounded-xl px-5 py-4 shadow-xs"
-        >
-            <div className="flex min-h-20 items-center justify-between gap-4">
-                <div className="min-w-0">
-                    <p className="text-card-title">{label}</p>
-                    <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
-                        {value.toLocaleString('en-PH')}
-                    </p>
-                    <p className="mt-1 text-caption text-muted-foreground">
-                        {description}
-                    </p>
-                </div>
+    const descriptionToneClasses: Record<SummaryTone, string> = {
+        primary: 'text-muted-foreground',
+        success: 'text-success',
+        warning: 'text-warning',
+        destructive: 'text-destructive',
+    };
 
+    return (
+        <Card aria-label={label} className="gap-0 rounded-xl py-0 shadow-xs">
+            <CardContent className="flex min-h-28 items-center gap-4 px-5 py-4">
                 <div
                     className={cn(
                         'flex size-12 shrink-0 items-center justify-center rounded-full',
-                        toneClasses[tone],
+                        iconToneClasses[tone],
                     )}
                 >
                     {icon}
                 </div>
-            </div>
+
+                <div className="min-w-0">
+                    <p className="text-card-title text-muted-foreground">
+                        {label}
+                    </p>
+                    <p className="mt-0.5 text-2xl font-semibold tracking-tight tabular-nums">
+                        {value.toLocaleString('en-PH')}
+                    </p>
+                    <p
+                        className={cn(
+                            'mt-0.5 text-caption font-medium',
+                            descriptionToneClasses[tone],
+                        )}
+                    >
+                        {description}
+                    </p>
+                </div>
+            </CardContent>
         </Card>
     );
 }
 
 /**
- * Render a canonical server-submitted select without introducing client-only
- * filter state that could diverge from Laravel query parameters.
+ * Render a native GET-form select so submitted filter values remain owned by
+ * Laravel and cannot diverge into separate client-side filter state.
  */
 function FilterSelect({
     label,
@@ -238,21 +278,25 @@ function FilterSelect({
     allLabel,
 }: FilterSelectProps) {
     return (
-        <label className="grid gap-1.5 text-sm font-medium">
+        <label className="grid min-w-0 gap-1.5 text-sm font-medium">
             <span>{label}</span>
+
             <div className="relative">
                 <select
+                    key={value ?? 'all'}
                     name={name}
                     defaultValue={value ?? ''}
                     className="h-9 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
                 >
                     <option value="">{allLabel}</option>
+
                     {options.map((option) => (
                         <option key={option} value={option}>
                             {formatEnumLabel(option)}
                         </option>
                     ))}
                 </select>
+
                 <ChevronDown
                     className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
                     aria-hidden="true"
@@ -263,7 +307,7 @@ function FilterSelect({
 }
 
 /**
- * Render a semantic payment status badge using only persisted enum states.
+ * Render one persisted payment status with the canonical semantic treatment.
  */
 function PaymentStatusBadge({ status }: { status: string }) {
     const presentation = paymentStatusPresentation[status] ?? {
@@ -274,7 +318,10 @@ function PaymentStatusBadge({ status }: { status: string }) {
     return (
         <Badge
             variant="outline"
-            className={`whitespace-nowrap ${presentation.badgeClassName}`}
+            className={cn(
+                'font-medium whitespace-nowrap',
+                presentation.badgeClassName,
+            )}
             aria-label={`Payment status: ${presentation.label}`}
         >
             {presentation.label}
@@ -283,23 +330,56 @@ function PaymentStatusBadge({ status }: { status: string }) {
 }
 
 /**
- * Render a full technical identifier while allowing the visible cell to
- * truncate on dense layouts without losing the underlying troubleshooting data.
+ * Render one persisted payment method without implying unsupported gateway or
+ * tender types that do not exist in the backend contract.
+ */
+function PaymentMethodBadge({ method }: { method: string }) {
+    const presentation = paymentMethodPresentation[method] ?? {
+        label: formatEnumLabel(method),
+        badgeClassName: 'border-border bg-muted text-muted-foreground',
+    };
+
+    return (
+        <Badge
+            variant="outline"
+            className={cn(
+                'font-medium whitespace-nowrap',
+                presentation.badgeClassName,
+            )}
+            aria-label={`Payment method: ${presentation.label}`}
+        >
+            {presentation.label}
+        </Badge>
+    );
+}
+
+/**
+ * Keep the complete technical identifier in the DOM and title attribute while
+ * allowing dense payment layouts to truncate visually.
  */
 function PaymentIdentifier({
     value,
     emptyLabel = 'Not available',
+    className,
 }: {
     value: string | null;
     emptyLabel?: string;
+    className?: string;
 }) {
     if (value === null || value.length === 0) {
-        return <span className="text-muted-foreground">{emptyLabel}</span>;
+        return (
+            <span className="text-caption text-muted-foreground">
+                {emptyLabel}
+            </span>
+        );
     }
 
     return (
         <code
-            className="block max-w-56 truncate text-xs font-medium text-foreground"
+            className={cn(
+                'block max-w-64 truncate text-xs font-medium text-foreground',
+                className,
+            )}
             title={value}
         >
             {value}
@@ -308,7 +388,37 @@ function PaymentIdentifier({
 }
 
 /**
- * Render one payment record as a readable card for narrow admin viewports.
+ * Consolidate both Maya troubleshooting identifiers into one reference region
+ * without dropping either persisted value.
+ */
+function PaymentReference({ payment }: { payment: Payment }) {
+    return (
+        <div className="grid gap-2">
+            <div className="min-w-0">
+                <p className="text-caption text-muted-foreground">
+                    Maya payment
+                </p>
+                <PaymentIdentifier
+                    value={payment.mayaPaymentId}
+                    emptyLabel="Not assigned"
+                />
+            </div>
+
+            <div className="min-w-0">
+                <p className="text-caption text-muted-foreground">
+                    Maya checkout
+                </p>
+                <PaymentIdentifier
+                    value={payment.mayaCheckoutId}
+                    emptyLabel="Not assigned"
+                />
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Render one responsive payment record for tablet and mobile admin viewports.
  */
 function PaymentMobileCard({ payment }: { payment: Payment }) {
     return (
@@ -316,27 +426,25 @@ function PaymentMobileCard({ payment }: { payment: Payment }) {
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                     <p className="text-caption text-muted-foreground">
-                        Payment #{payment.id}
+                        Payment ID
                     </p>
-                    <PaymentIdentifier
-                        value={payment.mayaPaymentId}
-                        emptyLabel="No Maya payment ID"
-                    />
+                    <p className="mt-0.5 font-semibold text-primary tabular-nums">
+                        #{payment.id}
+                    </p>
                 </div>
+
                 <p className="shrink-0 font-semibold tabular-nums">
                     {formatPaymentAmount(payment.amount, payment.currency)}
                 </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+                <PaymentMethodBadge method={payment.method} />
                 <PaymentStatusBadge status={payment.status} />
-                <Badge variant="secondary">
-                    {formatEnumLabel(payment.method)}
-                </Badge>
             </div>
 
             <dl className="grid gap-4 sm:grid-cols-2">
-                <div>
+                <div className="min-w-0">
                     <dt className="text-caption text-muted-foreground">
                         Session
                     </dt>
@@ -347,14 +455,7 @@ function PaymentMobileCard({ payment }: { payment: Payment }) {
                         />
                     </dd>
                 </div>
-                <div>
-                    <dt className="text-caption text-muted-foreground">
-                        Maya checkout ID
-                    </dt>
-                    <dd className="mt-1">
-                        <PaymentIdentifier value={payment.mayaCheckoutId} />
-                    </dd>
-                </div>
+
                 <div>
                     <dt className="text-caption text-muted-foreground">
                         Paid at
@@ -363,6 +464,7 @@ function PaymentMobileCard({ payment }: { payment: Payment }) {
                         {formatPaymentDateTime(payment.paidAt)}
                     </dd>
                 </div>
+
                 <div>
                     <dt className="text-caption text-muted-foreground">
                         Created at
@@ -371,23 +473,28 @@ function PaymentMobileCard({ payment }: { payment: Payment }) {
                         {formatPaymentDateTime(payment.createdAt)}
                     </dd>
                 </div>
+
+                <div className="min-w-0 sm:col-span-2">
+                    <dt className="text-caption text-muted-foreground">
+                        Reference
+                    </dt>
+                    <dd className="mt-1">
+                        <PaymentReference payment={payment} />
+                    </dd>
+                </div>
             </dl>
         </article>
     );
 }
 
 /**
- * Render accessible Laravel pagination while preserving current search filters.
+ * Render Laravel pagination with compact controls and preserved query strings.
  */
 function PaymentPagination({ payments }: { payments: Paginated<Payment> }) {
     return (
         <footer className="flex flex-col gap-3 border-t px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <p className="text-sm text-muted-foreground">
-                {payments.total === 0 ||
-                payments.from === null ||
-                payments.to === null
-                    ? 'Showing 0 of 0 payments'
-                    : `Showing ${payments.from}–${payments.to} of ${payments.total} payments`}
+                {getPaymentPaginationSummary(payments)}
             </p>
 
             {payments.total > 0 ? (
@@ -430,7 +537,7 @@ function PaymentPagination({ payments }: { payments: Paginated<Payment> }) {
 }
 
 /**
- * Render the redesigned read-only payment evidence management page.
+ * Render the read-only ThermaSnap Payments management workspace.
  */
 export default function PaymentsIndex({
     payments,
@@ -465,8 +572,8 @@ export default function PaymentsIndex({
                     <div>
                         <h1 className="text-page-title">Payments</h1>
                         <p className="mt-1 text-body text-muted-foreground">
-                            Track immutable payment evidence and provider
-                            references across photobooth sessions.
+                            Track payment transactions across photobooth
+                            sessions.
                         </p>
                     </div>
 
@@ -495,6 +602,7 @@ export default function PaymentsIndex({
                             />
                         }
                     />
+
                     <SummaryCard
                         label="Successful Payments"
                         value={summary.successful}
@@ -510,6 +618,7 @@ export default function PaymentsIndex({
                             />
                         }
                     />
+
                     <SummaryCard
                         label="Pending Payments"
                         value={summary.pending}
@@ -520,6 +629,7 @@ export default function PaymentsIndex({
                         tone="warning"
                         icon={<Clock3 className="size-5" aria-hidden="true" />}
                     />
+
                     <SummaryCard
                         label="Failed / Cancelled"
                         value={summary.failedOrCancelled}
@@ -538,17 +648,19 @@ export default function PaymentsIndex({
                     options={{ preserveState: true, replace: true }}
                 >
                     <Card className="gap-0 rounded-xl py-0 shadow-xs">
-                        <CardContent className="grid gap-4 p-4 sm:grid-cols-2 lg:p-5 xl:grid-cols-6">
+                        <CardContent className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1.65fr)_minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(17rem,1.35fr)_auto] xl:items-end">
                             <label
                                 htmlFor="payment-search"
-                                className="grid gap-1.5 text-sm font-medium sm:col-span-2 xl:col-span-2"
+                                className="grid min-w-0 gap-1.5 text-sm font-medium md:col-span-2 xl:col-span-1"
                             >
                                 <span>Search</span>
+
                                 <div className="relative">
                                     <Search
                                         className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                                         aria-hidden="true"
                                     />
+
                                     <Input
                                         id="payment-search"
                                         name="search"
@@ -568,45 +680,78 @@ export default function PaymentsIndex({
                             />
 
                             <FilterSelect
-                                label="Method"
+                                label="Payment Method"
                                 name="method"
                                 value={filters.method}
                                 options={methods}
                                 allLabel="All methods"
                             />
 
-                            <label className="grid gap-1.5 text-sm font-medium">
-                                <span>From</span>
-                                <Input
-                                    type="date"
-                                    name="from"
-                                    defaultValue={filters.from ?? ''}
-                                />
-                            </label>
+                            <fieldset className="grid min-w-0 gap-1.5 md:col-span-2 xl:col-span-1">
+                                <legend className="text-sm font-medium">
+                                    Date Range
+                                </legend>
 
-                            <label className="grid gap-1.5 text-sm font-medium">
-                                <span>To</span>
-                                <Input
-                                    type="date"
-                                    name="to"
-                                    defaultValue={filters.to ?? ''}
-                                />
-                            </label>
+                                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                                    <label
+                                        htmlFor="payment-from"
+                                        className="sr-only"
+                                    >
+                                        From
+                                    </label>
 
-                            <div className="flex flex-wrap items-end gap-2 sm:col-span-2 xl:col-span-6">
-                                <Button type="submit" className="gap-2">
+                                    <Input
+                                        id="payment-from"
+                                        type="date"
+                                        name="from"
+                                        defaultValue={filters.from ?? ''}
+                                        className="min-w-0"
+                                    />
+
+                                    <span
+                                        className="text-caption text-muted-foreground"
+                                        aria-hidden="true"
+                                    >
+                                        to
+                                    </span>
+
+                                    <label
+                                        htmlFor="payment-to"
+                                        className="sr-only"
+                                    >
+                                        To
+                                    </label>
+
+                                    <Input
+                                        id="payment-to"
+                                        type="date"
+                                        name="to"
+                                        defaultValue={filters.to ?? ''}
+                                        className="min-w-0"
+                                    />
+                                </div>
+                            </fieldset>
+
+                            <div className="flex gap-2 md:col-span-2 xl:col-span-1 xl:justify-end">
+                                <Button
+                                    type="submit"
+                                    variant="outline"
+                                    aria-label="Apply filters"
+                                    className="flex-1 gap-2 xl:flex-none"
+                                >
                                     <Filter
                                         className="size-4"
                                         aria-hidden="true"
                                     />
-                                    Apply filters
+                                    Filters
                                 </Button>
 
                                 {hasActiveFilters ? (
                                     <Button
                                         asChild
-                                        variant="outline"
+                                        variant="ghost"
                                         type="button"
+                                        className="flex-1 xl:flex-none"
                                     >
                                         <Link
                                             href={paymentsIndex()}
@@ -631,7 +776,9 @@ export default function PaymentsIndex({
                                 className="mb-3 size-8 text-muted-foreground"
                                 aria-hidden="true"
                             />
+
                             <p className="font-medium">No payments found</p>
+
                             <p className="mt-1 max-w-md text-sm text-muted-foreground">
                                 No payment evidence matches the current filters.
                             </p>
@@ -648,70 +795,72 @@ export default function PaymentsIndex({
                             </div>
 
                             <div className="hidden overflow-x-auto lg:block">
-                                <table className="w-full min-w-[1220px] text-sm">
-                                    <thead className="bg-muted/40 text-left text-caption text-muted-foreground">
+                                <table className="w-full min-w-[1080px] text-sm">
+                                    <thead className="border-b bg-muted/30 text-left text-caption text-muted-foreground">
                                         <tr>
                                             <th
                                                 scope="col"
                                                 className="px-table-x py-table-y font-medium"
                                             >
-                                                Payment
+                                                Payment ID
                                             </th>
+
                                             <th
                                                 scope="col"
                                                 className="px-table-x py-table-y font-medium"
                                             >
                                                 Session
                                             </th>
+
                                             <th
                                                 scope="col"
                                                 className="px-table-x py-table-y font-medium"
                                             >
                                                 Method
                                             </th>
+
                                             <th
                                                 scope="col"
                                                 className="px-table-x py-table-y text-right font-medium"
                                             >
                                                 Amount
                                             </th>
+
                                             <th
                                                 scope="col"
                                                 className="px-table-x py-table-y font-medium"
                                             >
                                                 Status
                                             </th>
+
                                             <th
                                                 scope="col"
                                                 className="px-table-x py-table-y font-medium"
                                             >
                                                 Paid / Created
                                             </th>
+
                                             <th
                                                 scope="col"
                                                 className="px-table-x py-table-y font-medium"
                                             >
-                                                Maya payment ID
-                                            </th>
-                                            <th
-                                                scope="col"
-                                                className="px-table-x py-table-y font-medium"
-                                            >
-                                                Maya checkout ID
+                                                Reference
                                             </th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+
+                                    <tbody className="divide-y">
                                         {payments.data.map((payment) => (
                                             <tr
                                                 key={payment.id}
-                                                className="border-t transition-colors hover:bg-muted/20"
+                                                className="transition-colors hover:bg-muted/20"
                                             >
                                                 <td className="px-table-x py-table-y align-top">
-                                                    <span className="font-semibold tabular-nums">
+                                                    <span className="font-semibold text-primary tabular-nums">
                                                         #{payment.id}
                                                     </span>
                                                 </td>
+
                                                 <td className="px-table-x py-table-y align-top">
                                                     <PaymentIdentifier
                                                         value={
@@ -720,30 +869,33 @@ export default function PaymentsIndex({
                                                         emptyLabel="No session reference"
                                                     />
                                                 </td>
+
                                                 <td className="px-table-x py-table-y align-top">
-                                                    <Badge variant="secondary">
-                                                        {formatEnumLabel(
-                                                            payment.method,
-                                                        )}
-                                                    </Badge>
+                                                    <PaymentMethodBadge
+                                                        method={payment.method}
+                                                    />
                                                 </td>
+
                                                 <td className="px-table-x py-table-y text-right align-top font-medium whitespace-nowrap tabular-nums">
                                                     {formatPaymentAmount(
                                                         payment.amount,
                                                         payment.currency,
                                                     )}
                                                 </td>
+
                                                 <td className="px-table-x py-table-y align-top">
                                                     <PaymentStatusBadge
                                                         status={payment.status}
                                                     />
                                                 </td>
+
                                                 <td className="px-table-x py-table-y align-top whitespace-nowrap">
                                                     <p>
                                                         {formatPaymentDateTime(
                                                             payment.paidAt,
                                                         )}
                                                     </p>
+
                                                     <p className="mt-1 text-caption text-muted-foreground">
                                                         Created{' '}
                                                         {formatPaymentDateTime(
@@ -751,20 +903,10 @@ export default function PaymentsIndex({
                                                         )}
                                                     </p>
                                                 </td>
-                                                <td className="px-table-x py-table-y align-top">
-                                                    <PaymentIdentifier
-                                                        value={
-                                                            payment.mayaPaymentId
-                                                        }
-                                                        emptyLabel="Not assigned"
-                                                    />
-                                                </td>
-                                                <td className="px-table-x py-table-y align-top">
-                                                    <PaymentIdentifier
-                                                        value={
-                                                            payment.mayaCheckoutId
-                                                        }
-                                                        emptyLabel="Not assigned"
+
+                                                <td className="min-w-64 px-table-x py-table-y align-top">
+                                                    <PaymentReference
+                                                        payment={payment}
                                                     />
                                                 </td>
                                             </tr>
