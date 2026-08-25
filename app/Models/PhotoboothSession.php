@@ -61,6 +61,7 @@ class PhotoboothSession extends Model
     {
         return [
             'status' => PhotoboothSessionStatus::class,
+            'price' => 'decimal:2',
             'payment_method' => PaymentMethod::class,
             'required_capture_count' => 'integer',
             'template_snapshot' => 'array',
