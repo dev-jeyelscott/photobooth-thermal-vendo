@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { InputHTMLAttributes, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import SettingsEdit from './edit';
+import SettingsEdit, { formatSettingsAmount } from './edit';
 
 const formErrors = vi.hoisted(() => ({
     current: {} as Record<string, string>,
@@ -10,6 +10,13 @@ const formErrors = vi.hoisted(() => ({
 vi.mock('@inertiajs/react', () => ({
     Head: () => null,
     setLayoutProps: () => {},
+    Link: ({
+        href,
+        children,
+    }: {
+        href: string | { url: string };
+        children: ReactNode;
+    }) => <a href={typeof href === 'string' ? href : href.url}>{children}</a>,
     Form: ({
         children,
     }: {
@@ -27,8 +34,8 @@ vi.mock('@inertiajs/react', () => ({
     ),
 }));
 
-vi.mock('@/components/ui/checkbox', () => ({
-    Checkbox: (props: InputHTMLAttributes<HTMLInputElement>) => (
+vi.mock('@/components/ui/switch', () => ({
+    Switch: (props: InputHTMLAttributes<HTMLInputElement>) => (
         <input type="checkbox" {...props} />
     ),
 }));
@@ -57,6 +64,11 @@ describe('settings edit', () => {
         formErrors.current = {};
     });
 
+    it('formats the configured session price using its persisted currency', () => {
+        expect(formatSettingsAmount(50, 'PHP')).toContain('50.00');
+        expect(formatSettingsAmount(50, 'INVALID')).toBe('INVALID 50.00');
+    });
+
     it('associates validation errors with their fields', () => {
         formErrors.current = {
             session_price: 'The session price must be at least 0.01.',
@@ -80,31 +92,60 @@ describe('settings edit', () => {
         expect(message).toHaveAttribute('role', 'alert');
     });
 
-    it('renders the operator settings sections', () => {
+    it('renders the redesigned operator settings groups', () => {
         render(<SettingsEdit settings={settings} />);
 
         expect(
-            screen.getByRole('heading', { name: 'Pricing & Currency' }),
-        ).toBeInTheDocument();
-        expect(
-            screen.getByRole('heading', { name: 'Capture Experience' }),
-        ).toBeInTheDocument();
-        expect(
-            screen.getByRole('heading', { name: 'Session & Gallery' }),
-        ).toBeInTheDocument();
-        expect(
             screen.getByRole('heading', {
-                name: 'Booth Identity & Printing',
+                name: 'Booth / Print Information',
             }),
         ).toBeInTheDocument();
         expect(
-            screen.getByRole('heading', { name: 'Maintenance Mode' }),
+            screen.getByRole('heading', {
+                name: 'Pricing & Currency',
+            }),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole('heading', {
+                name: 'Session Timing',
+            }),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole('heading', {
+                name: 'Capture & Print Settings',
+            }),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole('heading', {
+                name: 'Gallery / Retention',
+            }),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole('heading', {
+                name: 'Maintenance / Status',
+            }),
         ).toBeInTheDocument();
     });
 
     it('preserves every existing settings field name', () => {
         render(<SettingsEdit settings={settings} />);
 
+        expect(screen.getByLabelText('Booth display name')).toHaveAttribute(
+            'name',
+            'booth_display_name',
+        );
+        expect(screen.getByLabelText('Default printer')).toHaveAttribute(
+            'name',
+            'default_printer',
+        );
+        expect(screen.getByLabelText('Receipt header')).toHaveAttribute(
+            'name',
+            'receipt_header',
+        );
+        expect(screen.getByLabelText('Receipt footer')).toHaveAttribute(
+            'name',
+            'receipt_footer',
+        );
         expect(screen.getByLabelText('Session price')).toHaveAttribute(
             'name',
             'session_price',
@@ -112,6 +153,13 @@ describe('settings edit', () => {
         expect(
             screen.getByLabelText('Currency (ISO 4217 code)'),
         ).toHaveAttribute('name', 'currency');
+        expect(screen.getByLabelText('Idle timeout (seconds)')).toHaveAttribute(
+            'name',
+            'kiosk_idle_timeout_seconds',
+        );
+        expect(
+            screen.getByLabelText('Session timeout (seconds)'),
+        ).toHaveAttribute('name', 'session_timeout_seconds');
         expect(screen.getByLabelText('Default capture count')).toHaveAttribute(
             'name',
             'capture_shot_count',
@@ -126,35 +174,12 @@ describe('settings edit', () => {
             'name',
             'retake_limit',
         );
-        expect(screen.getByLabelText('Idle timeout (seconds)')).toHaveAttribute(
-            'name',
-            'kiosk_idle_timeout_seconds',
-        );
-        expect(
-            screen.getByLabelText('Session timeout (seconds)'),
-        ).toHaveAttribute('name', 'session_timeout_seconds');
         expect(
             screen.getByLabelText('Gallery expiration (hours)'),
         ).toHaveAttribute('name', 'gallery_expiration_hours');
         expect(
             screen.getByLabelText('GIF frame duration (ms)'),
         ).toHaveAttribute('name', 'gif_frame_duration_ms');
-        expect(screen.getByLabelText('Default printer')).toHaveAttribute(
-            'name',
-            'default_printer',
-        );
-        expect(screen.getByLabelText('Booth display name')).toHaveAttribute(
-            'name',
-            'booth_display_name',
-        );
-        expect(screen.getByLabelText('Receipt header')).toHaveAttribute(
-            'name',
-            'receipt_header',
-        );
-        expect(screen.getByLabelText('Receipt footer')).toHaveAttribute(
-            'name',
-            'receipt_footer',
-        );
         expect(screen.getByLabelText('Maintenance mode')).toHaveAttribute(
             'name',
             'maintenance_mode',
@@ -165,7 +190,7 @@ describe('settings edit', () => {
         );
     });
 
-    it('keeps the two countdown settings visually distinct', () => {
+    it('keeps both countdown settings visually and semantically distinct', () => {
         render(<SettingsEdit settings={settings} />);
 
         expect(
@@ -176,7 +201,7 @@ describe('settings edit', () => {
         ).toHaveValue(3);
     });
 
-    it('explains only the currently proven new-session snapshots', () => {
+    it('explains only the proven new-session snapshot behavior', () => {
         render(<SettingsEdit settings={settings} />);
 
         expect(screen.getAllByText('New-session snapshot')).toHaveLength(1);
@@ -185,6 +210,18 @@ describe('settings edit', () => {
                 /Session price, currency, and default capture count are copied into each new session/i,
             ),
         ).toBeInTheDocument();
+    });
+
+    it('renders a truthful summary from existing saved settings only', () => {
+        render(<SettingsEdit settings={settings} />);
+
+        const summary = screen.getByLabelText('Settings summary');
+
+        expect(within(summary).getByText('Photobooth')).toBeInTheDocument();
+        expect(within(summary).getByText(/50\.00/)).toBeInTheDocument();
+        expect(within(summary).getByText('24 hours')).toBeInTheDocument();
+        expect(within(summary).getByText('dnp-ds620')).toBeInTheDocument();
+        expect(within(summary).getByText('Available')).toBeInTheDocument();
     });
 
     it('presents maintenance mode without implying active sessions are destroyed', () => {
@@ -205,11 +242,36 @@ describe('settings edit', () => {
         ).toBeInTheDocument();
     });
 
-    it('keeps the save action inside the form as a submit button', () => {
+    it('keeps save as the only mutation and provides a safe cancel navigation', () => {
         render(<SettingsEdit settings={settings} />);
 
         expect(
-            screen.getByRole('button', { name: 'Save changes' }),
+            screen.getByRole('button', {
+                name: 'Save changes',
+            }),
         ).toHaveAttribute('type', 'submit');
+
+        expect(
+            screen.getByRole('link', {
+                name: 'Cancel',
+            }),
+        ).toHaveAttribute('href', '/admin/settings');
+    });
+
+    it('does not fabricate unsupported screenshot-only settings', () => {
+        render(<SettingsEdit settings={settings} />);
+
+        expect(
+            screen.queryByLabelText(/contact email/i),
+        ).not.toBeInTheDocument();
+        expect(
+            screen.queryByLabelText(/contact phone/i),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByLabelText(/service fee/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/software version/i)).not.toBeInTheDocument();
+        expect(
+            screen.queryByText(/reset to defaults/i),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByText(/last saved/i)).not.toBeInTheDocument();
     });
 });
