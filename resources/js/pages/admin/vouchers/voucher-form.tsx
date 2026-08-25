@@ -415,9 +415,12 @@ export default function VoucherForm({
     const [expiresAt, setExpiresAt] = useState(
         toDateTimeLocal(voucher?.expiresAt),
     );
-    const [usageLimit, setUsageLimit] = useState(voucher?.usageLimit ?? 1);
+    const [usageLimit, setUsageLimit] = useState(
+        String(voucher?.usageLimit ?? 1),
+    );
     const [active, setActive] = useState(voucher?.active ?? true);
     const usageCount = voucher?.usageCount ?? 0;
+    const usageLimitPreview = Math.max(1, Number(usageLimit) || 1);
 
     return (
         <>
@@ -617,13 +620,7 @@ export default function VoucherForm({
                                                 }
                                                 onChange={(event) =>
                                                     setUsageLimit(
-                                                        Math.max(
-                                                            1,
-                                                            Number(
-                                                                event.target
-                                                                    .value,
-                                                            ) || 1,
-                                                        ),
+                                                        event.target.value,
                                                     )
                                                 }
                                             />
@@ -726,14 +723,14 @@ export default function VoucherForm({
                                     active={active}
                                     validFrom={validFrom}
                                     expiresAt={expiresAt}
-                                    usageLimit={usageLimit}
+                                    usageLimit={usageLimitPreview}
                                     usageCount={usageCount}
                                 />
                                 <VoucherPreview
                                     code={code}
                                     active={active}
                                     expiresAt={expiresAt}
-                                    usageLimit={usageLimit}
+                                    usageLimit={usageLimitPreview}
                                 />
                                 {voucher && (
                                     <VoucherRedemptionHistory
