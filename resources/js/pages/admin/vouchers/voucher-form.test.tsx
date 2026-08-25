@@ -88,6 +88,14 @@ function getVoucherCodeInput(): HTMLElement {
     return screen.getByLabelText(/^Voucher code/);
 }
 
+/**
+ * Resolve the usage-limit input without coupling the test to the decorative
+ * required marker rendered inside its visible label.
+ */
+function getUsageLimitInput(): HTMLElement {
+    return screen.getByLabelText(/^Usage limit/);
+}
+
 describe('voucher form browser payload contract', () => {
     it('submits an explicit Laravel boolean value for active', () => {
         const { container } = render(
@@ -128,7 +136,7 @@ describe('voucher form browser payload contract', () => {
         expect(screen.getByLabelText('Expiration date (optional)')).toHaveValue(
             '2030-02-03T04:05',
         );
-        expect(screen.getByLabelText('Usage limit')).toHaveValue(10);
+        expect(getUsageLimitInput()).toHaveValue(10);
         expect(
             screen.getByRole('checkbox', { name: 'Active' }),
         ).not.toBeChecked();
@@ -161,7 +169,7 @@ describe('voucher form browser payload contract', () => {
         );
 
         const codeInput = getVoucherCodeInput();
-        const usageInput = screen.getByLabelText('Usage limit');
+        const usageInput = getUsageLimitInput();
 
         await user.type(codeInput, 'SUMMER25');
         await user.clear(usageInput);
