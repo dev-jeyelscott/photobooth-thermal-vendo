@@ -3,12 +3,15 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import SessionsIndex, {
     formatEnumLabel,
+    formatPaginationLabel,
+    formatSessionAmount,
+    formatSummaryPercentage,
     getActiveFilterLabels,
     getPaginationSummary,
     getPrintStatusPresentation,
     getSessionStatusPresentation,
 } from './index';
-import type { Filters, Paginated, Session } from './index';
+import type { Filters, Paginated, Session, SessionSummary } from './index';
 
 vi.mock('@inertiajs/react', () => ({
     Form: ({
@@ -18,30 +21,21 @@ vi.mock('@inertiajs/react', () => ({
     }: {
         action?: string;
         method?: string;
-        children?: ReactNode | (() => ReactNode);
+        children?: ReactNode;
     }) => (
         <form action={action} method={method}>
-            {typeof children === 'function' ? children() : children}
+            {children}
         </form>
     ),
     Head: () => null,
     Link: ({
         href,
         children,
-        dangerouslySetInnerHTML,
     }: {
         href: string | { url: string };
-        children?: ReactNode;
-        dangerouslySetInnerHTML?: { __html: string };
+        children: ReactNode;
         preserveScroll?: boolean;
-    }) => (
-        <a
-            href={typeof href === 'string' ? href : href.url}
-            dangerouslySetInnerHTML={dangerouslySetInnerHTML}
-        >
-            {dangerouslySetInnerHTML === undefined ? children : undefined}
-        </a>
-    ),
+    }) => <a href={typeof href === 'string' ? href : href.url}>{children}</a>,
     setLayoutProps: vi.fn(),
 }));
 
@@ -58,12 +52,12 @@ const statuses = [
     'expired',
     'abandoned',
 ];
-
 const paymentStatuses = ['pending', 'success', 'failed', 'cancelled'];
 const paymentMethods = ['maya', 'voucher'];
 const printStatuses = ['pending', 'printing', 'printed', 'failed'];
 
 const emptyFilters: Filters = {
+    search: null,
     status: null,
     from: null,
     to: null,
@@ -73,9 +67,16 @@ const emptyFilters: Filters = {
     print_status: null,
 };
 
+const summary: SessionSummary = {
+    total: 1248,
+    completed: 842,
+    inProgress: 176,
+    expiredOrAbandoned: 230,
+};
+
 /**
  * Build a stable session fixture while allowing each test to override only the
- * fields needed by that scenario.
+ * fields required by that scenario.
  */
 function makeSession(overrides: Partial<Session> = {}): Session {
     return {
@@ -84,7 +85,16 @@ function makeSession(overrides: Partial<Session> = {}): Session {
         status: 'completed',
         startedAt: '2026-08-22T18:00:47+08:00',
         expiresAt: '2026-08-22T19:00:47+08:00',
-        payment: null,
+        templateName: 'Classic 4R',
+        voucherCode: null,
+        price: '200.00',
+        currency: 'PHP',
+        paymentMethod: 'maya',
+        payment: {
+            method: 'maya',
+            status: 'success',
+            amount: '200.00',
+        },
         printJob: {
             status: 'printed',
             attemptCount: 1,
@@ -95,8 +105,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 }
 
 /**
- * Build a predictable paginator fixture matching Laravel's Inertia payload
- * shape used by the Sessions page.
+ * Build a predictable paginator fixture matching Laravel's Inertia payload.
  */
 function makePagination(
     data: Session[],
@@ -105,21 +114,9 @@ function makePagination(
     return {
         data,
         links: [
-            {
-                url: null,
-                label: '&laquo; Previous',
-                active: false,
-            },
-            {
-                url: '/admin/sessions?page=1',
-                label: '1',
-                active: true,
-            },
-            {
-                url: null,
-                label: 'Next &raquo;',
-                active: false,
-            },
+            { url: null, label: '&laquo; Previous', active: false },
+            { url: '/admin/sessions?page=1', label: '1', active: true },
+            { url: null, label: 'Next &raquo;', active: false },
         ],
         from: data.length > 0 ? 1 : null,
         to: data.length > 0 ? data.length : null,
@@ -129,19 +126,21 @@ function makePagination(
 }
 
 /**
- * Render the Sessions page with repository-valid defaults while allowing tests
- * to override the session paginator or server-provided filters.
+ * Render the Sessions page with repository-valid defaults.
  */
 function renderPage({
     sessions = makePagination([makeSession()]),
     filters = emptyFilters,
+    pageSummary = summary,
 }: {
     sessions?: Paginated<Session>;
     filters?: Filters;
+    pageSummary?: SessionSummary;
 } = {}) {
     return render(
         <SessionsIndex
             sessions={sessions}
+            summary={pageSummary}
             filters={filters}
             statuses={statuses}
             paymentStatuses={paymentStatuses}
@@ -152,236 +151,187 @@ function renderPage({
 }
 
 /**
- * Locate the rendered table row belonging to one exact session token so row
- * assertions cannot collide with matching labels in the filter controls.
+ * Locate the exact session row so assertions do not collide with filter labels.
  */
 function getSessionRow(sessionToken: string): HTMLElement {
-    const sessionTokenElement = screen.getByText(sessionToken);
-    const sessionRow = sessionTokenElement.closest('tr');
+    const token = screen.getByText(sessionToken);
+    const row = token.closest('tr');
 
-    if (sessionRow === null) {
+    if (row === null) {
         throw new Error(`Session row not found for ${sessionToken}`);
     }
 
-    return sessionRow;
+    return row;
 }
 
 describe('Sessions presentation helpers', () => {
-    it('humanizes durable enum-style values without changing their meaning', () => {
+    it('humanizes durable enum values without changing their meaning', () => {
         expect(formatEnumLabel('payment_pending')).toBe('Payment pending');
         expect(formatEnumLabel('template_selected')).toBe('Template selected');
-        expect(formatEnumLabel('completed')).toBe('Completed');
     });
 
-    it('maps session states to the expected semantic token groups', () => {
+    it('maps session and print states to canonical semantic tokens', () => {
         expect(getSessionStatusPresentation('completed').className).toContain(
             'bg-success-subtle',
         );
-
         expect(
             getSessionStatusPresentation('payment_pending').className,
         ).toContain('bg-warning-subtle');
-
-        expect(getSessionStatusPresentation('printing').className).toContain(
-            'bg-info-subtle',
-        );
-
-        expect(getSessionStatusPresentation('abandoned').className).toContain(
-            'bg-muted',
-        );
-    });
-
-    it('maps print failures and successes to semantic dot colors', () => {
-        expect(getPrintStatusPresentation('printed').dotClassName).toBe(
-            'bg-success',
-        );
-
-        expect(getPrintStatusPresentation('failed').dotClassName).toBe(
-            'bg-destructive',
-        );
-    });
-
-    it('shows only valid server-recognized query filters as active', () => {
-        const labels = getActiveFilterLabels(
-            {
-                status: 'payment_pending',
-                from: '2026-08-20',
-                to: null,
-                payment_status: 'not-a-status',
-                payment_method: 'maya',
-                authorization_type: 'voucher',
-                print_status: 'printed',
-            },
-            statuses,
-            paymentStatuses,
-            paymentMethods,
-            printStatuses,
-        );
-
-        expect(labels).toEqual([
-            'Status: Payment pending',
-            'From: 2026-08-20',
-            'Payment method: Maya',
-            'Authorization: Voucher',
-            'Print status: Printed',
-        ]);
-    });
-
-    it('builds truthful populated and empty pagination summaries', () => {
-        expect(
-            getPaginationSummary(
-                makePagination([makeSession()], {
-                    from: 1,
-                    to: 10,
-                    total: 28,
-                }),
-            ),
-        ).toBe('Showing 1–10 of 28');
-
-        expect(getPaginationSummary(makePagination([]))).toBe('Showing 0 of 0');
-    });
-});
-
-describe('Sessions monitoring page', () => {
-    it('renders the approved read-only monitoring hierarchy', () => {
-        renderPage();
-
-        expect(
-            screen.getByRole('heading', {
-                name: 'Sessions',
-            }),
-        ).toBeInTheDocument();
-
-        expect(screen.getByText('Read only')).toBeInTheDocument();
-
-        expect(
-            screen.getByText(
-                'Read-only view of photobooth sessions, payments, and print jobs',
-            ),
-        ).toBeInTheDocument();
-
-        expect(screen.getByText('None')).toBeInTheDocument();
-
-        expect(
-            screen.getByRole('link', {
-                name: 'Clear filters',
-            }),
-        ).toHaveAttribute('href', '/admin/sessions');
-    });
-
-    it('keeps the complete session UUID visible for troubleshooting', () => {
-        const sessionToken = '11111111-1111-4111-8111-000000000013';
-
-        renderPage({
-            sessions: makePagination([
-                makeSession({
-                    sessionToken,
-                    status: 'printing',
-                }),
-            ]),
-        });
-
-        const sessionRow = getSessionRow(sessionToken);
-
-        expect(within(sessionRow).getByText(sessionToken)).toBeInTheDocument();
-        expect(within(sessionRow).getByText('Printing')).toBeInTheDocument();
-    });
-
-    it('renders payment and print evidence without inventing missing records', () => {
-        renderPage({
-            sessions: makePagination([
-                makeSession({
-                    payment: null,
-                    printJob: null,
-                }),
-            ]),
-        });
-
-        expect(screen.getByText('No payment')).toBeInTheDocument();
-        expect(screen.getByText('No print job')).toBeInTheDocument();
-    });
-
-    it('renders real payment evidence with semantic status treatment', () => {
-        const sessionToken = '11111111-1111-4111-8111-000000000014';
-
-        renderPage({
-            sessions: makePagination([
-                makeSession({
-                    sessionToken,
-                    status: 'payment_pending',
-                    payment: {
-                        method: 'maya',
-                        status: 'pending',
-                        amount: '50.00',
-                    },
-                    printJob: null,
-                }),
-            ]),
-        });
-
-        const sessionRow = getSessionRow(sessionToken);
-
-        expect(
-            within(sessionRow).getByText('Payment pending'),
-        ).toBeInTheDocument();
-        expect(within(sessionRow).getByText('maya')).toBeInTheDocument();
-        expect(within(sessionRow).getByText('pending')).toHaveClass(
-            'text-warning',
-        );
-        expect(within(sessionRow).getByText('50.00')).toBeInTheDocument();
-    });
-
-    it('renders the semantic failed print-job state', () => {
-        const sessionToken = '11111111-1111-4111-8111-000000000015';
-
-        renderPage({
-            sessions: makePagination([
-                makeSession({
-                    sessionToken,
-                    status: 'printing',
-                    printJob: {
-                        status: 'failed',
-                        attemptCount: 2,
-                        completedAt: null,
-                    },
-                }),
-            ]),
-        });
-
-        const sessionRow = getSessionRow(sessionToken);
-
-        expect(within(sessionRow).getByText('Failed')).toHaveClass(
+        expect(getPrintStatusPresentation('failed').badgeClassName).toContain(
             'text-destructive',
         );
     });
 
-    it('renders active filters from the authoritative server filter props', () => {
+    it('formats summary percentages and pagination safely', () => {
+        expect(formatSummaryPercentage(842, 1248)).toBe('67.5% of total');
+        expect(formatSummaryPercentage(0, 0)).toBe('0.0% of total');
+        expect(formatPaginationLabel('&laquo; Previous')).toBe('Previous');
+        expect(
+            getPaginationSummary(
+                makePagination([makeSession()], {
+                    from: 1,
+                    to: 20,
+                    total: 1248,
+                }),
+            ),
+        ).toBe('Showing 1–20 of 1248');
+    });
+
+    it('uses persisted currency when formatting session amounts', () => {
+        expect(formatSessionAmount('200.00', 'PHP')).toContain('200.00');
+        expect(formatSessionAmount('200.00', null)).toBe('200.00');
+        expect(formatSessionAmount(null, 'PHP')).toBe('Not available');
+    });
+
+    it('shows only authoritative active filters', () => {
+        expect(
+            getActiveFilterLabels(
+                {
+                    ...emptyFilters,
+                    search: '465dfc8f',
+                    status: 'completed',
+                    payment_method: 'maya',
+                    print_status: 'printed',
+                },
+                statuses,
+                paymentStatuses,
+                paymentMethods,
+                printStatuses,
+            ),
+        ).toEqual([
+            'Search: 465dfc8f',
+            'Status: Completed',
+            'Payment method: Maya',
+            'Print status: Printed',
+        ]);
+    });
+});
+
+describe('Sessions monitoring page', () => {
+    it('renders the approved dashboard hierarchy and all-time summaries', () => {
+        renderPage();
+
+        expect(
+            screen.getByRole('heading', { name: 'Sessions' }),
+        ).toBeInTheDocument();
+        expect(screen.getByText('Read only')).toBeInTheDocument();
+        expect(
+            within(screen.getByLabelText('Total Sessions')).getByText('1,248'),
+        ).toBeInTheDocument();
+        expect(
+            within(screen.getByLabelText('Completed Sessions')).getByText(
+                '842',
+            ),
+        ).toBeInTheDocument();
+        expect(
+            within(screen.getByLabelText('Active / Pending')).getByText('176'),
+        ).toBeInTheDocument();
+        expect(
+            within(screen.getByLabelText('Expired / Abandoned')).getByText(
+                '230',
+            ),
+        ).toBeInTheDocument();
+    });
+
+    it('renders searchable server-backed filters without unsupported booth fields', () => {
+        renderPage();
+
+        expect(screen.getByLabelText('Search')).toHaveAttribute(
+            'name',
+            'search',
+        );
+        expect(screen.getByLabelText('Session status')).toHaveAttribute(
+            'name',
+            'status',
+        );
+        expect(screen.queryByLabelText(/booth/i)).not.toBeInTheDocument();
+    });
+
+    it('keeps the full session UUID and truthful template evidence visible', () => {
+        const sessionToken = '11111111-1111-4111-8111-000000000013';
+        renderPage({
+            sessions: makePagination([
+                makeSession({ sessionToken, templateName: 'Floral Classic' }),
+            ]),
+        });
+
+        const row = getSessionRow(sessionToken);
+        expect(within(row).getByText(sessionToken)).toBeInTheDocument();
+        expect(within(row).getByText('Floral Classic')).toBeInTheDocument();
+        expect(within(row).getByText('Success')).toBeInTheDocument();
+        expect(within(row).getByText('Printed')).toBeInTheDocument();
+    });
+
+    it('renders voucher and missing evidence without fabricating payment records', () => {
+        renderPage({
+            sessions: makePagination([
+                makeSession({
+                    id: 1,
+                    sessionToken: '11111111-1111-4111-8111-000000000014',
+                    payment: null,
+                    paymentMethod: 'voucher',
+                    voucherCode: 'BDAY2025',
+                    printJob: null,
+                }),
+                makeSession({
+                    id: 2,
+                    sessionToken: '11111111-1111-4111-8111-000000000015',
+                    payment: null,
+                    paymentMethod: null,
+                    voucherCode: null,
+                    printJob: null,
+                }),
+            ]),
+        });
+
+        expect(screen.getByText('BDAY2025')).toBeInTheDocument();
+        expect(screen.getByText('No payment')).toBeInTheDocument();
+        expect(screen.getAllByText('No print job')).toHaveLength(2);
+    });
+
+    it('renders active filter evidence and a clear action only when needed', () => {
         renderPage({
             filters: {
                 ...emptyFilters,
+                search: '11111111',
                 status: 'completed',
-                payment_method: 'maya',
-                print_status: 'printed',
             },
         });
 
+        expect(screen.getByText('Search: 11111111')).toBeInTheDocument();
         expect(screen.getByText('Status: Completed')).toBeInTheDocument();
-        expect(screen.getByText('Payment method: Maya')).toBeInTheDocument();
-        expect(screen.getByText('Print status: Printed')).toBeInTheDocument();
-        expect(screen.queryByText('None')).not.toBeInTheDocument();
+        expect(
+            screen.getByRole('link', { name: 'Clear filters' }),
+        ).toHaveAttribute('href', '/admin/sessions');
     });
 
     it('renders a truthful empty result state', () => {
-        renderPage({
-            sessions: makePagination([]),
-        });
+        renderPage({ sessions: makePagination([]) });
 
-        expect(screen.getByText('No sessions found.')).toBeInTheDocument();
-
+        expect(screen.getByText('No sessions found')).toBeInTheDocument();
         expect(
             screen.getByText('No session records match the current filters.'),
         ).toBeInTheDocument();
-
-        expect(screen.getAllByText('Showing 0 of 0')).toHaveLength(2);
+        expect(screen.getByText('Showing 0 of 0 sessions')).toBeInTheDocument();
     });
 });

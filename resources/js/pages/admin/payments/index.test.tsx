@@ -1,16 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import PaymentsIndex, {
     formatPaginationLabel,
     formatPaymentAmount,
     formatPaymentDateTime,
+    formatSummaryPercentage,
 } from './index';
-import type { Payment } from './index';
-
-type MockFormState = {
-    processing: boolean;
-};
+import type { Filters, Paginated, Payment, PaymentSummary } from './index';
 
 vi.mock('@inertiajs/react', () => ({
     Form: ({
@@ -20,12 +17,10 @@ vi.mock('@inertiajs/react', () => ({
     }: {
         action?: string;
         method?: string;
-        children?: ReactNode | ((state: MockFormState) => ReactNode);
+        children?: ReactNode;
     }) => (
         <form action={action} method={method}>
-            {typeof children === 'function'
-                ? children({ processing: false })
-                : children}
+            {children}
         </form>
     ),
     Head: () => null,
@@ -35,23 +30,40 @@ vi.mock('@inertiajs/react', () => ({
     }: {
         href: string | { url: string };
         children: ReactNode;
+        preserveScroll?: boolean;
     }) => <a href={typeof href === 'string' ? href : href.url}>{children}</a>,
     setLayoutProps: vi.fn(),
 }));
 
+const summary: PaymentSummary = {
+    total: 1248,
+    successful: 1086,
+    pending: 102,
+    failedOrCancelled: 60,
+};
+
+const emptyFilters: Filters = {
+    search: null,
+    status: null,
+    method: null,
+    from: null,
+    to: null,
+};
+
 /**
- * Build a stable payment fixture while allowing each test to override only
- * fields relevant to the behavior under test.
+ * Build a stable payment fixture while allowing focused per-test overrides.
  */
 function makePayment(overrides: Partial<Payment> = {}): Payment {
     return {
         id: 1,
         sessionToken: '11111111-1111-4111-8111-000000000013',
+        currency: 'PHP',
         method: 'maya',
         status: 'success',
         mayaPaymentId: '20000000-0000-4000-8000-000000000010',
         mayaCheckoutId: '10000000-0000-4000-8000-000000000010',
-        amount: '50.00',
+        amount: '200.00',
+        paidAt: '2026-08-22T17:59:35+08:00',
         createdAt: '2026-08-22T17:50:35+08:00',
         updatedAt: '2026-08-22T17:59:35+08:00',
         ...overrides,
@@ -61,25 +73,13 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
 /**
  * Build the Laravel-compatible pagination payload expected by the page.
  */
-function makePagination(data: Payment[]) {
+function makePagination(data: Payment[]): Paginated<Payment> {
     return {
         data,
         links: [
-            {
-                url: null,
-                label: '&laquo; Previous',
-                active: false,
-            },
-            {
-                url: '/admin/payments?page=1',
-                label: '1',
-                active: true,
-            },
-            {
-                url: null,
-                label: 'Next &raquo;',
-                active: false,
-            },
+            { url: null, label: '&laquo; Previous', active: false },
+            { url: '/admin/payments?page=1', label: '1', active: true },
+            { url: null, label: 'Next &raquo;', active: false },
         ],
         from: data.length > 0 ? 1 : null,
         to: data.length > 0 ? data.length : null,
@@ -87,68 +87,126 @@ function makePagination(data: Payment[]) {
     };
 }
 
+/**
+ * Render the Payments page with repository-valid defaults.
+ */
+function renderPage({
+    payments = makePagination([makePayment()]),
+    filters = emptyFilters,
+    pageSummary = summary,
+}: {
+    payments?: Paginated<Payment>;
+    filters?: Filters;
+    pageSummary?: PaymentSummary;
+} = {}) {
+    return render(
+        <PaymentsIndex
+            payments={payments}
+            summary={pageSummary}
+            filters={filters}
+            statuses={['pending', 'success', 'failed', 'cancelled']}
+            methods={['maya', 'voucher']}
+        />,
+    );
+}
+
 describe('payment presentation helpers', () => {
-    it('formats payment amounts without inventing a currency', () => {
+    it('formats persisted amounts without inventing a missing currency', () => {
         expect(formatPaymentAmount('50')).toBe('50.00');
         expect(formatPaymentAmount('1250.5')).toBe('1,250.50');
-        expect(formatPaymentAmount('unknown')).toBe('unknown');
+        expect(formatPaymentAmount('50', 'PHP')).toContain('50.00');
+        expect(formatPaymentAmount('unknown', 'PHP')).toBe('unknown');
     });
 
-    it('formats timestamps for operator readability', () => {
+    it('formats timestamps, percentages, and paginator labels safely', () => {
         expect(formatPaymentDateTime('2026-08-22T17:50:35+08:00')).toContain(
             'Aug',
         );
-
         expect(formatPaymentDateTime(null)).toBe('Not available');
-    });
-
-    it('normalizes Laravel pagination labels without rendering HTML', () => {
+        expect(formatSummaryPercentage(1086, 1248)).toBe('87.0% of total');
+        expect(formatSummaryPercentage(0, 0)).toBe('0.0% of total');
         expect(formatPaginationLabel('&laquo; Previous')).toBe('Previous');
         expect(formatPaginationLabel('Next &raquo;')).toBe('Next');
-        expect(formatPaginationLabel('<span>3</span>')).toBe('3');
     });
 });
 
 describe('Payments page', () => {
-    it('renders payment evidence as explicitly read only', () => {
-        render(
-            <PaymentsIndex
-                payments={makePagination([makePayment()])}
-                filters={{
-                    status: null,
-                    from: null,
-                    to: null,
-                }}
-                statuses={['pending', 'success', 'failed', 'cancelled']}
-            />,
-        );
-
-        expect(screen.getByText('Read only')).toBeInTheDocument();
-        expect(screen.getAllByText('Success').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('50.00').length).toBeGreaterThan(0);
+    it('renders all-time summary cards from authoritative props', () => {
+        renderPage();
 
         expect(
-            screen.getAllByText('20000000-0000-4000-8000-000000000010').length,
-        ).toBeGreaterThan(0);
+            within(screen.getByLabelText('Total Payments')).getByText('1,248'),
+        ).toBeInTheDocument();
+        expect(
+            within(screen.getByLabelText('Successful Payments')).getByText(
+                '1,086',
+            ),
+        ).toBeInTheDocument();
+        expect(
+            within(screen.getByLabelText('Pending Payments')).getByText('102'),
+        ).toBeInTheDocument();
+        expect(
+            within(screen.getByLabelText('Failed / Cancelled')).getByText('60'),
+        ).toBeInTheDocument();
+    });
 
+    it('keeps the page explicitly read only with no mutation actions', () => {
+        renderPage();
+
+        expect(screen.getByText('Read only')).toBeInTheDocument();
         expect(
             screen.queryByRole('link', { name: /edit/i }),
         ).not.toBeInTheDocument();
         expect(
             screen.queryByRole('button', { name: /delete/i }),
         ).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole('button', { name: /refund/i }),
+        ).not.toBeInTheDocument();
+    });
+
+    it('renders supported search, status, method, and date filters only', () => {
+        renderPage();
+
+        expect(screen.getByLabelText('Search')).toHaveAttribute(
+            'name',
+            'search',
+        );
+        expect(screen.getByLabelText('Status')).toHaveAttribute(
+            'name',
+            'status',
+        );
+        expect(screen.getByLabelText('Method')).toHaveAttribute(
+            'name',
+            'method',
+        );
+        expect(screen.queryByLabelText(/booth/i)).not.toBeInTheDocument();
+        expect(screen.queryByText('Export Payments')).not.toBeInTheDocument();
+    });
+
+    it('preserves full provider and session identifiers for troubleshooting', () => {
+        renderPage();
+
+        expect(
+            screen.getAllByText('11111111-1111-4111-8111-000000000013').length,
+        ).toBeGreaterThan(0);
+        expect(
+            screen.getAllByText('20000000-0000-4000-8000-000000000010').length,
+        ).toBeGreaterThan(0);
+        expect(
+            screen.getAllByText('10000000-0000-4000-8000-000000000010').length,
+        ).toBeGreaterThan(0);
+        expect(screen.getAllByText('Success').length).toBeGreaterThan(0);
     });
 
     it('shows a clear-filter action only when server filters are active', () => {
         const { rerender } = render(
             <PaymentsIndex
                 payments={makePagination([makePayment()])}
-                filters={{
-                    status: null,
-                    from: null,
-                    to: null,
-                }}
-                statuses={['success']}
+                summary={summary}
+                filters={emptyFilters}
+                statuses={['pending', 'success', 'failed', 'cancelled']}
+                methods={['maya', 'voucher']}
             />,
         );
 
@@ -159,12 +217,10 @@ describe('Payments page', () => {
         rerender(
             <PaymentsIndex
                 payments={makePagination([makePayment()])}
-                filters={{
-                    status: 'success',
-                    from: null,
-                    to: null,
-                }}
-                statuses={['success']}
+                summary={summary}
+                filters={{ ...emptyFilters, search: '20000000' }}
+                statuses={['pending', 'success', 'failed', 'cancelled']}
+                methods={['maya', 'voucher']}
             />,
         );
 
@@ -173,43 +229,18 @@ describe('Payments page', () => {
         ).toHaveAttribute('href', '/admin/payments');
     });
 
-    it('renders a truthful filtered empty state', () => {
-        render(
-            <PaymentsIndex
-                payments={makePagination([])}
-                filters={{
-                    status: 'failed',
-                    from: null,
-                    to: null,
-                }}
-                statuses={['failed']}
-            />,
-        );
+    it('renders a truthful filtered empty state and pagination summary', () => {
+        renderPage({
+            payments: makePagination([]),
+            filters: { ...emptyFilters, status: 'failed' },
+        });
 
         expect(screen.getByText('No payments found')).toBeInTheDocument();
-
         expect(
             screen.getByText(
                 'No payment evidence matches the current filters.',
             ),
         ).toBeInTheDocument();
-    });
-
-    it('renders accessible pagination labels instead of Laravel HTML entities', () => {
-        render(
-            <PaymentsIndex
-                payments={makePagination([makePayment()])}
-                filters={{
-                    status: null,
-                    from: null,
-                    to: null,
-                }}
-                statuses={['success']}
-            />,
-        );
-
-        expect(screen.getByText('Previous')).toBeInTheDocument();
-        expect(screen.getByText('Next')).toBeInTheDocument();
-        expect(screen.queryByText('&laquo; Previous')).not.toBeInTheDocument();
+        expect(screen.getByText('Showing 0 of 0 payments')).toBeInTheDocument();
     });
 });

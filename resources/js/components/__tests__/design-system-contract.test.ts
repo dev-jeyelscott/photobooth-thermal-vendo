@@ -43,6 +43,13 @@ const canonicalSemanticColorTokens = [
     '--color-ring: var(--ring);',
 ] as const;
 
+const thermaSnapBrandTokens = [
+    '--primary: oklch(0.59 0.24 15);',
+    '--ring: oklch(0.59 0.24 15);',
+    '--sidebar-primary: oklch(0.59 0.24 15);',
+    '--sidebar-ring: oklch(0.59 0.24 15);',
+] as const;
+
 describe('canonical design-system contract', () => {
     it('exposes the reusable token API through Tailwind CSS 4 theme variables', () => {
         expect(appCss).toContain('@theme inline');
@@ -57,6 +64,22 @@ describe('canonical design-system contract', () => {
         for (const token of canonicalSemanticColorTokens) {
             expect(appCss).toContain(token);
         }
+    });
+
+    it('keeps the approved ThermaSnap primary treatment synchronized', () => {
+        for (const token of thermaSnapBrandTokens) {
+            expect(appCss).toContain(token);
+            expect(designSystem).toContain(token);
+        }
+
+        expect(appCss).toContain('--sidebar-accent: oklch(0.97 0.025 15);');
+        expect(designSystem).toContain(
+            '--sidebar-accent: oklch(0.97 0.025 15);',
+        );
+        expect(appCss).toContain('--sidebar-accent: oklch(0.25 0.045 15);');
+        expect(designSystem).toContain(
+            '--sidebar-accent: oklch(0.25 0.045 15);',
+        );
     });
 
     it('keeps semantic text tokens readable across light and dark status surfaces', () => {

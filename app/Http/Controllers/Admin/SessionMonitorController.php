@@ -15,10 +15,17 @@ use Inertia\Response;
 class SessionMonitorController extends Controller
 {
     /**
-     * List photobooth sessions with their payment and print job status for operational monitoring.
+     * List photobooth sessions with payment, template, and print evidence for operational monitoring.
      */
     public function index(Request $request): Response
     {
+        $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date'],
+        ]);
+
+        $search = $request->string('search')->trim()->toString();
         $status = $request->string('status')->toString();
         $from = $request->string('from')->toString();
         $to = $request->string('to')->toString();
@@ -29,6 +36,7 @@ class SessionMonitorController extends Controller
 
         $sessions = PhotoboothSession::query()
             ->with(['payment', 'printJob', 'photoTemplate', 'stickerDesign', 'voucher'])
+            ->when($search !== '', fn ($query) => $query->where('session_token', 'like', "%{$search}%"))
             ->when($status !== '' && PhotoboothSessionStatus::tryFrom($status) !== null, fn ($query) => $query->where('status', $status))
             ->when($from !== '', fn ($query) => $query->whereDate('started_at', '>=', $from))
             ->when($to !== '', fn ($query) => $query->whereDate('started_at', '<=', $to))
@@ -54,7 +62,9 @@ class SessionMonitorController extends Controller
 
         return Inertia::render('admin/sessions/index', [
             'sessions' => $sessions,
+            'summary' => $this->summary(),
             'filters' => [
+                'search' => $search !== '' ? $search : null,
                 'status' => $status !== '' ? $status : null,
                 'from' => $from !== '' ? $from : null,
                 'to' => $to !== '' ? $to : null,
@@ -71,7 +81,40 @@ class SessionMonitorController extends Controller
     }
 
     /**
-     * Present a session for the frontend.
+     * Build all-time session aggregates independently of pagination and list filters.
+     *
+     * @return array{total: int, completed: int, inProgress: int, expiredOrAbandoned: int}
+     */
+    private function summary(): array
+    {
+        $counts = PhotoboothSession::query()
+            ->selectRaw('status, count(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        $countFor = static fn (PhotoboothSessionStatus $status): int => (int) $counts->get($status->value, 0);
+
+        $inProgress = array_sum(array_map($countFor, [
+            PhotoboothSessionStatus::New,
+            PhotoboothSessionStatus::PaymentPending,
+            PhotoboothSessionStatus::Paid,
+            PhotoboothSessionStatus::TemplateSelected,
+            PhotoboothSessionStatus::Capturing,
+            PhotoboothSessionStatus::Customizing,
+            PhotoboothSessionStatus::Processing,
+            PhotoboothSessionStatus::Printing,
+        ]));
+
+        return [
+            'total' => (int) $counts->sum(),
+            'completed' => $countFor(PhotoboothSessionStatus::Completed),
+            'inProgress' => $inProgress,
+            'expiredOrAbandoned' => $countFor(PhotoboothSessionStatus::Expired) + $countFor(PhotoboothSessionStatus::Abandoned),
+        ];
+    }
+
+    /**
+     * Present one session for the frontend without exposing private or mutable internals.
      *
      * @return array<string, mixed>
      */
@@ -83,6 +126,11 @@ class SessionMonitorController extends Controller
             'status' => $session->status->value,
             'startedAt' => $session->started_at?->toIso8601String(),
             'expiresAt' => $session->expires_at?->toIso8601String(),
+            'templateName' => $session->template_snapshot['name'] ?? $session->photoTemplate?->name,
+            'voucherCode' => $session->voucher?->code,
+            'price' => $session->price,
+            'currency' => $session->currency,
+            'paymentMethod' => $session->payment_method?->value,
             'payment' => $session->payment ? [
                 'method' => $session->payment->method->value,
                 'status' => $session->payment->status->value,

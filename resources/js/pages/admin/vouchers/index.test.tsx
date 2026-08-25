@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import VouchersIndex, {
-    filterVouchers,
+    filterAndSortVouchers,
     getLastRedemption,
     getUsagePercentage,
     getVoucherAvailability,
@@ -32,10 +32,7 @@ vi.mock('@inertiajs/react', () => ({
     }) => (
         <form action={action} method={method}>
             {typeof children === 'function'
-                ? children({
-                      processing: false,
-                      errors: {},
-                  })
+                ? children({ processing: false, errors: {} })
                 : children}
         </form>
     ),
@@ -43,10 +40,19 @@ vi.mock('@inertiajs/react', () => ({
     Link: ({
         href,
         children,
+        ...props
     }: {
         href: string | { url: string };
         children: ReactNode;
-    }) => <a href={typeof href === 'string' ? href : href.url}>{children}</a>,
+        'aria-label'?: string;
+    }) => (
+        <a
+            href={typeof href === 'string' ? href : href.url}
+            aria-label={props['aria-label']}
+        >
+            {children}
+        </a>
+    ),
     router: {
         patch: patchMock,
     },
@@ -118,14 +124,11 @@ vi.mock('@/components/ui/select', () => ({
             {children}
         </button>
     ),
-    SelectValue: ({ placeholder }: { placeholder?: string }) => (
-        <span>{placeholder}</span>
-    ),
+    SelectValue: () => <span />,
 }));
 
 /**
- * Build a stable voucher fixture while allowing each test to override only the
- * fields relevant to the behavior being verified.
+ * Build a stable voucher fixture while allowing focused field overrides.
  */
 function makeVoucher(overrides: Partial<Voucher> = {}): Voucher {
     return {
@@ -141,17 +144,13 @@ function makeVoucher(overrides: Partial<Voucher> = {}): Voucher {
     };
 }
 
-describe('voucher availability helpers', () => {
+describe('voucher presentation helpers', () => {
     const now = new Date('2026-08-23T12:00:00+08:00');
 
     it('matches server redemption precedence', () => {
         expect(
             getVoucherAvailability(
-                makeVoucher({
-                    active: false,
-                    usageLimit: 1,
-                    usageCount: 1,
-                }),
+                makeVoucher({ active: false, usageLimit: 1, usageCount: 1 }),
                 now,
             ),
         ).toBe('disabled');
@@ -177,10 +176,7 @@ describe('voucher availability helpers', () => {
 
         expect(
             getVoucherAvailability(
-                makeVoucher({
-                    usageLimit: 2,
-                    usageCount: 2,
-                }),
+                makeVoucher({ usageLimit: 2, usageCount: 2 }),
                 now,
             ),
         ).toBe('exhausted');
@@ -188,93 +184,70 @@ describe('voucher availability helpers', () => {
         expect(getVoucherAvailability(makeVoucher(), now)).toBe('usable');
     });
 
-    it('calculates summary values without treating scheduled vouchers as attention items', () => {
+    it('calculates the four reference-aligned summary metrics', () => {
         const vouchers = [
-            makeVoucher({
-                id: 1,
-                redemptions: [
-                    {
-                        sessionToken: 'one',
-                        startedAt: '2026-08-22T12:00:00+08:00',
-                    },
-                    {
-                        sessionToken: 'two',
-                        startedAt: '2026-08-22T13:00:00+08:00',
-                    },
-                ],
-            }),
+            makeVoucher({ id: 1, usageCount: 2 }),
             makeVoucher({
                 id: 2,
-                active: false,
+                usageCount: 4,
+                expiresAt: '2026-08-22T12:00:00+08:00',
             }),
             makeVoucher({
                 id: 3,
-                expiresAt: '2026-08-22T12:00:00+08:00',
-            }),
-            makeVoucher({
-                id: 4,
-                usageLimit: 1,
                 usageCount: 1,
-                redemptions: [
-                    {
-                        sessionToken: 'three',
-                        startedAt: '2026-08-20T12:00:00+08:00',
-                    },
-                ],
-            }),
-            makeVoucher({
-                id: 5,
                 validFrom: '2026-08-24T12:00:00+08:00',
-                expiresAt: '2026-09-24T12:00:00+08:00',
             }),
+            makeVoucher({ id: 4, active: false, usageCount: 3 }),
         ];
 
         expect(getVoucherSummary(vouchers, now)).toEqual({
-            total: 5,
+            total: 4,
             usable: 1,
-            totalRedemptions: 3,
-            needsAttention: 3,
+            totalRedemptions: 10,
+            expiredOrScheduled: 2,
         });
     });
 
-    it('bounds the usage percentage between zero and one hundred', () => {
+    it('bounds usage percentages between zero and one hundred', () => {
         expect(getUsagePercentage(makeVoucher({ usageCount: 2 }))).toBe(20);
-
         expect(
-            getUsagePercentage(
-                makeVoucher({
-                    usageLimit: 5,
-                    usageCount: 10,
-                }),
-            ),
+            getUsagePercentage(makeVoucher({ usageLimit: 5, usageCount: 10 })),
         ).toBe(100);
-
         expect(
-            getUsagePercentage(
-                makeVoucher({
-                    usageLimit: 0,
-                    usageCount: 0,
-                }),
-            ),
+            getUsagePercentage(makeVoucher({ usageLimit: 0, usageCount: 0 })),
         ).toBe(0);
     });
 
-    it('filters by voucher code and derived availability', () => {
+    it('filters and sorts the existing page payload without mutating it', () => {
         const vouchers = [
-            makeVoucher({
-                id: 1,
-                code: 'THERMA-FRIENDS',
-            }),
+            makeVoucher({ id: 1, code: 'ZETA', usageCount: 2 }),
             makeVoucher({
                 id: 2,
-                code: 'THERMA-EXPIRED',
+                code: 'ALPHA',
+                usageCount: 8,
                 expiresAt: '2026-08-22T12:00:00+08:00',
             }),
         ];
 
-        expect(filterVouchers(vouchers, 'friends', 'all', now)).toHaveLength(1);
-        expect(filterVouchers(vouchers, '', 'expired', now)).toEqual([
-            vouchers[1],
+        expect(
+            filterAndSortVouchers(vouchers, 'alpha', 'all', 'default', now),
+        ).toEqual([vouchers[1]]);
+        expect(
+            filterAndSortVouchers(vouchers, '', 'expired', 'default', now),
+        ).toEqual([vouchers[1]]);
+        expect(
+            filterAndSortVouchers(vouchers, '', 'all', 'code', now).map(
+                (voucher) => voucher.code,
+            ),
+        ).toEqual(['ALPHA', 'ZETA']);
+        expect(
+            filterAndSortVouchers(vouchers, '', 'all', 'usage', now).map(
+                (voucher) => voucher.code,
+            ),
+        ).toEqual(['ALPHA', 'ZETA']);
+        expect(vouchers.map((voucher) => voucher.code)).toEqual([
+            'ZETA',
+            'ALPHA',
         ]);
     });
 
@@ -301,16 +274,13 @@ describe('Voucher Management page', () => {
         patchMock.mockReset();
     });
 
-    it('renders operator-focused information without exposing raw session tokens', () => {
+    it('renders the redesigned management hierarchy from real voucher data', () => {
         const voucher = makeVoucher({
+            usageCount: 2,
             redemptions: [
                 {
                     sessionToken: '11111111-1111-4111-8111-000000000003',
                     startedAt: '2026-08-22T17:12:00+08:00',
-                },
-                {
-                    sessionToken: '11111111-1111-4111-8111-000000000005',
-                    startedAt: '2026-08-22T17:13:00+08:00',
                 },
             ],
         });
@@ -323,11 +293,14 @@ describe('Voucher Management page', () => {
         );
 
         expect(
-            screen.getByRole('link', { name: /new voucher/i }),
+            screen.getByRole('link', { name: /create voucher/i }),
         ).toHaveAttribute('href', '/admin/vouchers/create');
-
-        expect(screen.getByText('2 redemptions')).toBeInTheDocument();
-
+        expect(
+            within(screen.getByLabelText('Total vouchers')).getByText('1'),
+        ).toBeInTheDocument();
+        expect(
+            within(screen.getByLabelText('Redeemed')).getByText('2'),
+        ).toBeInTheDocument();
         expect(
             screen.queryByText('11111111-1111-4111-8111-000000000003'),
         ).not.toBeInTheDocument();
@@ -338,15 +311,35 @@ describe('Voucher Management page', () => {
 
         expect(usage).toHaveAttribute('aria-valuenow', '20');
         expect(usage).toHaveAttribute('aria-valuetext', '2 of 10 uses');
-
         expect(
-            screen.getByRole('button', {
-                name: 'More actions for THERMA-FRIENDS',
-            }),
-        ).toBeInTheDocument();
+            screen.getByRole('link', { name: 'Edit THERMA-FRIENDS' }),
+        ).toHaveAttribute('href', '/admin/vouchers/1/edit');
     });
 
-    it('keeps the toggle action connected to the generated Wayfinder route', async () => {
+    it('filters visible voucher rows from the search box', async () => {
+        const user = userEvent.setup();
+
+        render(
+            <VouchersIndex
+                vouchers={[
+                    makeVoucher({ id: 1, code: 'SUMMER25' }),
+                    makeVoucher({ id: 2, code: 'WELCOME10' }),
+                ]}
+                serverNow="2026-08-23T12:00:00+08:00"
+            />,
+        );
+
+        await user.type(
+            screen.getByRole('searchbox', { name: 'Search vouchers' }),
+            'summer',
+        );
+
+        expect(screen.getByText('SUMMER25')).toBeInTheDocument();
+        expect(screen.queryByText('WELCOME10')).not.toBeInTheDocument();
+        expect(screen.getByText(/Showing 1 of 2 vouchers/)).toBeInTheDocument();
+    });
+
+    it('keeps toggle behavior connected to the existing Wayfinder route', async () => {
         const user = userEvent.setup();
 
         render(
@@ -357,17 +350,13 @@ describe('Voucher Management page', () => {
         );
 
         await user.click(
-            screen.getByRole('button', {
-                name: 'Disable voucher',
-            }),
+            screen.getByRole('button', { name: 'Disable voucher' }),
         );
 
         expect(patchMock).toHaveBeenCalledWith(
             '/admin/vouchers/1/toggle',
             {},
-            {
-                preserveScroll: true,
-            },
+            { preserveScroll: true },
         );
     });
 
@@ -380,9 +369,8 @@ describe('Voucher Management page', () => {
         );
 
         expect(screen.getByText('No vouchers yet.')).toBeInTheDocument();
-
-        const totalCard = screen.getByLabelText('Total vouchers');
-
-        expect(within(totalCard).getByText('0')).toBeInTheDocument();
+        expect(
+            within(screen.getByLabelText('Total vouchers')).getByText('0'),
+        ).toBeInTheDocument();
     });
 });

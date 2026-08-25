@@ -2,15 +2,19 @@ import { Form, Head, Link, setLayoutProps } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
 import {
     Camera,
+    CalendarDays,
     ChevronDown,
     CircleCheck,
     Clock3,
     CreditCard,
+    Filter,
     LoaderCircle,
     LockKeyhole,
     Printer,
-    Rows3,
+    Search,
+    TimerOff,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -36,8 +40,20 @@ export type Session = {
     status: string;
     startedAt: string | null;
     expiresAt: string | null;
+    templateName: string | null;
+    voucherCode: string | null;
+    price: string | null;
+    currency: string | null;
+    paymentMethod: string | null;
     payment: Payment | null;
     printJob: PrintJob | null;
+};
+
+export type SessionSummary = {
+    total: number;
+    completed: number;
+    inProgress: number;
+    expiredOrAbandoned: number;
 };
 
 export type Paginated<T> = {
@@ -49,6 +65,7 @@ export type Paginated<T> = {
 };
 
 export type Filters = {
+    search: string | null;
     status: string | null;
     from: string | null;
     to: string | null;
@@ -68,21 +85,23 @@ type SessionStatusPresentation = {
 
 type PrintStatusPresentation = {
     label: string;
-    dotClassName: string;
-    textClassName: string;
+    badgeClassName: string;
 };
+
+type SummaryTone = 'primary' | 'success' | 'warning' | 'destructive';
 
 type FilterSelectProps = {
     label: string;
     name: string;
     value: string | null;
     options: string[];
+    allLabel: string;
 };
 
 const sessionStatusToneClasses: Record<SessionStatusTone, string> = {
-    success: 'border-success/20 bg-success-subtle text-success',
-    warning: 'border-warning/20 bg-warning-subtle text-warning',
-    info: 'border-info/20 bg-info-subtle text-info',
+    success: 'border-success/20 bg-success-subtle text-success-foreground',
+    warning: 'border-warning/20 bg-warning-subtle text-warning-foreground',
+    info: 'border-info/20 bg-info-subtle text-info-foreground',
     neutral: 'border-border bg-muted text-muted-foreground',
 };
 
@@ -90,51 +109,22 @@ const sessionStatusDefinitions: Record<
     string,
     { tone: SessionStatusTone; icon?: LucideIcon }
 > = {
-    new: {
-        tone: 'neutral',
-    },
-    payment_pending: {
-        tone: 'warning',
-        icon: Clock3,
-    },
-    paid: {
-        tone: 'success',
-        icon: CreditCard,
-    },
-    template_selected: {
-        tone: 'info',
-    },
-    capturing: {
-        tone: 'info',
-        icon: Camera,
-    },
-    customizing: {
-        tone: 'info',
-    },
-    processing: {
-        tone: 'info',
-        icon: LoaderCircle,
-    },
-    printing: {
-        tone: 'info',
-        icon: Printer,
-    },
-    completed: {
-        tone: 'success',
-        icon: CircleCheck,
-    },
-    expired: {
-        tone: 'neutral',
-        icon: Clock3,
-    },
-    abandoned: {
-        tone: 'neutral',
-    },
+    new: { tone: 'neutral' },
+    payment_pending: { tone: 'warning', icon: Clock3 },
+    paid: { tone: 'success', icon: CreditCard },
+    template_selected: { tone: 'info' },
+    capturing: { tone: 'info', icon: Camera },
+    customizing: { tone: 'info' },
+    processing: { tone: 'info', icon: LoaderCircle },
+    printing: { tone: 'info', icon: Printer },
+    completed: { tone: 'success', icon: CircleCheck },
+    expired: { tone: 'neutral', icon: Clock3 },
+    abandoned: { tone: 'neutral' },
 };
 
 /**
- * Convert enum-style stored values into concise operator-facing labels without
- * changing the underlying value submitted to Laravel.
+ * Convert enum-style values into concise operator-facing labels without
+ * changing the underlying values submitted to Laravel.
  */
 export function formatEnumLabel(value: string): string {
     const normalized = value.replaceAll('_', ' ');
@@ -160,7 +150,7 @@ export function getSessionStatusPresentation(
 }
 
 /**
- * Resolve the semantic visual treatment for one print-job status.
+ * Resolve the canonical status badge treatment for one print job.
  */
 export function getPrintStatusPresentation(
     status: string,
@@ -169,39 +159,38 @@ export function getPrintStatusPresentation(
         case 'printed':
             return {
                 label: 'Printed',
-                dotClassName: 'bg-success',
-                textClassName: 'text-foreground',
+                badgeClassName:
+                    'border-success/20 bg-success-subtle text-success-foreground',
             };
         case 'pending':
             return {
                 label: 'Pending',
-                dotClassName: 'bg-warning',
-                textClassName: 'text-foreground',
+                badgeClassName:
+                    'border-warning/20 bg-warning-subtle text-warning-foreground',
             };
         case 'printing':
             return {
                 label: 'Printing',
-                dotClassName: 'bg-info',
-                textClassName: 'text-foreground',
+                badgeClassName:
+                    'border-info/20 bg-info-subtle text-info-foreground',
             };
         case 'failed':
             return {
                 label: 'Failed',
-                dotClassName: 'bg-destructive',
-                textClassName: 'text-destructive',
+                badgeClassName:
+                    'border-destructive/20 bg-destructive/10 text-destructive',
             };
         default:
             return {
                 label: formatEnumLabel(status),
-                dotClassName: 'bg-muted-foreground',
-                textClassName: 'text-muted-foreground',
+                badgeClassName: 'border-border bg-muted text-muted-foreground',
             };
     }
 }
 
 /**
- * Return only filters that the current server-provided option lists recognize,
- * preventing ignored invalid query values from appearing as active filters.
+ * Return only active query filters that the server-provided option lists
+ * recognize so ignored invalid enum values are never presented as active.
  */
 export function getActiveFilterLabels(
     filters: Filters,
@@ -211,6 +200,10 @@ export function getActiveFilterLabels(
     printStatuses: string[],
 ): string[] {
     const activeFilters: string[] = [];
+
+    if (filters.search !== null && filters.search.trim() !== '') {
+        activeFilters.push(`Search: ${filters.search}`);
+    }
 
     if (filters.status !== null && statuses.includes(filters.status)) {
         activeFilters.push(`Status: ${formatEnumLabel(filters.status)}`);
@@ -264,7 +257,7 @@ export function getActiveFilterLabels(
 }
 
 /**
- * Build one truthful pagination summary for the table toolbar and footer.
+ * Build a truthful pagination summary for the session table footer.
  */
 export function getPaginationSummary<T>(pagination: Paginated<T>): string {
     if (
@@ -279,45 +272,160 @@ export function getPaginationSummary<T>(pagination: Paginated<T>): string {
 }
 
 /**
+ * Normalize Laravel paginator labels into plain accessible text.
+ */
+export function formatPaginationLabel(label: string): string {
+    return label
+        .replace('&laquo; Previous', 'Previous')
+        .replace('Next &raquo;', 'Next')
+        .replace(/&laquo;|&raquo;/g, '')
+        .replace(/<[^>]*>/g, '')
+        .trim();
+}
+
+/**
+ * Format a summary count as a safe percentage of the all-time total.
+ */
+export function formatSummaryPercentage(value: number, total: number): string {
+    if (total <= 0) {
+        return '0.0% of total';
+    }
+
+    return `${((value / total) * 100).toFixed(1)}% of total`;
+}
+
+/**
  * Format an ISO timestamp consistently for the Philippines operator interface.
  */
 function formatDateTime(value: string | null): string {
     if (value === null) {
-        return '—';
+        return 'Not available';
     }
 
     return new Intl.DateTimeFormat('en-PH', {
         year: 'numeric',
-        month: 'numeric',
+        month: 'short',
         day: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
-        second: '2-digit',
     }).format(new Date(value));
 }
 
 /**
- * Return the semantic text color for a persisted payment status.
+ * Format a snapshotted session amount using its persisted currency when one is
+ * available and fall back to a neutral decimal representation otherwise.
  */
-function getPaymentStatusClassName(status: string): string {
-    switch (status) {
-        case 'success':
-            return 'text-success';
-        case 'pending':
-            return 'text-warning';
-        case 'failed':
-        case 'cancelled':
-            return 'text-destructive';
-        default:
-            return 'text-muted-foreground';
+export function formatSessionAmount(
+    value: string | null,
+    currency: string | null,
+): string {
+    if (value === null) {
+        return 'Not available';
+    }
+
+    const amount = Number(value);
+
+    if (!Number.isFinite(amount)) {
+        return value;
+    }
+
+    if (currency === null || currency.trim() === '') {
+        return new Intl.NumberFormat('en-PH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(amount);
+    }
+
+    try {
+        return new Intl.NumberFormat('en-PH', {
+            style: 'currency',
+            currency,
+        }).format(amount);
+    } catch {
+        return `${currency} ${amount.toFixed(2)}`;
     }
 }
 
 /**
- * Render a native server-submitted select with the same visual language as the
- * application's shadcn inputs while retaining an actual empty "All" value.
+ * Return canonical payment status classes without inventing new payment states.
  */
-function FilterSelect({ label, name, value, options }: FilterSelectProps) {
+function getPaymentStatusClassName(status: string): string {
+    switch (status) {
+        case 'success':
+            return 'border-success/20 bg-success-subtle text-success-foreground';
+        case 'pending':
+            return 'border-warning/20 bg-warning-subtle text-warning-foreground';
+        case 'failed':
+            return 'border-destructive/20 bg-destructive/10 text-destructive';
+        case 'cancelled':
+            return 'border-border bg-muted text-muted-foreground';
+        default:
+            return 'border-border bg-muted text-muted-foreground';
+    }
+}
+
+/**
+ * Render one compact all-time summary metric using the canonical admin tokens.
+ */
+function SummaryCard({
+    label,
+    value,
+    description,
+    icon,
+    tone,
+}: {
+    label: string;
+    value: number;
+    description: string;
+    icon: ReactNode;
+    tone: SummaryTone;
+}) {
+    const toneClasses: Record<SummaryTone, string> = {
+        primary: 'bg-primary/10 text-primary',
+        success: 'bg-success-subtle text-success',
+        warning: 'bg-warning-subtle text-warning',
+        destructive: 'bg-destructive/10 text-destructive',
+    };
+
+    return (
+        <Card
+            aria-label={label}
+            className="gap-0 rounded-xl px-5 py-4 shadow-xs"
+        >
+            <div className="flex min-h-20 items-center justify-between gap-4">
+                <div className="min-w-0">
+                    <p className="text-card-title">{label}</p>
+                    <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+                        {value.toLocaleString('en-PH')}
+                    </p>
+                    <p className="mt-1 text-caption text-muted-foreground">
+                        {description}
+                    </p>
+                </div>
+
+                <div
+                    className={cn(
+                        'flex size-12 shrink-0 items-center justify-center rounded-full',
+                        toneClasses[tone],
+                    )}
+                >
+                    {icon}
+                </div>
+            </div>
+        </Card>
+    );
+}
+
+/**
+ * Render one native server-submitted select with the canonical input styling.
+ */
+function FilterSelect({
+    label,
+    name,
+    value,
+    options,
+    allLabel,
+}: FilterSelectProps) {
     return (
         <label className="grid gap-1.5 text-sm font-medium">
             <span>{label}</span>
@@ -329,8 +437,7 @@ function FilterSelect({ label, name, value, options }: FilterSelectProps) {
                     defaultValue={value ?? ''}
                     className="h-9 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
                 >
-                    <option value="">All</option>
-
+                    <option value="">{allLabel}</option>
                     {options.map((option) => (
                         <option key={option} value={option}>
                             {formatEnumLabel(option)}
@@ -348,7 +455,7 @@ function FilterSelect({ label, name, value, options }: FilterSelectProps) {
 }
 
 /**
- * Render one session lifecycle status using repository semantic design tokens.
+ * Render one durable session lifecycle state with text and semantic color.
  */
 function SessionStatusBadge({ status }: { status: string }) {
     const presentation = getSessionStatusPresentation(status);
@@ -357,10 +464,7 @@ function SessionStatusBadge({ status }: { status: string }) {
     return (
         <Badge
             variant="outline"
-            className={cn(
-                'gap-1.5 rounded-full px-2.5 py-1 font-medium',
-                presentation.className,
-            )}
+            className={cn('gap-1.5 whitespace-nowrap', presentation.className)}
         >
             {Icon ? <Icon className="size-3.5" aria-hidden="true" /> : null}
             {presentation.label}
@@ -369,72 +473,130 @@ function SessionStatusBadge({ status }: { status: string }) {
 }
 
 /**
- * Render the immutable payment evidence attached to one session.
+ * Render the payment or voucher authorization evidence attached to a session.
  */
-function PaymentDetails({ payment }: { payment: Payment | null }) {
-    if (payment === null) {
-        return <span className="text-muted-foreground">No payment</span>;
+function PaymentDetails({
+    payment,
+    voucherCode,
+    paymentMethod,
+}: {
+    payment: Payment | null;
+    voucherCode: string | null;
+    paymentMethod: string | null;
+}) {
+    if (payment !== null) {
+        return (
+            <div className="flex flex-col items-start gap-1">
+                <Badge
+                    variant="outline"
+                    className={getPaymentStatusClassName(payment.status)}
+                >
+                    {formatEnumLabel(payment.status)}
+                </Badge>
+                <span className="text-caption text-muted-foreground">
+                    {formatEnumLabel(payment.method)}
+                </span>
+            </div>
+        );
     }
 
-    return (
-        <div className="flex flex-col gap-0.5">
-            <span className="font-medium">
-                {payment.method}
-                <span className="mx-1 text-muted-foreground">·</span>
-                <span className={getPaymentStatusClassName(payment.status)}>
-                    {payment.status}
+    if (voucherCode !== null || paymentMethod === 'voucher') {
+        return (
+            <div className="flex flex-col items-start gap-1">
+                <Badge
+                    variant="outline"
+                    className="border-info/20 bg-info-subtle text-info-foreground"
+                >
+                    Voucher
+                </Badge>
+                <span className="max-w-40 truncate text-caption text-muted-foreground">
+                    {voucherCode ?? 'Voucher authorization'}
                 </span>
-            </span>
+            </div>
+        );
+    }
 
-            <span className="text-xs text-muted-foreground tabular-nums">
-                {payment.amount}
+    return <span className="text-muted-foreground">No payment</span>;
+}
+
+/**
+ * Render one print-job state and attempt evidence without fabricating copies.
+ */
+function PrintJobState({ printJob }: { printJob: PrintJob | null }) {
+    if (printJob === null) {
+        return <span className="text-muted-foreground">No print job</span>;
+    }
+
+    const presentation = getPrintStatusPresentation(printJob.status);
+
+    return (
+        <div className="flex flex-col items-start gap-1">
+            <Badge variant="outline" className={presentation.badgeClassName}>
+                {presentation.label}
+            </Badge>
+            <span className="text-caption text-muted-foreground tabular-nums">
+                {printJob.attemptCount}{' '}
+                {printJob.attemptCount === 1 ? 'attempt' : 'attempts'}
             </span>
         </div>
     );
 }
 
 /**
- * Render one print-job state as a compact semantic dot and readable label.
+ * Render accessible Laravel pagination while preserving every active query.
  */
-function PrintJobState({ printJob }: { printJob: PrintJob | null }) {
-    if (printJob === null) {
-        return (
-            <span className="inline-flex items-center gap-2 text-muted-foreground">
-                <span
-                    className="size-1.5 rounded-full bg-muted-foreground/50"
-                    aria-hidden="true"
-                />
-                No print job
-            </span>
-        );
-    }
-
-    const presentation = getPrintStatusPresentation(printJob.status);
-
+function SessionPagination({ sessions }: { sessions: Paginated<Session> }) {
     return (
-        <span
-            className={cn(
-                'inline-flex items-center gap-2',
-                presentation.textClassName,
-            )}
-        >
-            <span
-                className={cn(
-                    'size-1.5 rounded-full',
-                    presentation.dotClassName,
-                )}
-                aria-hidden="true"
-            />
-            {presentation.label}
-        </span>
+        <footer className="flex flex-col gap-3 border-t px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <p className="text-sm text-muted-foreground">
+                {getPaginationSummary(sessions)} sessions
+            </p>
+
+            {sessions.total > 0 ? (
+                <nav
+                    className="flex flex-wrap items-center gap-1"
+                    aria-label="Session pagination"
+                >
+                    {sessions.links.map((link, index) => {
+                        const label = formatPaginationLabel(link.label);
+
+                        return (
+                            <Button
+                                key={`${link.label}-${index}`}
+                                asChild={link.url !== null}
+                                variant={link.active ? 'default' : 'outline'}
+                                size="sm"
+                                className="min-w-9 px-2"
+                                disabled={link.url === null}
+                            >
+                                {link.url !== null ? (
+                                    <Link
+                                        href={link.url}
+                                        preserveScroll
+                                        aria-current={
+                                            link.active ? 'page' : undefined
+                                        }
+                                    >
+                                        {label}
+                                    </Link>
+                                ) : (
+                                    <span>{label}</span>
+                                )}
+                            </Button>
+                        );
+                    })}
+                </nav>
+            ) : null}
+        </footer>
     );
 }
 
 /**
- * Render the read-only operational Sessions monitoring interface.
+ * Render the redesigned read-only operational Sessions monitoring interface.
  */
 export default function SessionsIndex({
     sessions,
+    summary,
     filters,
     statuses,
     paymentStatuses,
@@ -442,6 +604,7 @@ export default function SessionsIndex({
     printStatuses,
 }: {
     sessions: Paginated<Session>;
+    summary: SessionSummary;
     filters: Filters;
     statuses: string[];
     paymentStatuses: string[];
@@ -460,319 +623,346 @@ export default function SessionsIndex({
         printStatuses,
     );
 
-    const paginationSummary = getPaginationSummary(sessions);
+    const hasActiveFilters = activeFilters.length > 0;
 
     return (
         <>
             <Head title="Sessions" />
 
-            <div className="flex flex-col gap-5 p-4 md:p-6">
-                <header>
-                    <div className="flex flex-wrap items-center gap-2.5">
-                        <h1 className="text-2xl font-semibold tracking-tight">
-                            Sessions
-                        </h1>
-
-                        <Badge
-                            variant="outline"
-                            className="gap-1.5 border-border bg-muted/60 text-muted-foreground"
-                        >
-                            <LockKeyhole
-                                className="size-3.5"
-                                aria-hidden="true"
-                            />
-                            Read only
-                        </Badge>
+            <div className="flex flex-col gap-6 p-4 lg:p-6">
+                <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h1 className="text-page-title">Sessions</h1>
+                        <p className="mt-1 text-body text-muted-foreground">
+                            Monitor photobooth sessions, payment authorization,
+                            and print status in real time.
+                        </p>
                     </div>
 
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Read-only view of photobooth sessions, payments, and
-                        print jobs
-                    </p>
+                    <Badge
+                        variant="outline"
+                        className="w-fit gap-1.5 border-border bg-muted/60 text-muted-foreground"
+                    >
+                        <LockKeyhole className="size-3.5" aria-hidden="true" />
+                        Read only
+                    </Badge>
                 </header>
+
+                <section
+                    className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+                    aria-label="Session summary"
+                >
+                    <SummaryCard
+                        label="Total Sessions"
+                        value={summary.total}
+                        description="All time"
+                        tone="primary"
+                        icon={
+                            <CalendarDays
+                                className="size-5"
+                                aria-hidden="true"
+                            />
+                        }
+                    />
+                    <SummaryCard
+                        label="Completed Sessions"
+                        value={summary.completed}
+                        description={formatSummaryPercentage(
+                            summary.completed,
+                            summary.total,
+                        )}
+                        tone="success"
+                        icon={
+                            <CircleCheck
+                                className="size-5"
+                                aria-hidden="true"
+                            />
+                        }
+                    />
+                    <SummaryCard
+                        label="Active / Pending"
+                        value={summary.inProgress}
+                        description={formatSummaryPercentage(
+                            summary.inProgress,
+                            summary.total,
+                        )}
+                        tone="warning"
+                        icon={<Clock3 className="size-5" aria-hidden="true" />}
+                    />
+                    <SummaryCard
+                        label="Expired / Abandoned"
+                        value={summary.expiredOrAbandoned}
+                        description={formatSummaryPercentage(
+                            summary.expiredOrAbandoned,
+                            summary.total,
+                        )}
+                        tone="destructive"
+                        icon={
+                            <TimerOff className="size-5" aria-hidden="true" />
+                        }
+                    />
+                </section>
 
                 <Form
                     action={sessionsIndex.url()}
                     method="get"
                     options={{ preserveState: true, replace: true }}
                 >
-                    {() => (
-                        <Card className="gap-0 rounded-2xl py-0 shadow-none">
-                            <CardContent className="p-5">
-                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                    <FilterSelect
-                                        label="Status"
-                                        name="status"
-                                        value={filters.status}
-                                        options={statuses}
+                    <Card className="gap-0 rounded-xl py-0 shadow-xs">
+                        <CardContent className="grid gap-4 p-4 sm:grid-cols-2 lg:p-5 xl:grid-cols-4">
+                            <label
+                                htmlFor="session-search"
+                                className="grid gap-1.5 text-sm font-medium sm:col-span-2"
+                            >
+                                <span>Search</span>
+                                <div className="relative">
+                                    <Search
+                                        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                                        aria-hidden="true"
                                     />
-
-                                    <label className="grid gap-1.5 text-sm font-medium">
-                                        <span>From</span>
-                                        <Input
-                                            key={filters.from ?? 'from-empty'}
-                                            type="date"
-                                            name="from"
-                                            defaultValue={filters.from ?? ''}
-                                            className="h-9 w-full"
-                                        />
-                                    </label>
-
-                                    <label className="grid gap-1.5 text-sm font-medium">
-                                        <span>To</span>
-                                        <Input
-                                            key={filters.to ?? 'to-empty'}
-                                            type="date"
-                                            name="to"
-                                            defaultValue={filters.to ?? ''}
-                                            className="h-9 w-full"
-                                        />
-                                    </label>
-
-                                    <FilterSelect
-                                        label="Payment status"
-                                        name="payment_status"
-                                        value={filters.payment_status}
-                                        options={paymentStatuses}
+                                    <Input
+                                        id="session-search"
+                                        name="search"
+                                        defaultValue={filters.search ?? ''}
+                                        placeholder="Search session UUID"
+                                        className="pl-9"
                                     />
-
-                                    <FilterSelect
-                                        label="Payment method"
-                                        name="payment_method"
-                                        value={filters.payment_method}
-                                        options={paymentMethods}
-                                    />
-
-                                    <FilterSelect
-                                        label="Authorization"
-                                        name="authorization_type"
-                                        value={filters.authorization_type}
-                                        options={['voucher', 'payment']}
-                                    />
-
-                                    <FilterSelect
-                                        label="Print status"
-                                        name="print_status"
-                                        value={filters.print_status}
-                                        options={printStatuses}
-                                    />
-
-                                    <div className="flex items-end gap-2">
-                                        <Button
-                                            type="submit"
-                                            className="min-w-20"
-                                        >
-                                            Filter
-                                        </Button>
-
-                                        <Button
-                                            asChild
-                                            variant="outline"
-                                            type="button"
-                                        >
-                                            <Link href={sessionsIndex()}>
-                                                Clear filters
-                                            </Link>
-                                        </Button>
-                                    </div>
                                 </div>
+                            </label>
 
-                                <div className="mt-5 flex flex-wrap items-center gap-2 border-t pt-4">
-                                    <span className="text-xs font-medium text-muted-foreground">
-                                        Active filters:
-                                    </span>
+                            <FilterSelect
+                                label="Session status"
+                                name="status"
+                                value={filters.status}
+                                options={statuses}
+                                allLabel="All statuses"
+                            />
 
-                                    {activeFilters.length === 0 ? (
-                                        <Badge
-                                            variant="secondary"
-                                            className="font-normal text-muted-foreground"
+                            <FilterSelect
+                                label="Payment status"
+                                name="payment_status"
+                                value={filters.payment_status}
+                                options={paymentStatuses}
+                                allLabel="All payment statuses"
+                            />
+
+                            <FilterSelect
+                                label="Payment method"
+                                name="payment_method"
+                                value={filters.payment_method}
+                                options={paymentMethods}
+                                allLabel="All payment methods"
+                            />
+
+                            <FilterSelect
+                                label="Authorization"
+                                name="authorization_type"
+                                value={filters.authorization_type}
+                                options={['voucher', 'payment']}
+                                allLabel="All authorization types"
+                            />
+
+                            <FilterSelect
+                                label="Print status"
+                                name="print_status"
+                                value={filters.print_status}
+                                options={printStatuses}
+                                allLabel="All print statuses"
+                            />
+
+                            <label className="grid gap-1.5 text-sm font-medium">
+                                <span>From</span>
+                                <Input
+                                    type="date"
+                                    name="from"
+                                    defaultValue={filters.from ?? ''}
+                                />
+                            </label>
+
+                            <label className="grid gap-1.5 text-sm font-medium">
+                                <span>To</span>
+                                <Input
+                                    type="date"
+                                    name="to"
+                                    defaultValue={filters.to ?? ''}
+                                />
+                            </label>
+
+                            <div className="flex flex-wrap items-end gap-2 sm:col-span-2 xl:col-span-3">
+                                <Button type="submit" className="gap-2">
+                                    <Filter
+                                        className="size-4"
+                                        aria-hidden="true"
+                                    />
+                                    Apply filters
+                                </Button>
+
+                                {hasActiveFilters ? (
+                                    <Button
+                                        asChild
+                                        variant="outline"
+                                        type="button"
+                                    >
+                                        <Link
+                                            href={sessionsIndex()}
+                                            preserveScroll
                                         >
-                                            None
-                                        </Badge>
-                                    ) : (
-                                        activeFilters.map((filter) => (
-                                            <Badge
-                                                key={filter}
-                                                variant="outline"
-                                                className="font-normal"
-                                            >
-                                                {filter}
-                                            </Badge>
-                                        ))
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                                            Clear filters
+                                        </Link>
+                                    </Button>
+                                ) : null}
+                            </div>
+                        </CardContent>
+
+                        {hasActiveFilters ? (
+                            <CardFooter className="flex flex-wrap gap-2 border-t px-4 py-3 lg:px-5">
+                                <span className="text-caption font-medium text-muted-foreground">
+                                    Active filters
+                                </span>
+                                {activeFilters.map((filter) => (
+                                    <Badge key={filter} variant="secondary">
+                                        {filter}
+                                    </Badge>
+                                ))}
+                            </CardFooter>
+                        ) : null}
+                    </Card>
                 </Form>
 
-                <Card className="gap-0 overflow-hidden rounded-2xl py-0 shadow-none">
-                    <div className="flex min-h-12 items-center border-b px-4 sm:px-5">
-                        <Rows3
-                            className="mr-2 size-4 text-muted-foreground"
-                            aria-hidden="true"
-                        />
-
-                        <span className="text-sm text-muted-foreground">
-                            {paginationSummary}
-                        </span>
-                    </div>
-
+                <Card className="gap-0 overflow-hidden rounded-xl py-0 shadow-xs">
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[980px] text-sm">
-                            <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
+                        <table className="w-full min-w-[1100px] text-sm">
+                            <thead className="bg-muted/40 text-left text-caption text-muted-foreground">
                                 <tr>
                                     <th
                                         scope="col"
-                                        className="w-[35%] px-5 py-3 font-medium"
+                                        className="px-table-x py-table-y font-medium"
                                     >
                                         Session
                                     </th>
                                     <th
                                         scope="col"
-                                        className="w-[15%] px-4 py-3 font-medium"
+                                        className="px-table-x py-table-y font-medium"
                                     >
-                                        Status
+                                        Started
                                     </th>
                                     <th
                                         scope="col"
-                                        className="w-[18%] px-4 py-3 font-medium"
+                                        className="px-table-x py-table-y font-medium"
+                                    >
+                                        Template
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="px-table-x py-table-y font-medium"
                                     >
                                         Payment
                                     </th>
                                     <th
                                         scope="col"
-                                        className="w-[15%] px-4 py-3 font-medium"
+                                        className="px-table-x py-table-y font-medium"
                                     >
-                                        Print job
+                                        Print
                                     </th>
                                     <th
                                         scope="col"
-                                        className="w-[17%] px-4 py-3 font-medium"
+                                        className="px-table-x py-table-y font-medium"
                                     >
-                                        Started
+                                        Session status
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="px-table-x py-table-y text-right font-medium"
+                                    >
+                                        Amount
                                     </th>
                                 </tr>
                             </thead>
-
                             <tbody>
-                                {sessions.data.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={5}>
-                                            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                                                <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-                                                    <Rows3
-                                                        className="size-4 text-muted-foreground"
-                                                        aria-hidden="true"
-                                                    />
-                                                </div>
-
-                                                <p className="mt-3 text-sm font-medium">
-                                                    No sessions found.
+                                {sessions.data.length > 0 ? (
+                                    sessions.data.map((session) => (
+                                        <tr
+                                            key={session.id}
+                                            className="border-t transition-colors hover:bg-muted/20"
+                                        >
+                                            <td className="px-table-x py-table-y align-top">
+                                                <code className="text-xs font-semibold whitespace-nowrap text-foreground">
+                                                    {session.sessionToken}
+                                                </code>
+                                                <p className="mt-1 text-caption text-muted-foreground">
+                                                    Internal #{session.id}
                                                 </p>
-
-                                                <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+                                            </td>
+                                            <td className="px-table-x py-table-y align-top whitespace-nowrap">
+                                                {formatDateTime(
+                                                    session.startedAt,
+                                                )}
+                                            </td>
+                                            <td className="px-table-x py-table-y align-top">
+                                                <p className="font-medium">
+                                                    {session.templateName ??
+                                                        'No template selected'}
+                                                </p>
+                                            </td>
+                                            <td className="px-table-x py-table-y align-top">
+                                                <PaymentDetails
+                                                    payment={session.payment}
+                                                    voucherCode={
+                                                        session.voucherCode
+                                                    }
+                                                    paymentMethod={
+                                                        session.paymentMethod
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="px-table-x py-table-y align-top">
+                                                <PrintJobState
+                                                    printJob={session.printJob}
+                                                />
+                                            </td>
+                                            <td className="px-table-x py-table-y align-top">
+                                                <SessionStatusBadge
+                                                    status={session.status}
+                                                />
+                                            </td>
+                                            <td className="px-table-x py-table-y text-right align-top font-medium whitespace-nowrap tabular-nums">
+                                                {formatSessionAmount(
+                                                    session.price ??
+                                                        session.payment
+                                                            ?.amount ??
+                                                        null,
+                                                    session.currency,
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td
+                                            colSpan={7}
+                                            className="px-6 py-14 text-center"
+                                        >
+                                            <div className="mx-auto flex max-w-md flex-col items-center">
+                                                <CalendarDays
+                                                    className="mb-3 size-8 text-muted-foreground"
+                                                    aria-hidden="true"
+                                                />
+                                                <p className="font-medium">
+                                                    No sessions found
+                                                </p>
+                                                <p className="mt-1 text-sm text-muted-foreground">
                                                     No session records match the
                                                     current filters.
                                                 </p>
                                             </div>
                                         </td>
                                     </tr>
-                                ) : (
-                                    sessions.data.map((session) => (
-                                        <tr
-                                            key={session.id}
-                                            className="border-t transition-colors hover:bg-muted/30"
-                                        >
-                                            <td className="px-5 py-3">
-                                                <span
-                                                    className="block font-mono text-[13px] whitespace-nowrap"
-                                                    title={session.sessionToken}
-                                                >
-                                                    {session.sessionToken}
-                                                </span>
-                                            </td>
-
-                                            <td className="px-4 py-3">
-                                                <SessionStatusBadge
-                                                    status={session.status}
-                                                />
-                                            </td>
-
-                                            <td className="px-4 py-3">
-                                                <PaymentDetails
-                                                    payment={session.payment}
-                                                />
-                                            </td>
-
-                                            <td className="px-4 py-3">
-                                                <PrintJobState
-                                                    printJob={session.printJob}
-                                                />
-                                            </td>
-
-                                            <td className="px-4 py-3 whitespace-nowrap tabular-nums">
-                                                {session.startedAt !== null ? (
-                                                    <time
-                                                        dateTime={
-                                                            session.startedAt
-                                                        }
-                                                    >
-                                                        {formatDateTime(
-                                                            session.startedAt,
-                                                        )}
-                                                    </time>
-                                                ) : (
-                                                    <span className="text-muted-foreground">
-                                                        —
-                                                    </span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))
                                 )}
                             </tbody>
                         </table>
                     </div>
 
-                    <CardFooter className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:justify-between sm:px-5">
-                        <span className="text-sm text-muted-foreground">
-                            {paginationSummary}
-                        </span>
-
-                        <nav
-                            aria-label="Sessions pagination"
-                            className="flex flex-wrap items-center gap-1"
-                        >
-                            {sessions.links.map((link, index) => (
-                                <Button
-                                    key={`${link.label}-${index}`}
-                                    asChild={link.url !== null}
-                                    variant={
-                                        link.active ? 'default' : 'outline'
-                                    }
-                                    size="sm"
-                                    disabled={link.url === null}
-                                >
-                                    {link.url !== null ? (
-                                        <Link
-                                            href={link.url}
-                                            preserveScroll
-                                            dangerouslySetInnerHTML={{
-                                                __html: link.label,
-                                            }}
-                                        />
-                                    ) : (
-                                        <span
-                                            dangerouslySetInnerHTML={{
-                                                __html: link.label,
-                                            }}
-                                        />
-                                    )}
-                                </Button>
-                            ))}
-                        </nav>
-                    </CardFooter>
+                    <SessionPagination sessions={sessions} />
                 </Card>
             </div>
         </>
