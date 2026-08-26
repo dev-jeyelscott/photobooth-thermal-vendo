@@ -40,8 +40,13 @@ vi.mock('recharts', () => ({
     ComposedChart: ({ children }: { children: ReactNode }) => (
         <div>{children}</div>
     ),
+    BarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    PieChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    Area: () => null,
     Bar: () => null,
+    Cell: () => null,
     Line: () => null,
+    Pie: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
     CartesianGrid: () => null,
     XAxis: () => null,
     YAxis: () => null,
@@ -115,34 +120,52 @@ describe('reports workspace', () => {
         expect(url.searchParams.get('end')).toBe('2026-08-31');
     });
 
-    it('renders the daily report without inventing a success-rate percentage', () => {
+    it('renders the redesigned daily report from repository-backed metrics only', () => {
         render(
             <DailyReport
                 date="2026-08-23"
                 report={{
                     grossSales: '12450.00',
+                    totalSessions: 48,
                     successfulSessions: 42,
                     paidSessions: 31,
                     voucherSessions: 11,
                     failedPayments: 2,
+                    printedJobs: 40,
+                    failedPrintJobs: 2,
                     averageTransactionValue: '296.43',
+                    hourlyBreakdown: [
+                        { hour: 9, sessions: 8 },
+                        { hour: 10, sessions: 12 },
+                        { hour: 11, sessions: 10 },
+                    ],
                 }}
             />,
         );
 
         expect(
-            screen.getByRole('heading', { name: 'Reports' }),
+            screen.getByRole('heading', { name: 'Daily Report' }),
         ).toBeInTheDocument();
-
+        expect(screen.getByText('Total Sessions')).toBeInTheDocument();
+        expect(screen.getByText('Completed Prints')).toBeInTheDocument();
+        expect(screen.getByText('Voucher Usage')).toBeInTheDocument();
+        expect(screen.getByText('Failed Prints')).toBeInTheDocument();
+        expect(screen.getByTestId('daily-hourly-chart')).toBeInTheDocument();
         expect(screen.getByText('Payment mix')).toBeInTheDocument();
-        expect(screen.getByText('Transaction health')).toBeInTheDocument();
+        expect(screen.getByText('Operational Summary')).toBeInTheDocument();
+        expect(
+            screen.getByText('Average transaction value'),
+        ).toBeInTheDocument();
 
         expect(
             screen.queryByText('95.5% success rate'),
         ).not.toBeInTheDocument();
+        expect(screen.queryByText('Cash')).not.toBeInTheDocument();
+        expect(screen.queryByText('Card')).not.toBeInTheDocument();
+        expect(screen.queryByText('GCash')).not.toBeInTheDocument();
 
         expect(
-            screen.getByRole('link', { name: 'Export CSV' }),
+            screen.getByRole('link', { name: 'Export Report' }),
         ).toHaveAttribute(
             'href',
             expect.stringContaining('/admin/reports/export'),
@@ -151,14 +174,16 @@ describe('reports workspace', () => {
         expect(screen.getByLabelText('Date')).toHaveValue('2026-08-23');
     });
 
-    it('renders the monthly chart and daily breakdown from repository-backed data', () => {
+    it('renders the monthly trend and daily breakdown from repository-backed data', () => {
         render(
             <MonthlyReport
                 year={2026}
                 month={8}
                 report={{
                     grossSales: '275.00',
+                    totalSessions: 4,
                     successfulSessions: 3,
+                    averageDailySessions: '0.13',
                     paidSessions: 2,
                     voucherSessions: 1,
                     voucherRedemptions: 1,
@@ -168,11 +193,13 @@ describe('reports workspace', () => {
                         {
                             date: '2026-08-03',
                             grossSales: '200.00',
+                            totalSessions: 3,
                             successfulSessions: 2,
                         },
                         {
                             date: '2026-08-11',
                             grossSales: '75.00',
+                            totalSessions: 1,
                             successfulSessions: 1,
                         },
                     ],
@@ -180,12 +207,18 @@ describe('reports workspace', () => {
             />,
         );
 
+        expect(
+            screen.getByRole('heading', { name: 'Monthly Report' }),
+        ).toBeInTheDocument();
+        expect(screen.getByText('Monthly Revenue')).toBeInTheDocument();
+        expect(screen.getByText('Average Daily Sessions')).toBeInTheDocument();
+        expect(screen.getByText('Successful Prints')).toBeInTheDocument();
         expect(screen.getByTestId('monthly-sales-chart')).toBeInTheDocument();
-
-        expect(screen.getByText('Daily breakdown')).toBeInTheDocument();
-
+        expect(screen.getByText('Daily Breakdown')).toBeInTheDocument();
         expect(screen.getByText('Aug 3, 2026')).toBeInTheDocument();
         expect(screen.getByText('₱200.00')).toBeInTheDocument();
+        expect(screen.queryByText('Cash')).not.toBeInTheDocument();
+        expect(screen.queryByText('Card')).not.toBeInTheDocument();
     });
 
     it('renders deliberate monthly chart and table empty states', () => {
@@ -195,7 +228,9 @@ describe('reports workspace', () => {
                 month={8}
                 report={{
                     grossSales: '0.00',
+                    totalSessions: 0,
                     successfulSessions: 0,
+                    averageDailySessions: '0.00',
                     paidSessions: 0,
                     voucherSessions: 0,
                     voucherRedemptions: 0,
@@ -300,6 +335,10 @@ describe('reports workspace', () => {
         expect(screen.queryByText('Booth')).not.toBeInTheDocument();
         expect(screen.queryByText('All Booths')).not.toBeInTheDocument();
         expect(screen.queryByText('Active Booth')).not.toBeInTheDocument();
+        expect(screen.queryByText('Cash')).not.toBeInTheDocument();
+        expect(screen.queryByText('Card')).not.toBeInTheDocument();
+        expect(screen.queryByText('GCash')).not.toBeInTheDocument();
+        expect(screen.queryByText('BPI QR')).not.toBeInTheDocument();
     });
 
     it('renders deliberate date range empty states without fabricated percentages', () => {

@@ -14,6 +14,8 @@ const standaloneAuthPages = new Set([
     'auth/register',
     'auth/forgot-password',
     'auth/reset-password',
+    'auth/confirm-password',
+    'auth/verify-email',
 ]);
 
 createInertiaApp({

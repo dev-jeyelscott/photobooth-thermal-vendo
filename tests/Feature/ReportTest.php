@@ -28,6 +28,7 @@ test('admin can view the daily sales report for a seeded day', function () {
         'amount' => '150.00',
         'updated_at' => $day->copy()->setTime(10, 0),
     ]);
+    PrintJob::factory()->for($mayaSession, 'photoboothSession')->printed()->create();
 
     $voucherSession = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::Completed,
@@ -38,6 +39,12 @@ test('admin can view the daily sales report for a seeded day', function () {
         'amount' => '50.00',
         'method' => PaymentMethod::Voucher,
         'updated_at' => $day->copy()->setTime(11, 0),
+    ]);
+    PrintJob::factory()->for($voucherSession, 'photoboothSession')->failed()->create();
+
+    PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Expired,
+        'updated_at' => $day->copy()->setTime(13, 0),
     ]);
 
     Payment::factory()->create([
@@ -55,6 +62,7 @@ test('admin can view the daily sales report for a seeded day', function () {
         'amount' => '999.00',
         'updated_at' => now()->subDays(5),
     ]);
+    PrintJob::factory()->for($otherDaySession, 'photoboothSession')->printed()->create();
 
     $response = $this->actingAs($user)->get(route('admin.reports.daily', ['date' => $day->toDateString()]));
 
@@ -63,11 +71,18 @@ test('admin can view the daily sales report for a seeded day', function () {
         ->component('admin/reports/daily')
         ->where('date', $day->toDateString())
         ->where('report.grossSales', '200.00')
+        ->where('report.totalSessions', 3)
         ->where('report.successfulSessions', 2)
         ->where('report.paidSessions', 1)
         ->where('report.voucherSessions', 1)
         ->where('report.failedPayments', 1)
+        ->where('report.printedJobs', 1)
+        ->where('report.failedPrintJobs', 1)
         ->where('report.averageTransactionValue', '100.00')
+        ->where('report.hourlyBreakdown.10.hour', 10)
+        ->where('report.hourlyBreakdown.10.sessions', 1)
+        ->where('report.hourlyBreakdown.11.sessions', 1)
+        ->where('report.hourlyBreakdown.13.sessions', 1)
     );
 });
 
@@ -81,11 +96,18 @@ test('the daily report returns zeroed totals for a day with no activity', functi
     $response->assertInertia(fn ($page) => $page
         ->component('admin/reports/daily')
         ->where('report.grossSales', '0.00')
+        ->where('report.totalSessions', 0)
         ->where('report.successfulSessions', 0)
         ->where('report.paidSessions', 0)
         ->where('report.voucherSessions', 0)
         ->where('report.failedPayments', 0)
+        ->where('report.printedJobs', 0)
+        ->where('report.failedPrintJobs', 0)
         ->where('report.averageTransactionValue', '0.00')
+        ->where('report.hourlyBreakdown.0.hour', 0)
+        ->where('report.hourlyBreakdown.0.sessions', 0)
+        ->where('report.hourlyBreakdown.23.hour', 23)
+        ->where('report.hourlyBreakdown.23.sessions', 0)
     );
 });
 
@@ -130,6 +152,11 @@ test('admin can view the monthly sales report for a seeded month', function () {
     ]);
     PrintJob::factory()->for($voucherDayOne, 'photoboothSession')->failed()->create();
 
+    PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::Expired,
+        'updated_at' => $month->copy()->addDays(2)->setTime(12, 0),
+    ]);
+
     $mayaDayTwo = PhotoboothSession::factory()->create([
         'status' => PhotoboothSessionStatus::Completed,
         'payment_method' => PaymentMethod::Maya,
@@ -162,7 +189,9 @@ test('admin can view the monthly sales report for a seeded month', function () {
         ->where('year', $month->year)
         ->where('month', $month->month)
         ->where('report.grossSales', '275.00')
+        ->where('report.totalSessions', 4)
         ->where('report.successfulSessions', 3)
+        ->where('report.averageDailySessions', number_format(4 / (int) $month->format('t'), 2, '.', ''))
         ->where('report.paidSessions', 2)
         ->where('report.voucherSessions', 1)
         ->where('report.voucherRedemptions', 1)
@@ -172,11 +201,13 @@ test('admin can view the monthly sales report for a seeded month', function () {
             [
                 'date' => $month->copy()->addDays(2)->toDateString(),
                 'grossSales' => '200.00',
+                'totalSessions' => 3,
                 'successfulSessions' => 2,
             ],
             [
                 'date' => $month->copy()->addDays(10)->toDateString(),
                 'grossSales' => '75.00',
+                'totalSessions' => 1,
                 'successfulSessions' => 1,
             ],
         ])
@@ -196,7 +227,9 @@ test('the monthly report returns zeroed totals for a month with no activity', fu
     $response->assertInertia(fn ($page) => $page
         ->component('admin/reports/monthly')
         ->where('report.grossSales', '0.00')
+        ->where('report.totalSessions', 0)
         ->where('report.successfulSessions', 0)
+        ->where('report.averageDailySessions', '0.00')
         ->where('report.paidSessions', 0)
         ->where('report.voucherSessions', 0)
         ->where('report.voucherRedemptions', 0)

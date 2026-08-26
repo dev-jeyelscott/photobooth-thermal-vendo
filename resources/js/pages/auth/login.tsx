@@ -1,10 +1,9 @@
 import { Form, Head } from '@inertiajs/react';
 import { Lock, Mail } from 'lucide-react';
 import AuthInput from '@/components/auth/auth-input';
+import AuthMarketingPanel from '@/components/auth/auth-marketing-panel';
 import AuthPageShell from '@/components/auth/auth-page-shell';
-import ThermaSnapBrand, {
-    ThermaSnapMark,
-} from '@/components/auth/thermasnap-brand';
+import ThermaSnapBrand from '@/components/auth/thermasnap-brand';
 import InputError from '@/components/input-error';
 import PasskeyVerify from '@/components/passkey-verify';
 import PasswordInput from '@/components/password-input';
@@ -15,88 +14,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
-import { cn } from '@/lib/utils';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
-
-const PHOTO_ASSET = '/images/welcome/photostrip-photo.png';
 
 type Props = {
     status?: string;
     canResetPassword: boolean;
 };
-
-type PhotoStripProps = {
-    className?: string;
-};
-
-type ThermaSnapPrinterProps = {
-    className?: string;
-};
-
-/**
- * Renders a decorative three-frame photostrip from the approved local
- * customer-photo asset.
- */
-function PhotoStrip({ className }: PhotoStripProps) {
-    return (
-        <div
-            className={cn(
-                'flex flex-col gap-1.5 rounded-md bg-white p-1.5 shadow-lg',
-                className,
-            )}
-        >
-            {[0, 1, 2].map((frame) => (
-                <div
-                    key={frame}
-                    className="aspect-[1.05] overflow-hidden rounded-[2px] bg-muted"
-                >
-                    <img
-                        src={PHOTO_ASSET}
-                        alt=""
-                        draggable={false}
-                        className="h-full w-full object-cover"
-                    />
-                </div>
-            ))}
-
-            <div className="pt-0.5 text-center text-[7px] font-bold text-primary">
-                ThermaSnap
-            </div>
-        </div>
-    );
-}
-
-/**
- * Renders the non-interactive thermal photobooth illustration used in the
- * desktop login marketing panel.
- */
-function ThermaSnapPrinter({ className }: ThermaSnapPrinterProps) {
-    return (
-        <div aria-hidden="true" className={cn('relative h-56 w-72', className)}>
-            <div className="absolute inset-x-0 top-0 bottom-8 rounded-t-[2.25rem] rounded-b-xl border border-primary/15 bg-primary/10 shadow-xl">
-                <div className="absolute top-10 left-1/2 -translate-x-1/2">
-                    <ThermaSnapMark className="size-11" />
-                </div>
-
-                <div className="absolute bottom-12 left-1/2 h-4 w-36 -translate-x-1/2 rounded-md bg-foreground/80 shadow-inner" />
-            </div>
-
-            <div className="absolute top-[78%] left-1/2 w-32 -translate-x-1/2 rounded-b-md bg-white p-2 shadow-md">
-                <img
-                    src={PHOTO_ASSET}
-                    alt=""
-                    draggable={false}
-                    className="aspect-[1.45] w-full object-cover"
-                />
-                <div className="mt-1.5 text-center text-[7px] font-bold text-primary">
-                    ThermaSnap
-                </div>
-            </div>
-        </div>
-    );
-}
 
 /**
  * Renders the ThermaSnap operator login while preserving the existing Fortify,
@@ -112,47 +37,11 @@ export default function Login({ status, canResetPassword }: Props) {
                 footerClassName="lg:pl-[48%]"
             >
                 <div className="mx-auto grid w-full max-w-[1480px] flex-1 items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(500px,0.9fr)] xl:gap-16">
-                    <section className="hidden min-h-[720px] flex-col justify-between py-6 lg:flex">
-                        <div>
-                            <ThermaSnapBrand />
-
-                            <div className="mt-20 max-w-xl">
-                                <p className="text-sm font-semibold text-primary">
-                                    Welcome back!
-                                </p>
-
-                                <h2 className="mt-5 text-5xl leading-[1.08] font-semibold tracking-[-0.04em] text-balance xl:text-[3.4rem]">
-                                    Log in to your ThermaSnap account
-                                </h2>
-
-                                <p className="mt-6 max-w-lg text-lg leading-8 text-muted-foreground">
-                                    Access your dashboard to manage sessions,
-                                    payments, reports, and more.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div
-                            aria-hidden="true"
-                            className="relative h-[310px] w-full max-w-[620px]"
-                        >
-                            <div className="absolute -bottom-14 -left-12 size-80 rounded-full bg-primary/5" />
-
-                            <PhotoStrip className="absolute bottom-3 left-1 z-20 w-[7.5rem] -rotate-6" />
-                            <PhotoStrip className="absolute bottom-7 left-24 z-10 w-[7.5rem] rotate-3" />
-
-                            <ThermaSnapPrinter className="absolute right-5 bottom-0 z-10" />
-
-                            <div
-                                className="absolute right-4 bottom-36 h-28 w-36 text-primary/10"
-                                style={{
-                                    backgroundImage:
-                                        'radial-gradient(currentColor 1.3px, transparent 1.3px)',
-                                    backgroundSize: '13px 13px',
-                                }}
-                            />
-                        </div>
-                    </section>
+                    <AuthMarketingPanel
+                        eyebrow="Welcome back!"
+                        title="Log in to your ThermaSnap account"
+                        description="Access your dashboard to manage sessions, payments, reports, and more."
+                    />
 
                     <section className="flex w-full flex-col items-center lg:items-end">
                         <ThermaSnapBrand className="mb-8 lg:hidden" />
@@ -258,6 +147,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                                         id="remember"
                                                         name="remember"
                                                     />
+
                                                     <Label
                                                         htmlFor="remember"
                                                         className="cursor-pointer font-normal"
@@ -291,9 +181,11 @@ export default function Login({ status, canResetPassword }: Props) {
 
                                 <div className="mt-8 flex items-center gap-4">
                                     <Separator className="flex-1" />
+
                                     <span className="text-sm whitespace-nowrap text-muted-foreground">
                                         Don&apos;t have an account?
                                     </span>
+
                                     <Separator className="flex-1" />
                                 </div>
 

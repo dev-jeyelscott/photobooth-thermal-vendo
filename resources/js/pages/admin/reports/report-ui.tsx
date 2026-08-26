@@ -1,14 +1,12 @@
 import { Link } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
-import {
-    CalendarDays,
-    CheckCircle2,
-    Download,
-    TriangleAlert,
-} from 'lucide-react';
+import { CheckCircle2, Download, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Cell, Pie, PieChart } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import type { ChartConfig } from '@/components/ui/chart';
+import { ChartContainer } from '@/components/ui/chart';
 import { cn } from '@/lib/utils';
 import {
     daily as dailyReport,
@@ -25,15 +23,28 @@ export type ReportNavigationLinks = {
     range: string;
 };
 
-type MetricTone = 'neutral' | 'success' | 'info' | 'warning' | 'danger';
+type MetricTone =
+    'neutral' | 'primary' | 'success' | 'info' | 'warning' | 'danger';
 
 const metricToneClasses: Record<MetricTone, string> = {
     neutral: 'bg-muted text-foreground',
+    primary: 'bg-primary/10 text-primary',
     success: 'bg-success-subtle text-success',
     info: 'bg-info-subtle text-info',
     warning: 'bg-warning-subtle text-warning',
     danger: 'bg-destructive/10 text-destructive',
 };
+
+const paymentMixChartConfig = {
+    maya: {
+        label: 'Maya',
+        color: 'var(--primary)',
+    },
+    voucher: {
+        label: 'Voucher',
+        color: 'var(--chart-4)',
+    },
+} satisfies ChartConfig;
 
 /**
  * Calculates a safe percentage for a portion of a total.
@@ -157,7 +168,7 @@ export function buildReportExportHref(start: string, end: string): string {
 }
 
 /**
- * Renders the report-level Daily, Monthly, and Date Range navigation.
+ * Renders compact sibling navigation for the three report views.
  */
 export function ReportNavigation({
     active,
@@ -189,11 +200,8 @@ export function ReportNavigation({
     ];
 
     return (
-        <nav
-            aria-label="Report views"
-            className="overflow-x-auto rounded-xl border bg-muted/40 p-1"
-        >
-            <div className="grid min-w-[30rem] grid-cols-3 gap-1">
+        <nav aria-label="Report views" className="overflow-x-auto">
+            <div className="inline-flex min-w-max items-center gap-1 rounded-lg border bg-muted/40 p-1">
                 {items.map((item) => {
                     const isActive = item.id === active;
 
@@ -203,17 +211,13 @@ export function ReportNavigation({
                             href={item.href}
                             aria-current={isActive ? 'page' : undefined}
                             className={cn(
-                                'flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors',
+                                'inline-flex min-h-9 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors',
                                 'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none',
                                 isActive
-                                    ? 'border bg-background text-foreground shadow-sm'
+                                    ? 'bg-background text-primary shadow-sm'
                                     : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
                             )}
                         >
-                            <CalendarDays
-                                className="size-4"
-                                aria-hidden="true"
-                            />
                             {item.label}
                         </Link>
                     );
@@ -224,44 +228,30 @@ export function ReportNavigation({
 }
 
 /**
- * Renders the shared Reports page heading, export action, and sub-navigation.
+ * Renders the shared report page title and report-view navigation.
  */
 export function ReportShell({
     active,
     links,
-    periodLabel,
-    exportHref,
+    title,
+    description,
     children,
 }: {
     active: ReportView;
     links: ReportNavigationLinks;
-    periodLabel: string;
-    exportHref: string;
+    title: string;
+    description: string;
     children: ReactNode;
 }) {
     return (
-        <div className="flex flex-col gap-5 p-4 md:p-6">
-            <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        Reports
-                    </h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Sales and operational performance for your photobooth
-                    </p>
-
-                    <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-info-subtle px-3 py-1.5 text-xs font-medium text-info">
-                        <CalendarDays className="size-3.5" aria-hidden="true" />
-                        {periodLabel}
-                    </div>
-                </div>
-
-                <Button asChild variant="outline" className="self-start">
-                    <a href={exportHref}>
-                        <Download className="size-4" aria-hidden="true" />
-                        Export CSV
-                    </a>
-                </Button>
+        <div className="flex flex-col gap-4 p-4 md:p-6">
+            <header>
+                <h1 className="text-2xl font-semibold tracking-tight">
+                    {title}
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    {description}
+                </p>
             </header>
 
             <ReportNavigation active={active} links={links} />
@@ -272,33 +262,55 @@ export function ReportShell({
 }
 
 /**
- * Provides the shared bordered surface used for report filter controls.
+ * Provides the shared bordered surface used for report filter and export controls.
  */
 export function ReportFilterPanel({ children }: { children: ReactNode }) {
     return (
-        <div className="rounded-xl border bg-card px-4 py-4 shadow-none">
+        <div className="rounded-xl border bg-card p-3 shadow-none md:p-4">
             {children}
         </div>
     );
 }
 
 /**
- * Renders one dominant report KPI using the existing semantic design tokens.
+ * Renders the existing CSV export destination with a consistent report action treatment.
+ */
+export function ReportExportButton({
+    href,
+    label = 'Export Report',
+}: {
+    href: string;
+    label?: string;
+}) {
+    return (
+        <Button asChild className="shrink-0">
+            <a href={href}>
+                <Download className="size-4" aria-hidden="true" />
+                {label}
+            </a>
+        </Button>
+    );
+}
+
+/**
+ * Renders one compact report KPI using the existing semantic design tokens.
  */
 export function ReportMetricCard({
     label,
     value,
+    supportingText,
     icon: Icon,
     tone = 'neutral',
 }: {
     label: string;
     value: string;
+    supportingText?: ReactNode;
     icon: LucideIcon;
     tone?: MetricTone;
 }) {
     return (
-        <Card className="gap-0 rounded-2xl py-0 shadow-none">
-            <CardContent className="flex min-h-32 items-center gap-4 px-5 py-5">
+        <Card className="gap-0 rounded-xl py-0 shadow-none">
+            <CardContent className="flex min-h-28 items-center gap-4 px-4 py-4">
                 <div
                     className={cn(
                         'flex size-11 shrink-0 items-center justify-center rounded-full',
@@ -312,9 +324,14 @@ export function ReportMetricCard({
                     <p className="text-sm font-medium text-muted-foreground">
                         {label}
                     </p>
-                    <strong className="mt-1 block truncate text-3xl font-semibold tracking-tight tabular-nums">
+                    <strong className="mt-1 block truncate text-2xl font-semibold tracking-tight tabular-nums">
                         {value}
                     </strong>
+                    {supportingText && (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                            {supportingText}
+                        </div>
+                    )}
                 </div>
             </CardContent>
         </Card>
@@ -322,7 +339,7 @@ export function ReportMetricCard({
 }
 
 /**
- * Renders the repository-backed Maya and voucher payment composition.
+ * Renders the repository-backed Maya and voucher payment composition as a donut and legend.
  */
 export function PaymentMixCard({
     mayaSessions,
@@ -334,73 +351,101 @@ export function PaymentMixCard({
     const total = mayaSessions + voucherSessions;
     const mayaShare = calculateShare(mayaSessions, total);
     const voucherShare = calculateShare(voucherSessions, total);
+    const chartData = [
+        {
+            name: 'Maya',
+            value: mayaSessions,
+        },
+        {
+            name: 'Voucher',
+            value: voucherSessions,
+        },
+    ];
 
     return (
-        <Card className="gap-0 rounded-2xl py-0 shadow-none">
-            <CardContent className="px-5 py-5">
+        <Card className="gap-0 rounded-xl py-0 shadow-none">
+            <CardContent className="px-4 py-4">
                 <div>
                     <h2 className="font-semibold">Payment mix</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        How completed Maya and voucher sessions were paid
+                        Completed sessions using the supported payment methods
                     </p>
                 </div>
 
-                <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                    <div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span className="size-2.5 rounded-full bg-info" />
-                            Maya sessions
-                        </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-center">
+                    <div className="relative mx-auto w-full max-w-44">
+                        <ChartContainer
+                            config={paymentMixChartConfig}
+                            role="img"
+                            aria-label={`Payment mix: ${mayaSessions} Maya sessions and ${voucherSessions} voucher sessions`}
+                            className="h-44 min-h-44"
+                        >
+                            <PieChart>
+                                <Pie
+                                    data={chartData}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    innerRadius={54}
+                                    outerRadius={76}
+                                    paddingAngle={total > 0 ? 2 : 0}
+                                    strokeWidth={0}
+                                >
+                                    <Cell fill="var(--primary)" />
+                                    <Cell fill="var(--chart-4)" />
+                                </Pie>
+                            </PieChart>
+                        </ChartContainer>
 
-                        <div className="mt-2 flex items-baseline gap-2">
-                            <strong className="text-2xl font-semibold tabular-nums">
-                                {mayaSessions}
-                            </strong>
-                            <span className="text-sm font-semibold text-info tabular-nums">
-                                {mayaShare.toFixed(1)}%
-                            </span>
+                        <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+                            <div>
+                                <strong className="block text-xl font-semibold tabular-nums">
+                                    {total}
+                                </strong>
+                                <span className="text-xs text-muted-foreground">
+                                    Sessions
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="border-border sm:border-l sm:pl-5">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span className="size-2.5 rounded-full bg-chart-4" />
-                            Voucher sessions
+                    <div className="grid gap-3">
+                        <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2.5">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <span className="size-2.5 shrink-0 rounded-full bg-primary" />
+                                <span className="truncate text-sm">Maya</span>
+                            </div>
+                            <div className="text-right">
+                                <strong className="block text-sm tabular-nums">
+                                    {mayaSessions}
+                                </strong>
+                                <span className="text-xs text-muted-foreground tabular-nums">
+                                    {mayaShare.toFixed(1)}%
+                                </span>
+                            </div>
                         </div>
 
-                        <div className="mt-2 flex items-baseline gap-2">
-                            <strong className="text-2xl font-semibold tabular-nums">
-                                {voucherSessions}
-                            </strong>
-                            <span className="text-sm font-semibold text-warning tabular-nums">
-                                {voucherShare.toFixed(1)}%
-                            </span>
+                        <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2.5">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <span className="size-2.5 shrink-0 rounded-full bg-chart-4" />
+                                <span className="truncate text-sm">
+                                    Voucher
+                                </span>
+                            </div>
+                            <div className="text-right">
+                                <strong className="block text-sm tabular-nums">
+                                    {voucherSessions}
+                                </strong>
+                                <span className="text-xs text-muted-foreground tabular-nums">
+                                    {voucherShare.toFixed(1)}%
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div
-                    className="mt-6 flex h-2.5 overflow-hidden rounded-full bg-muted"
-                    role="img"
-                    aria-label={`Payment mix: ${mayaSessions} Maya sessions and ${voucherSessions} voucher sessions`}
-                >
-                    {total > 0 && (
-                        <>
-                            <span
-                                className="bg-info"
-                                style={{ width: `${mayaShare}%` }}
-                            />
-                            <span
-                                className="bg-chart-4"
-                                style={{ width: `${voucherShare}%` }}
-                            />
-                        </>
-                    )}
-                </div>
-
-                <p className="mt-4 text-xs text-muted-foreground">
+                <p className="mt-3 text-xs text-muted-foreground">
                     {total > 0
-                        ? `${total} tracked payment sessions in this mix`
+                        ? `${total} completed sessions are represented in this mix.`
                         : 'No Maya or voucher sessions for this period.'}
                 </p>
             </CardContent>
@@ -431,8 +476,8 @@ export function HealthSummaryCard({
     const hasIssues = issueValue > 0;
 
     return (
-        <Card className="gap-0 rounded-2xl py-0 shadow-none">
-            <CardContent className="px-5 py-5">
+        <Card className="gap-0 rounded-xl py-0 shadow-none">
+            <CardContent className="px-4 py-4">
                 <div>
                     <h2 className="font-semibold">{title}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -440,7 +485,7 @@ export function HealthSummaryCard({
                     </p>
                 </div>
 
-                <div className="mt-6 grid gap-5 sm:grid-cols-2">
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
                     <div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <CheckCircle2
@@ -455,7 +500,7 @@ export function HealthSummaryCard({
                         </strong>
                     </div>
 
-                    <div className="border-border sm:border-l sm:pl-5">
+                    <div className="border-border sm:border-l sm:pl-4">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <TriangleAlert
                                 className={cn(
@@ -482,10 +527,10 @@ export function HealthSummaryCard({
 
                 <div
                     className={cn(
-                        'mt-6 rounded-xl border px-4 py-3 text-sm',
+                        'mt-5 rounded-lg border px-3 py-2.5 text-sm',
                         hasIssues
                             ? 'border-warning/25 bg-warning-subtle text-warning-foreground'
-                            : 'border-success/25 bg-success-subtle text-success',
+                            : 'border-success/25 bg-success-subtle text-success-foreground',
                     )}
                 >
                     {message}
@@ -513,8 +558,8 @@ export function IssueSummaryCard({
     const hasIssues = totalIssues > 0;
 
     return (
-        <Card className="gap-0 rounded-2xl py-0 shadow-none">
-            <CardContent className="px-5 py-5">
+        <Card className="gap-0 rounded-xl py-0 shadow-none">
+            <CardContent className="px-4 py-4">
                 <div>
                     <h2 className="font-semibold">Operational health</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -522,7 +567,7 @@ export function IssueSummaryCard({
                     </p>
                 </div>
 
-                <div className="mt-6 grid gap-5 sm:grid-cols-2">
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
                     <div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <TriangleAlert
@@ -547,7 +592,7 @@ export function IssueSummaryCard({
                         </strong>
                     </div>
 
-                    <div className="border-border sm:border-l sm:pl-5">
+                    <div className="border-border sm:border-l sm:pl-4">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <TriangleAlert
                                 className={cn(
@@ -574,10 +619,10 @@ export function IssueSummaryCard({
 
                 <div
                     className={cn(
-                        'mt-6 rounded-xl border px-4 py-3 text-sm',
+                        'mt-5 rounded-xl border px-4 py-3 text-sm',
                         hasIssues
                             ? 'border-warning/25 bg-warning-subtle text-warning-foreground'
-                            : 'border-success/25 bg-success-subtle text-success',
+                            : 'border-success/25 bg-success-subtle text-success-foreground',
                     )}
                 >
                     {hasIssues

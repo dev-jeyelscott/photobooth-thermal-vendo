@@ -319,26 +319,32 @@ class ReportController extends Controller
      * @param  array{0: Carbon, 1: Carbon}  $range
      * @return array{
      *     grossSales: string,
+     *     totalSessions: int,
      *     successfulSessions: int,
+     *     averageDailySessions: string,
      *     paidSessions: int,
      *     voucherSessions: int,
      *     voucherRedemptions: int,
      *     printedJobs: int,
      *     failedPrintJobs: int,
-     *     dailyBreakdown: array<int, array{date: string, grossSales: string, successfulSessions: int}>,
+     *     dailyBreakdown: array<int, array{date: string, grossSales: string, totalSessions: int, successfulSessions: int}>,
      * }
      */
     private function monthlyStats(array $range): array
     {
         [$start, $end] = $range;
 
-        $sessionsPerDay = PhotoboothSession::query()
+        $sessionStatsPerDay = PhotoboothSession::query()
             ->selectRaw('date(updated_at) as day')
-            ->selectRaw('count(*) as sessions')
-            ->where('status', PhotoboothSessionStatus::Completed)
+            ->selectRaw('count(*) as total_sessions')
+            ->selectRaw(
+                'sum(case when status = ? then 1 else 0 end) as successful_sessions',
+                [PhotoboothSessionStatus::Completed->value],
+            )
             ->whereBetween('updated_at', [$start, $end])
             ->groupBy('day')
-            ->pluck('sessions', 'day');
+            ->get()
+            ->keyBy(fn (PhotoboothSession $row) => (string) $row->getAttribute('day'));
 
         $revenuePerDay = Payment::query()
             ->join('photobooth_sessions', 'photobooth_sessions.id', '=', 'payments.photobooth_session_id')
@@ -350,22 +356,30 @@ class ReportController extends Controller
             ->groupBy('day')
             ->pluck('gross_sales', 'day');
 
-        $dailyBreakdown = $sessionsPerDay->keys()
+        $days = $sessionStatsPerDay->keys()
             ->merge($revenuePerDay->keys())
             ->unique()
             ->sort()
-            ->values()
-            ->map(fn ($day) => [
-                'date' => (string) $day,
-                'grossSales' => number_format((float) ($revenuePerDay[$day] ?? 0), 2, '.', ''),
-                'successfulSessions' => (int) ($sessionsPerDay[$day] ?? 0),
-            ])
-            ->all();
+            ->values();
 
-        $successfulSessions = PhotoboothSession::query()
-            ->where('status', PhotoboothSessionStatus::Completed)
-            ->whereBetween('updated_at', [$start, $end])
-            ->count();
+        $dailyBreakdown = $days->map(function (int|string $day) use ($sessionStatsPerDay, $revenuePerDay): array {
+            $day = (string) $day;
+            $sessionRow = $sessionStatsPerDay->get($day);
+
+            return [
+                'date' => $day,
+                'grossSales' => number_format((float) ($revenuePerDay[$day] ?? 0), 2, '.', ''),
+                'totalSessions' => (int) ($sessionRow?->getAttribute('total_sessions') ?? 0),
+                'successfulSessions' => (int) ($sessionRow?->getAttribute('successful_sessions') ?? 0),
+            ];
+        })->all();
+
+        $totalSessions = (int) $sessionStatsPerDay->sum(
+            fn (PhotoboothSession $row) => (int) $row->getAttribute('total_sessions'),
+        );
+        $successfulSessions = (int) $sessionStatsPerDay->sum(
+            fn (PhotoboothSession $row) => (int) $row->getAttribute('successful_sessions'),
+        );
 
         $grossSales = Payment::query()
             ->where('status', PaymentStatus::Success)
@@ -393,41 +407,61 @@ class ReportController extends Controller
             ->whereBetween('updated_at', [$start, $end])
             ->count();
 
-        $printedJobs = PrintJob::query()
-            ->where('status', PrintJobStatus::Printed)
+        $printStats = PrintJob::query()
+            ->selectRaw(
+                'sum(case when status = ? then 1 else 0 end) as printed_jobs',
+                [PrintJobStatus::Printed->value],
+            )
+            ->selectRaw(
+                'sum(case when status = ? then 1 else 0 end) as failed_print_jobs',
+                [PrintJobStatus::Failed->value],
+            )
+            ->whereIn('status', [PrintJobStatus::Printed->value, PrintJobStatus::Failed->value])
             ->whereHas('photoboothSession', function ($query) use ($start, $end) {
                 $query->whereBetween('updated_at', [$start, $end]);
             })
-            ->count();
+            ->first();
 
-        $failedPrintJobs = PrintJob::query()
-            ->where('status', PrintJobStatus::Failed)
-            ->whereHas('photoboothSession', function ($query) use ($start, $end) {
-                $query->whereBetween('updated_at', [$start, $end]);
-            })
-            ->count();
+        $daysInMonth = (int) $start->format('t');
+        $averageDailySessions = $daysInMonth > 0 ? $totalSessions / $daysInMonth : 0.0;
 
         return [
             'grossSales' => number_format((float) $grossSales, 2, '.', ''),
+            'totalSessions' => $totalSessions,
             'successfulSessions' => $successfulSessions,
+            'averageDailySessions' => number_format($averageDailySessions, 2, '.', ''),
             'paidSessions' => $paidSessions,
             'voucherSessions' => $voucherSessions,
             'voucherRedemptions' => $voucherRedemptions,
-            'printedJobs' => $printedJobs,
-            'failedPrintJobs' => $failedPrintJobs,
+            'printedJobs' => (int) ($printStats?->getAttribute('printed_jobs') ?? 0),
+            'failedPrintJobs' => (int) ($printStats?->getAttribute('failed_print_jobs') ?? 0),
             'dailyBreakdown' => $dailyBreakdown,
         ];
     }
 
     /**
-     * Compute the daily sales report metrics for the given date range, following the same
-     * aggregation pattern as DashboardController::completedSessionStats.
+     * Compute the daily sales and operational report metrics for the given date range.
      *
      * @param  array{0: Carbon, 1: Carbon}  $range
-     * @return array{grossSales: string, successfulSessions: int, paidSessions: int, voucherSessions: int, failedPayments: int, averageTransactionValue: string}
+     * @return array{
+     *     grossSales: string,
+     *     totalSessions: int,
+     *     successfulSessions: int,
+     *     paidSessions: int,
+     *     voucherSessions: int,
+     *     failedPayments: int,
+     *     printedJobs: int,
+     *     failedPrintJobs: int,
+     *     averageTransactionValue: string,
+     *     hourlyBreakdown: array<int, array{hour: int, sessions: int}>,
+     * }
      */
     private function dailyStats(array $range): array
     {
+        $totalSessions = PhotoboothSession::query()
+            ->whereBetween('updated_at', $range)
+            ->count();
+
         $successfulSessions = PhotoboothSession::query()
             ->where('status', PhotoboothSessionStatus::Completed)
             ->whereBetween('updated_at', $range)
@@ -458,16 +492,67 @@ class ReportController extends Controller
             ->whereBetween('updated_at', $range)
             ->count();
 
+        $printStats = PrintJob::query()
+            ->selectRaw(
+                'sum(case when status = ? then 1 else 0 end) as printed_jobs',
+                [PrintJobStatus::Printed->value],
+            )
+            ->selectRaw(
+                'sum(case when status = ? then 1 else 0 end) as failed_print_jobs',
+                [PrintJobStatus::Failed->value],
+            )
+            ->whereIn('status', [PrintJobStatus::Printed->value, PrintJobStatus::Failed->value])
+            ->whereHas('photoboothSession', function ($query) use ($range) {
+                $query->whereBetween('updated_at', $range);
+            })
+            ->first();
+
         $grossSales = (float) $grossSales;
         $averageTransactionValue = $successfulSessions > 0 ? $grossSales / $successfulSessions : 0.0;
 
         return [
             'grossSales' => number_format($grossSales, 2, '.', ''),
+            'totalSessions' => $totalSessions,
             'successfulSessions' => $successfulSessions,
             'paidSessions' => $paidSessions,
             'voucherSessions' => $voucherSessions,
             'failedPayments' => $failedPayments,
+            'printedJobs' => (int) ($printStats?->getAttribute('printed_jobs') ?? 0),
+            'failedPrintJobs' => (int) ($printStats?->getAttribute('failed_print_jobs') ?? 0),
             'averageTransactionValue' => number_format($averageTransactionValue, 2, '.', ''),
+            'hourlyBreakdown' => $this->hourlySessionBreakdown($range),
         ];
+    }
+
+    /**
+     * Aggregate one selected day into 24 stable hourly session buckets for SQLite and PostgreSQL.
+     *
+     * @param  array{0: Carbon, 1: Carbon}  $range
+     * @return array<int, array{hour: int, sessions: int}>
+     */
+    private function hourlySessionBreakdown(array $range): array
+    {
+        $driver = PhotoboothSession::query()->getQuery()->getConnection()->getDriverName();
+        $hourExpression = match ($driver) {
+            'sqlite' => "cast(strftime('%H', updated_at) as integer)",
+            'pgsql' => 'cast(extract(hour from updated_at) as integer)',
+            'mysql' => 'hour(updated_at)',
+            default => throw new RuntimeException("Unsupported database driver [$driver] for report hourly aggregation."),
+        };
+
+        $hourlyCounts = PhotoboothSession::query()
+            ->selectRaw("{$hourExpression} as hour")
+            ->selectRaw('count(*) as sessions')
+            ->whereBetween('updated_at', $range)
+            ->groupByRaw($hourExpression)
+            ->orderByRaw($hourExpression)
+            ->pluck('sessions', 'hour');
+
+        return collect(range(0, 23))
+            ->map(fn (int $hour): array => [
+                'hour' => $hour,
+                'sessions' => (int) $hourlyCounts->get($hour, 0),
+            ])
+            ->all();
     }
 }
