@@ -16,6 +16,7 @@ const standaloneAuthPages = new Set([
     'auth/reset-password',
     'auth/confirm-password',
     'auth/verify-email',
+    'auth/two-factor-challenge',
 ]);
 
 createInertiaApp({
@@ -32,6 +33,8 @@ createInertiaApp({
                 return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
+            case name === 'settings/profile':
+                return AppLayout;
             case name.startsWith('settings/'):
                 return [AppLayout, SettingsLayout];
             case name.startsWith('admin/'):

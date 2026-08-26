@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Fortify\Features;
 
 test('profile page is displayed', function () {
     $user = User::factory()->create();
@@ -9,7 +11,36 @@ test('profile page is displayed', function () {
         ->actingAs($user)
         ->get(route('profile.edit'));
 
-    $response->assertOk();
+    $response
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/profile')
+            ->where(
+                'canManageTwoFactor',
+                Features::canManageTwoFactorAuthentication(),
+            )
+            ->where('twoFactorEnabled', false),
+        );
+});
+
+test('profile exposes safe enabled two factor status', function () {
+    if (! Features::canManageTwoFactorAuthentication()) {
+        $this->markTestSkipped('Two-factor authentication is disabled.');
+    }
+
+    $user = User::factory()->withTwoFactor()->create();
+
+    $this
+        ->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/profile')
+            ->where('canManageTwoFactor', true)
+            ->where('twoFactorEnabled', true)
+            ->missing('auth.user.two_factor_secret')
+            ->missing('auth.user.two_factor_recovery_codes'),
+        );
 });
 
 test('profile information can be updated', function () {

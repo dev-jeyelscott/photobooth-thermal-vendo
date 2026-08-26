@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use Laravel\Fortify\Features;
 
 class ProfileController extends Controller
 {
@@ -19,9 +20,14 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $canManageTwoFactor = Features::canManageTwoFactorAuthentication();
+
         return Inertia::render('settings/profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'canManageTwoFactor' => $canManageTwoFactor,
+            'twoFactorEnabled' => $canManageTwoFactor
+                && $request->user()->hasEnabledTwoFactorAuthentication(),
         ]);
     }
 
