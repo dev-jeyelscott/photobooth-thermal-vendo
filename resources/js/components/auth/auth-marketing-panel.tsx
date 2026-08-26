@@ -1,7 +1,7 @@
-import { cn } from '@/lib/utils';
 import ThermaSnapBrand, {
     ThermaSnapMark,
 } from '@/components/auth/thermasnap-brand';
+import { cn } from '@/lib/utils';
 
 const PHOTO_ASSET = '/images/welcome/photostrip-photo.png';
 

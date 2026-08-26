@@ -1,4 +1,5 @@
-import { Eye, EyeOff, type LucideIcon } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { ComponentProps, Ref } from 'react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';

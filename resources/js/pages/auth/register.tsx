@@ -7,8 +7,8 @@ import {
     Printer,
     ShieldCheck,
     User,
-    type LucideIcon,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import AuthInput from '@/components/auth/auth-input';
 import AuthPageShell from '@/components/auth/auth-page-shell';
 import PasswordRulesHint from '@/components/auth/password-rules-hint';
