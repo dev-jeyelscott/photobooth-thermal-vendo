@@ -333,35 +333,35 @@ test('admin can view the date range report matching the sum of per-day daily rep
         ->where('report.failedPrintJobs', 1)
         ->where('report.totalSessions', 4)
         ->where('report.printedJobs', 1)
-        ->where('report.printSuccessRate', 50.0)
+        ->where('report.printSuccessRate', 50)
         ->where('report.averageTicketSize', '100.00')
         ->where('report.dailyBreakdown', [
             [
                 'date' => $dayOne->toDateString(),
                 'totalSessions' => 2,
                 'completedSessions' => 1,
-                'completedRate' => 50.0,
+                'completedRate' => 50,
                 'expiredOrAbandonedSessions' => 1,
-                'expiredOrAbandonedRate' => 50.0,
+                'expiredOrAbandonedRate' => 50,
                 'revenue' => '150.00',
                 'successfulPayments' => 1,
                 'printedJobs' => 1,
                 'failedPrintJobs' => 0,
-                'printSuccessRate' => 100.0,
+                'printSuccessRate' => 100,
                 'averageTicketSize' => '150.00',
             ],
             [
                 'date' => $dayTwo->toDateString(),
                 'totalSessions' => 2,
                 'completedSessions' => 1,
-                'completedRate' => 50.0,
+                'completedRate' => 50,
                 'expiredOrAbandonedSessions' => 1,
-                'expiredOrAbandonedRate' => 50.0,
+                'expiredOrAbandonedRate' => 50,
                 'revenue' => '50.00',
                 'successfulPayments' => 1,
                 'printedJobs' => 0,
                 'failedPrintJobs' => 1,
-                'printSuccessRate' => 0.0,
+                'printSuccessRate' => 0,
                 'averageTicketSize' => '50.00',
             ],
         ])
@@ -399,10 +399,10 @@ test('the range report excludes nonterminal print jobs from print success rate',
     $response->assertInertia(fn ($page) => $page
         ->where('report.printedJobs', 1)
         ->where('report.failedPrintJobs', 1)
-        ->where('report.printSuccessRate', 50.0)
+        ->where('report.printSuccessRate', 50)
         ->where('report.dailyBreakdown.0.printedJobs', 1)
         ->where('report.dailyBreakdown.0.failedPrintJobs', 1)
-        ->where('report.dailyBreakdown.0.printSuccessRate', 50.0)
+        ->where('report.dailyBreakdown.0.printSuccessRate', 50)
     );
 });
 
