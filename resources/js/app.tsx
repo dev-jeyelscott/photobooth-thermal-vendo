@@ -9,6 +9,13 @@ import SettingsLayout from '@/layouts/settings/layout';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
+const standaloneAuthPages = new Set([
+    'auth/login',
+    'auth/register',
+    'auth/forgot-password',
+    'auth/reset-password',
+]);
+
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
 
@@ -19,6 +26,8 @@ createInertiaApp({
                 return null;
             case name === 'kiosk' || name === 'gallery':
                 return KioskLayout;
+            case standaloneAuthPages.has(name):
+                return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):
@@ -45,5 +54,5 @@ createInertiaApp({
     },
 });
 
-// This will set light / dark mode on load.
+// Initialize the persisted application appearance on boot.
 initializeTheme();
