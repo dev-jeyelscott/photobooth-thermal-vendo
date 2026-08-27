@@ -77,7 +77,8 @@
             "npm run format:check",
             "npm run types:check",
             "npm run test",
-            "@test"
+            "@test",
+            "npm run build"
         ],
         "types:check": [
             "phpstan analyse"
