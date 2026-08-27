@@ -1,6 +1,15 @@
 <?php
 
 use App\Models\Voucher;
+use Illuminate\Support\Carbon;
+
+beforeEach(function (): void {
+    Carbon::setTestNow('2026-08-28 12:00:00');
+});
+
+afterEach(function (): void {
+    Carbon::setTestNow();
+});
 
 function eligibleVoucher(array $overrides = []): Voucher
 {
