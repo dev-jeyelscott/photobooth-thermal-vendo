@@ -237,11 +237,15 @@ describe('ThermaSnap authentication redesign', () => {
             document.querySelector('[data-test="register-user-button"]'),
         ).toBeInTheDocument();
 
-        expect(
-            screen.getByRole('link', {
-                name: 'Back to login',
-            }),
-        ).toHaveAttribute('href', '/login');
+        const backToLoginLinks = screen.getAllByRole('link', {
+            name: 'Back to login',
+        });
+
+        expect(backToLoginLinks.length).toBeGreaterThan(0);
+
+        backToLoginLinks.forEach((link) => {
+            expect(link).toHaveAttribute('href', '/login');
+        });
     });
 
     it('preserves the forgot-password status and email submission contract', () => {

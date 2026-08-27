@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
+import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import TwoFactorChallenge from '@/pages/auth/two-factor-challenge';
 
@@ -24,6 +24,31 @@ type MockFormProps = {
 
 vi.mock('@inertiajs/react', () => ({
     Head: () => null,
+
+    /**
+     * Render generated Inertia links as plain anchors for DOM contract tests.
+     */
+    Link: ({
+        href,
+        children,
+        ...props
+    }: Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
+        href: unknown;
+        children: ReactNode;
+    }) => {
+        const resolvedHref =
+            typeof href === 'string'
+                ? href
+                : typeof href === 'object' && href !== null && 'url' in href
+                  ? String((href as { url: unknown }).url)
+                  : '#';
+
+        return (
+            <a href={resolvedHref} {...props}>
+                {children}
+            </a>
+        );
+    },
 
     Form: ({ action, method, className, children }: MockFormProps) => (
         <form action={action} method={method} className={className}>
@@ -94,9 +119,11 @@ describe('ThermaSnap two-factor challenge redesign', () => {
 
         expect(recoveryCode).toHaveAttribute('name', 'recovery_code');
         expect(recoveryCode).toBeRequired();
+
         expect(
             document.querySelector('input[name="code"]'),
         ).not.toBeInTheDocument();
+
         expect(clearErrorsMock).toHaveBeenCalledTimes(1);
 
         await user.click(
@@ -109,6 +136,7 @@ describe('ThermaSnap two-factor challenge redesign', () => {
             'name',
             'code',
         );
+
         expect(clearErrorsMock).toHaveBeenCalledTimes(2);
     });
 

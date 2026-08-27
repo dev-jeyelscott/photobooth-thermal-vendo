@@ -23,6 +23,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('throttle:6,1')
         ->name('user-password.update');
 
+    Route::delete('settings/security/sessions/{sessionId}', [SecurityController::class, 'destroySession'])
+        ->middleware(RequirePassword::class)
+        ->name('security.sessions.destroy');
+
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
 });
 

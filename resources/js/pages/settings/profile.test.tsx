@@ -146,10 +146,13 @@ describe('ThermaSnap profile settings redesign', () => {
         expect(email).toHaveAttribute('name', 'email');
         expect(email).toHaveValue('operator@thermasnap.test');
 
-        expect(name.closest('form')).toHaveAttribute(
+        const profileForm = name.closest('form');
+
+        expect(profileForm).toHaveAttribute(
             'action',
-            '/settings/profile',
+            '/settings/profile?_method=PATCH',
         );
+        expect(profileForm).toHaveAttribute('method', 'post');
 
         expect(
             screen.queryByLabelText(/mobile number/i),
@@ -247,6 +250,7 @@ describe('ThermaSnap profile settings redesign', () => {
             'aria-invalid',
             'true',
         );
+
         expect(screen.getByText('The name field is required.')).toHaveAttribute(
             'role',
             'alert',

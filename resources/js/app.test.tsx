@@ -45,7 +45,7 @@ vi.mock('@/layouts/settings/layout', () => ({
 type LayoutResolver = (name: string) => unknown;
 
 /**
- * Returns the layout callback registered by the application's
+ * Return the layout callback registered by the application's
  * createInertiaApp configuration.
  */
 function getLayoutResolver(): LayoutResolver {
@@ -77,15 +77,29 @@ describe('global Inertia layout resolver', () => {
         expect(resolveLayout('gallery')).not.toBe(mocks.appLayout);
     });
 
-    it('preserves existing application layout mappings', () => {
+    it('preserves the current application layout mappings', () => {
         const resolveLayout = getLayoutResolver();
 
         expect(resolveLayout('welcome')).toBeNull();
-        expect(resolveLayout('auth/login')).toBe(mocks.authLayout);
-        expect(resolveLayout('settings/profile')).toEqual([
+
+        expect(resolveLayout('auth/login')).toBeNull();
+        expect(resolveLayout('auth/register')).toBeNull();
+        expect(resolveLayout('auth/two-factor-challenge')).toBeNull();
+
+        expect(resolveLayout('auth/future-auth-page')).toBe(mocks.authLayout);
+
+        expect(resolveLayout('settings/profile')).toBe(mocks.appLayout);
+
+        expect(resolveLayout('settings/security')).toEqual([
             mocks.appLayout,
             mocks.settingsLayout,
         ]);
+
+        expect(resolveLayout('settings/appearance')).toEqual([
+            mocks.appLayout,
+            mocks.settingsLayout,
+        ]);
+
         expect(resolveLayout('admin/dashboard')).toBe(mocks.appLayout);
         expect(resolveLayout('dashboard')).toBe(mocks.appLayout);
     });
