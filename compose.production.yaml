@@ -1,7 +1,7 @@
 name: thermasnap-production
 
 x-app-service: &app-service
-  image: ${THERMASNAP_APP_IMAGE:-thermasnap-app:production}
+  image: ${THERMASNAP_APP_IMAGE:?Set THERMASNAP_APP_IMAGE to a release-tagged image}
   build:
     context: .
     target: app
@@ -21,9 +21,15 @@ x-app-service: &app-service
     postgres:
       condition: service_healthy
 
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: ${DOCKER_LOG_MAX_SIZE:-10m}
+    max-file: "${DOCKER_LOG_MAX_FILES:-5}"
+
 services:
   postgres:
-    image: postgres:18-bookworm
+    image: postgres:18.6-bookworm
     restart: unless-stopped
     env_file:
       - ${POSTGRES_ENV_FILE:-/etc/photobooth/postgres.env}
@@ -32,6 +38,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
       - ./docker/postgres/init-production.sh:/docker-entrypoint-initdb.d/10-thermasnap.sh:ro
+    cpus: "${POSTGRES_CPUS:-1.0}"
+    mem_limit: ${POSTGRES_MEMORY_LIMIT:-1g}
+    logging: *default-logging
     healthcheck:
       test:
         [
@@ -47,6 +56,9 @@ services:
     <<: *app-service
     restart: unless-stopped
     command: ["php-fpm", "-F"]
+    cpus: "${APP_CPUS:-0.75}"
+    mem_limit: ${APP_MEMORY_LIMIT:-768m}
+    logging: *default-logging
     healthcheck:
       test:
         [
@@ -72,19 +84,49 @@ services:
         "--queue=default",
         "--sleep=3",
         "--tries=3",
-        "--timeout=60",
+        "--timeout=${QUEUE_WORKER_TIMEOUT:-60}",
         "--max-time=3600",
       ]
+    cpus: "${WORKER_CPUS:-1.0}"
+    mem_limit: ${WORKER_MEMORY_LIMIT:-1g}
+    logging: *default-logging
     stop_grace_period: 1h
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "php",
+          "-r",
+          "exit(str_contains(str_replace(chr(0), ' ', file_get_contents('/proc/1/cmdline')), 'artisan queue:work') ? 0 : 1);",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   scheduler:
     <<: *app-service
     restart: unless-stopped
     command: ["php", "artisan", "schedule:work"]
+    cpus: "${SCHEDULER_CPUS:-0.25}"
+    mem_limit: ${SCHEDULER_MEMORY_LIMIT:-256m}
+    logging: *default-logging
     stop_grace_period: 30s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "php",
+          "-r",
+          "exit(str_contains(str_replace(chr(0), ' ', file_get_contents('/proc/1/cmdline')), 'artisan schedule:work') ? 0 : 1);",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   nginx:
-    image: ${THERMASNAP_NGINX_IMAGE:-thermasnap-nginx:production}
+    image: ${THERMASNAP_NGINX_IMAGE:?Set THERMASNAP_NGINX_IMAGE to a release-tagged image}
     build:
       context: .
       target: nginx
@@ -96,6 +138,9 @@ services:
         source: ${THERMASNAP_MEDIA_PATH:-/srv/photobooth/media}
         target: /var/www/html/storage/app/public
         read_only: true
+    cpus: "${NGINX_CPUS:-0.25}"
+    mem_limit: ${NGINX_MEMORY_LIMIT:-128m}
+    logging: *default-logging
     depends_on:
       app:
         condition: service_healthy

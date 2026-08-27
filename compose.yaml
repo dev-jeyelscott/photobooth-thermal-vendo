@@ -23,7 +23,7 @@ x-app-service: &app-service
 
 services:
   postgres:
-    image: postgres:18-bookworm
+    image: postgres:18.6-bookworm
     restart: unless-stopped
     env_file:
       - .env.docker
@@ -90,7 +90,7 @@ services:
       - "${VITE_PORT:-5173}:5173"
 
   nginx:
-    image: nginx:1.28-alpine
+    image: nginx:1.30.4-alpine
     restart: unless-stopped
     ports:
       - "${APP_PORT:-8000}:80"

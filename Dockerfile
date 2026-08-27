@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
-ARG PHP_VERSION=8.5
-ARG NODE_VERSION=22
+ARG PHP_VERSION=8.5.9
+ARG NODE_VERSION=22.23.2
+ARG COMPOSER_VERSION=2.10.2
+ARG NGINX_VERSION=1.30.4
 
 FROM php:${PHP_VERSION}-fpm-bookworm AS php-extensions
 
@@ -27,7 +29,7 @@ RUN apt-get update \
 
 FROM node:${NODE_VERSION}-bookworm-slim AS node
 
-FROM composer:2 AS composer
+FROM composer:${COMPOSER_VERSION} AS composer
 
 FROM php:${PHP_VERSION}-fpm-bookworm AS php-runtime
 
@@ -127,7 +129,7 @@ COPY --from=build --chown=app:app /var/www/html /var/www/html
 
 USER app
 
-FROM nginx:1.28-alpine AS nginx
+FROM nginx:${NGINX_VERSION}-alpine AS nginx
 
 WORKDIR /var/www/html
 

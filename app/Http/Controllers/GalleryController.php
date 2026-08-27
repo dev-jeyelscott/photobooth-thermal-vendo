@@ -8,6 +8,7 @@ use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GalleryController extends Controller
 {
@@ -28,11 +29,46 @@ class GalleryController extends Controller
 
         return Inertia::render('gallery', [
             'expired' => false,
-            'colorUrl' => $capturedMedia->color_path ? Storage::disk('public')->url($capturedMedia->color_path) : null,
-            'bwUrl' => $capturedMedia->bw_path ? Storage::disk('public')->url($capturedMedia->bw_path) : null,
-            'gifUrl' => $capturedMedia->gif_path ? Storage::disk('public')->url($capturedMedia->gif_path) : null,
+            'colorUrl' => $this->mediaUrl($capturedMedia, 'color'),
+            'bwUrl' => $this->mediaUrl($capturedMedia, 'bw'),
+            'gifUrl' => $this->mediaUrl($capturedMedia, 'gif'),
             'expiresAt' => $capturedMedia->expires_at?->toIso8601String(),
         ]);
+    }
+
+    /**
+     * Stream one generated gallery asset through the token and expiration
+     * boundary instead of exposing its public-disk path directly.
+     */
+    public function media(CapturedMedia $capturedMedia, string $variant): StreamedResponse
+    {
+        if ($capturedMedia->isExpired()) {
+            abort(404);
+        }
+
+        $media = $this->mediaVariant($capturedMedia, $variant);
+
+        if (
+            $media === null
+            || $media['path'] === null
+            || ! str_starts_with($media['path'], 'captures/')
+            || ! Storage::disk('public')->exists($media['path'])
+        ) {
+            abort(404);
+        }
+
+        return Storage::disk('public')->response(
+            $media['path'],
+            null,
+            [
+                'Content-Type' => $media['contentType'],
+                'Cache-Control' => 'private, no-store, max-age=0',
+                'Pragma' => 'no-cache',
+                'X-Content-Type-Options' => 'nosniff',
+                'X-Robots-Tag' => 'noindex, nofollow, noarchive',
+            ],
+            'inline',
+        );
     }
 
     /**
@@ -44,5 +80,48 @@ class GalleryController extends Controller
         return response($generateGalleryQrCode->handle($capturedMedia), 200, [
             'Content-Type' => 'image/svg+xml',
         ]);
+    }
+
+    /**
+     * Build a protected URL only when the requested gallery variant has a
+     * recorded path on the captured-media record.
+     */
+    private function mediaUrl(CapturedMedia $capturedMedia, string $variant): ?string
+    {
+        $media = $this->mediaVariant($capturedMedia, $variant);
+
+        if ($media === null || $media['path'] === null) {
+            return null;
+        }
+
+        return route('gallery.media', [
+            'capturedMedia' => $capturedMedia->public_token,
+            'variant' => $variant,
+        ]);
+    }
+
+    /**
+     * Resolve the only customer-downloadable generated media variants and
+     * their trusted MIME types without accepting arbitrary storage paths.
+     *
+     * @return array{path: string|null, contentType: string}|null
+     */
+    private function mediaVariant(CapturedMedia $capturedMedia, string $variant): ?array
+    {
+        return match ($variant) {
+            'color' => [
+                'path' => $capturedMedia->color_path,
+                'contentType' => 'image/jpeg',
+            ],
+            'bw' => [
+                'path' => $capturedMedia->bw_path,
+                'contentType' => 'image/jpeg',
+            ],
+            'gif' => [
+                'path' => $capturedMedia->gif_path,
+                'contentType' => 'image/gif',
+            ],
+            default => null,
+        };
     }
 }
