@@ -30,6 +30,7 @@ test('the full paid commercial journey succeeds end to end through real applicat
     config(['services.maya.webhook_secret' => 'whsec_e2e_secret']);
 
     $template = PhotoTemplate::factory()->create([
+        'layout_path' => 'templates/e2e-template.png',
         'photo_slots' => 2,
         'layout_config' => [
             'slots' => [
@@ -40,7 +41,10 @@ test('the full paid commercial journey succeeds end to end through real applicat
         'print_width_mm' => 100,
         'print_height_mm' => 50,
     ]);
-    $sticker = StickerDesign::factory()->create();
+    Storage::disk('public')->put('templates/e2e-template.png', paidSessionEndToEndFixturePng(240));
+
+    $sticker = StickerDesign::factory()->create(['asset_path' => 'stickers/e2e-sticker.png']);
+    Storage::disk('public')->put('stickers/e2e-sticker.png', paidSessionEndToEndFixturePng(80));
 
     // 1. Start the session.
     $sessionToken = $this->postJson(route('kiosk.sessions.store'))
@@ -64,7 +68,7 @@ test('the full paid commercial journey succeeds end to end through real applicat
 
     $payment = Payment::firstOrFail();
     expect($payment->status)->toBe(PaymentStatus::Pending)
-        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::PaymentPending);
+        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::New);
 
     // 3. Simulate the Maya success webhook.
     $payload = [

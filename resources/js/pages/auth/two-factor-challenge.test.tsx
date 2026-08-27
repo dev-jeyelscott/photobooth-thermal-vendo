@@ -37,29 +37,37 @@ type MockInputOtpProps = Omit<
 
 vi.mock('@/components/ui/input-otp', () => ({
     /**
-     * Represent the OTP primitive with its page-facing input contract only.
+     * Represent the OTP primitive with a deterministic native input while
+     * preserving its controlled value and page-facing accessibility contract.
      *
-     * The third-party input-otp implementation owns browser measurement and
-     * password-manager timers that are outside this page contract test. Keeping
-     * those timers out of this test prevents work from surviving jsdom teardown
-     * while preserving controlled-value and accessibility behavior.
+     * The wrapper consumes InputOTP-only props instead of forwarding them to
+     * the native input, preventing third-party browser timers from leaking past
+     * jsdom teardown without changing the production OTP implementation.
      */
-    InputOTP: ({ onChange, ...props }: MockInputOtpProps) => (
-        <input
-            {...props}
-            onChange={(event) => onChange?.(event.currentTarget.value)}
-        />
+    InputOTP: ({
+        children,
+        containerClassName,
+        onChange,
+        ...inputProps
+    }: MockInputOtpProps) => (
+        <div className={containerClassName}>
+            <input
+                {...inputProps}
+                onChange={(event) => onChange?.(event.currentTarget.value)}
+            />
+
+            {children}
+        </div>
     ),
 
     /**
-     * Preserve the child structure expected by the authentication page without
-     * introducing any third-party OTP runtime behavior.
+     * Preserve the child hierarchy used by the authentication page without
+     * introducing input-otp runtime behavior into this page contract test.
      */
     InputOTPGroup: ({ children }: { children?: ReactNode }) => <>{children}</>,
 
     /**
-     * Individual visual OTP slots are presentation-only for these page contract
-     * tests because the mocked input above owns the actual form value.
+     * OTP slots are visual presentation only for this page contract test.
      */
     InputOTPSlot: () => null,
 }));
