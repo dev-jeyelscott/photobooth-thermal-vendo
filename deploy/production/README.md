@@ -1,105 +1,334 @@
-# Production deployment
+# ThermaSnap production deployment
 
-This application is deployed on an Ubuntu 26.04 LTS host with Nginx, PHP 8.5
-FPM, PostgreSQL, Supervisor, and Certbot. Provision the VPS and DNS record
-before starting. The release directory below is `/var/www/photobooth`; replace
-the placeholders in every supplied example before installing it.
+ThermaSnap runs as a non-Sail Docker Compose application on an Ubuntu 26.04
+LTS host.
 
-## Provision the host
+The production application topology is:
 
-Install Nginx, PHP 8.5 FPM with the PostgreSQL, GD, XML, curl, mbstring, zip,
-and bcmath extensions, PostgreSQL client tools, Supervisor, and Certbot's
-Nginx plugin. Create a non-login `photobooth` system user and make it the
-owner of the release directory, `storage`, and `bootstrap/cache`. PHP-FPM and
-the queue worker must run as this user.
+- host Nginx and Certbot for HTTPS termination
+- container Nginx
+- PHP 8.5 FPM application container
+- PostgreSQL container
+- database queue worker container
+- Laravel scheduler container
+- persistent host-mounted public media
 
-Create a PostgreSQL role and database with an owner that is distinct from the
-backup role. Give the backup role only the rights required by `pg_dump`.
+The host does not require PHP, Composer, Node.js, Supervisor, Laravel Cron, or
+a PostgreSQL server.
 
-## Release configuration
+## Host prerequisites
 
-1. Deploy the application to `/var/www/photobooth` without `.env` files.
-2. Copy `photobooth.env.example` to `/var/www/photobooth/.env`, set all
-   placeholders through the host's secret manager, then set mode `640` and
-   ownership to the PHP-FPM user. Do not use SQLite or `local` defaults:
-   `DB_CONNECTION=pgsql`, `FILESYSTEM_DISK=public`, and
-   `QUEUE_CONNECTION=database` are required.
-3. Install dependencies and frontend assets, then run:
+Install:
 
-   ```bash
-   composer install --no-dev --prefer-dist --optimize-autoloader
-   npm ci
-   npm run build
-   php artisan migrate --force
-   php artisan storage:link
-   php artisan optimize
-   ```
+- Docker Engine
+- Docker Compose plugin
+- Nginx
+- Certbot and the Certbot Nginx plugin
+- PostgreSQL client tools for `pg_dump`
+- Git
 
-The gallery, capture processing, admin-uploaded templates/stickers, and
-rendered receipts all explicitly use the named `public` disk. Its root,
-`storage/app/public`, must therefore be persistent across releases and exposed
-only through the `public/storage` symlink created above. Do not switch this
-application to S3 until those calls are changed together.
+Deploy the repository to `/var/www/photobooth`.
 
-## HTTPS, scheduler, and queue worker
+Create the persistent directories:
 
-1. Replace `__DOMAIN__` and `__APP_ROOT__` in `nginx.conf.example`, install it
-   under `/etc/nginx/sites-available/photobooth`, enable the site, and verify
-   with `nginx -t` before reloading Nginx.
-2. Issue the certificate after DNS resolves:
+```bash
+sudo mkdir -p \
+    /etc/photobooth \
+    /srv/photobooth/media \
+    /var/backups/photobooth
 
-   ```bash
-   sudo certbot --nginx -d photobooth.example.com --redirect
-   ```
-
-   Confirm Certbot's renewal timer is enabled.
-3. Install `photobooth-schedule.cron.example` for the application user. It
-   drives `photobooth:expire-sessions` every minute and `media:prune-expired`
-   hourly through Laravel's scheduler.
-4. Replace placeholders in `supervisor-worker.conf.example`, install it under
-   `/etc/supervisor/conf.d/`, then run `supervisorctl reread`,
-   `supervisorctl update`, and `supervisorctl status`. The worker is required
-   because completed sessions dispatch `ProcessPrintJob` asynchronously.
-
-Restart the queue worker after each deployment with
-`php artisan queue:restart`; Supervisor will start a fresh worker.
-
-## Backups and recovery
-
-Install `backup.sh` as `/usr/local/sbin/photobooth-backup`, owned by root and
-mode `750`. Copy `backup.env.example` to `/etc/photobooth/backup.env` and set
-mode `600`. Create `/etc/photobooth/.pgpass` with mode `600`, owned by the
-backup user, containing one line in PostgreSQL's standard form:
-
-```text
-host:port:database:username:password
+sudo chown -R 10001:10001 /srv/photobooth/media
+sudo chmod 0755 /srv/photobooth/media
 ```
 
-Schedule the script with a root cron job, for example at 02:15 UTC:
+The default production PHP image uses UID/GID `10001`. If `APP_UID` or
+`APP_GID` are changed while building the image, give the persistent media
+directory matching ownership.
+
+## Application environment
+
+Create the runtime files outside the repository:
+
+```bash
+sudo cp deploy/production/photobooth.env.example /etc/photobooth/app.env
+sudo cp deploy/production/postgres.env.example /etc/photobooth/postgres.env
+sudo cp deploy/production/backup.env.example /etc/photobooth/backup.env
+
+sudo chmod 600 \
+    /etc/photobooth/app.env \
+    /etc/photobooth/postgres.env \
+    /etc/photobooth/backup.env
+```
+
+Populate all placeholders through the host secret-management process.
+
+`DB_PASSWORD` in `app.env` must equal `APP_DB_PASSWORD` in `postgres.env`.
+
+Generate an application key without writing it into an image:
+
+```bash
+docker compose \
+    -f compose.production.yaml \
+    run --rm --no-deps app \
+    php artisan key:generate --show --no-ansi
+```
+
+Place the returned key into `/etc/photobooth/app.env`.
+
+Do not commit production environment files.
+
+## First deployment
+
+Build the immutable application and Nginx images:
+
+```bash
+docker compose -f compose.production.yaml build --pull app nginx
+```
+
+Start PostgreSQL first:
+
+```bash
+docker compose -f compose.production.yaml up -d postgres
+docker compose -f compose.production.yaml ps
+```
+
+Run database migrations explicitly:
+
+```bash
+docker compose \
+    -f compose.production.yaml \
+    run --rm --no-deps app \
+    php artisan migrate --force
+```
+
+Migrations are intentionally not part of the application entrypoint.
+
+Start the remaining services:
+
+```bash
+docker compose \
+    -f compose.production.yaml \
+    up -d app worker scheduler nginx
+```
+
+Check the stack:
+
+```bash
+docker compose -f compose.production.yaml ps
+curl --fail http://127.0.0.1:8081/up
+```
+
+## HTTPS
+
+Replace `__DOMAIN__` in `deploy/production/nginx.conf.example`, install the
+file under `/etc/nginx/sites-available/photobooth`, enable it, then validate:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+After DNS resolves:
+
+```bash
+sudo certbot --nginx -d photobooth.example.com --redirect
+```
+
+Confirm Certbot renewal is enabled.
+
+HTTPS is required in production for browser camera APIs and for secure public
+payment/webhook operation.
+
+## Queue worker
+
+The `worker` service runs the existing database-backed default queue with:
+
+```text
+--sleep=3
+--tries=3
+--timeout=60
+--max-time=3600
+```
+
+The worker is restarted by Docker rather than Supervisor.
+
+Inspect it with:
+
+```bash
+docker compose -f compose.production.yaml logs -f worker
+docker compose -f compose.production.yaml exec app php artisan queue:failed
+```
+
+## Laravel scheduler
+
+The `scheduler` service runs:
+
+```bash
+php artisan schedule:work
+```
+
+It owns the repository's current scheduled tasks:
+
+- `photobooth:expire-sessions` every minute
+- `media:prune-expired` hourly
+
+No host Laravel Cron entry is required.
+
+Inspect it with:
+
+```bash
+docker compose -f compose.production.yaml logs -f scheduler
+docker compose -f compose.production.yaml exec app php artisan schedule:list
+```
+
+## Persistent public media
+
+The repository explicitly uses Laravel's named `public` disk for captured
+media, templates, stickers, generated media, galleries, and rendered receipts.
+
+Production mounts:
+
+```text
+/srv/photobooth/media
+    ->
+/var/www/html/storage/app/public
+```
+
+Do not delete this directory during deployment.
+
+Do not move the application to S3 as part of Docker deployment unless all
+explicit public-disk consumers are migrated together.
+
+## Printer bridge
+
+The application container does not mount USB printer hardware.
+
+Keep `PHOTOBOOTH_DEFAULT_PRINTER_DRIVER=local_mock` where physical printing is
+not configured.
+
+For production bridge printing, configure:
+
+```text
+PHOTOBOOTH_DEFAULT_PRINTER_DRIVER=print_bridge
+PHOTOBOOTH_PRINT_BRIDGE_ENDPOINT=http://...
+PHOTOBOOTH_PRINT_BRIDGE_AUTH_TOKEN=...
+```
+
+A print bridge running directly on the Docker host can be addressed through
+`host.docker.internal`.
+
+## Normal deployment update
+
+After pulling an approved release:
+
+```bash
+git pull --ff-only
+
+docker compose -f compose.production.yaml build app nginx
+
+docker compose \
+    -f compose.production.yaml \
+    run --rm --no-deps app \
+    php artisan migrate --force
+
+docker compose \
+    -f compose.production.yaml \
+    up -d app worker scheduler nginx
+```
+
+Recreating the worker container replaces the old Supervisor-era
+`queue:restart` deployment step.
+
+## Backups
+
+The PostgreSQL container publishes port `5432` only on host loopback port
+`54320`. This preserves the existing host-side `pg_dump` backup design without
+exposing PostgreSQL publicly.
+
+Create `/etc/photobooth/.pgpass` with mode `600`:
+
+```text
+127.0.0.1:54320:photobooth:photobooth_backup:<backup-password>
+```
+
+The password must match `BACKUP_DB_PASSWORD` in
+`/etc/photobooth/postgres.env`.
+
+Install the existing backup script:
+
+```bash
+sudo install \
+    -o root \
+    -g root \
+    -m 750 \
+    deploy/production/backup.sh \
+    /usr/local/sbin/photobooth-backup
+```
+
+A root Cron entry may run backups independently of Laravel, for example:
 
 ```cron
 15 2 * * * /usr/local/sbin/photobooth-backup
 ```
 
-It creates a PostgreSQL custom-format dump and a compressed archive of the
-public media disk, then retains the configured number of daily backup
-directories. Replicate `BACKUP_DESTINATION` to off-host, encrypted storage and
-test restoration at least quarterly. Restore to an isolated database with
-`pg_restore` and restore media into `storage/app/public` before recreating the
-storage link; never test a restore against production.
+The backup contains:
+
+- PostgreSQL custom-format database dump
+- compressed `/srv/photobooth/media` archive
+
+Replicate backups to encrypted off-host storage.
+
+Test restoration at least quarterly against an isolated environment. Never
+test restore procedures against production.
 
 ## Read-only post-deploy checks
 
-Run these after the production environment is configured. They do not mutate
-the database:
-
 ```bash
-php artisan about
-php artisan config:show database.default
-php artisan config:show filesystems.default
-php artisan config:show queue.default
-php artisan schedule:list
-php artisan route:list --except-vendor
+docker compose -f compose.production.yaml exec app php artisan about
+
+docker compose \
+    -f compose.production.yaml \
+    exec app \
+    php artisan config:show database.default
+
+docker compose \
+    -f compose.production.yaml \
+    exec app \
+    php artisan config:show filesystems.default
+
+docker compose \
+    -f compose.production.yaml \
+    exec app \
+    php artisan config:show queue.default
+
+docker compose \
+    -f compose.production.yaml \
+    exec app \
+    php artisan schedule:list
+
+docker compose \
+    -f compose.production.yaml \
+    exec app \
+    php artisan route:list --except-vendor
 ```
 
-The configuration checks must report `pgsql`, `public`, and `database`.
+Expected values:
+
+```text
+database.default    pgsql
+filesystems.default public
+queue.default       database
+```
+
+## Operational logs
+
+```bash
+docker compose -f compose.production.yaml logs -f app
+docker compose -f compose.production.yaml logs -f nginx
+docker compose -f compose.production.yaml logs -f worker
+docker compose -f compose.production.yaml logs -f scheduler
+docker compose -f compose.production.yaml logs -f postgres
+```
+
+Application logs use stderr in production so they remain visible through
+Docker's normal logging interface.

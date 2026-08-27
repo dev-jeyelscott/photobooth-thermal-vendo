@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust the controlled reverse-proxy boundary. PHP-FPM itself is never
+        // exposed publicly by either Docker Compose topology.
+        $middleware->trustProxies(at: '*');
+
         $middleware->redirectUsersTo('/admin');
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);

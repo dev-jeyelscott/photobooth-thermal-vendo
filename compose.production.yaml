@@ -1,0 +1,114 @@
+name: thermasnap-production
+
+x-app-service: &app-service
+  image: ${THERMASNAP_APP_IMAGE:-thermasnap-app:production}
+  build:
+    context: .
+    target: app
+    args:
+      APP_UID: ${APP_UID:-10001}
+      APP_GID: ${APP_GID:-10001}
+  env_file:
+    - ${APP_ENV_FILE:-/etc/photobooth/app.env}
+  working_dir: /var/www/html
+  volumes:
+    - type: bind
+      source: ${THERMASNAP_MEDIA_PATH:-/srv/photobooth/media}
+      target: /var/www/html/storage/app/public
+  extra_hosts:
+    - host.docker.internal:host-gateway
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:18-bookworm
+    restart: unless-stopped
+    env_file:
+      - ${POSTGRES_ENV_FILE:-/etc/photobooth/postgres.env}
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-54320}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./docker/postgres/init-production.sh:/docker-entrypoint-initdb.d/10-thermasnap.sh:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  app:
+    <<: *app-service
+    restart: unless-stopped
+    command: ["php-fpm", "-F"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "php",
+          "-r",
+          "exit(@fsockopen('127.0.0.1', 9000) === false ? 1 : 0);",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+
+  worker:
+    <<: *app-service
+    restart: unless-stopped
+    command:
+      [
+        "php",
+        "artisan",
+        "queue:work",
+        "database",
+        "--queue=default",
+        "--sleep=3",
+        "--tries=3",
+        "--timeout=60",
+        "--max-time=3600",
+      ]
+    stop_grace_period: 1h
+
+  scheduler:
+    <<: *app-service
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work"]
+    stop_grace_period: 30s
+
+  nginx:
+    image: ${THERMASNAP_NGINX_IMAGE:-thermasnap-nginx:production}
+    build:
+      context: .
+      target: nginx
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${NGINX_HOST_PORT:-8081}:80"
+    volumes:
+      - type: bind
+        source: ${THERMASNAP_MEDIA_PATH:-/srv/photobooth/media}
+        target: /var/www/html/storage/app/public
+        read_only: true
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1/up >/dev/null 2>&1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+
+volumes:
+  postgres_data:
