@@ -423,7 +423,7 @@ class ReportController extends Controller
             ->first();
 
         $daysInMonth = (int) $start->format('t');
-        $averageDailySessions = $daysInMonth > 0 ? $totalSessions / $daysInMonth : 0.0;
+        $averageDailySessions = $totalSessions / $daysInMonth;
 
         return [
             'grossSales' => number_format((float) $grossSales, 2, '.', ''),
@@ -532,7 +532,7 @@ class ReportController extends Controller
      */
     private function hourlySessionBreakdown(array $range): array
     {
-        $driver = PhotoboothSession::query()->getQuery()->getConnection()->getDriverName();
+        $driver = PhotoboothSession::query()->getModel()->getConnection()->getDriverName();
         $hourExpression = match ($driver) {
             'sqlite' => "cast(strftime('%H', updated_at) as integer)",
             'pgsql' => 'cast(extract(hour from updated_at) as integer)',
