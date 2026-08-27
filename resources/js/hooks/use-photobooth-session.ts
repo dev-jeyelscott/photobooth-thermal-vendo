@@ -572,7 +572,14 @@ export function usePhotoboothSession() {
 
                 if (!response.ok) {
                     if (response.status === 410) {
-                        setSession({ ...session, status: 'expired' });
+                        const expiredSession = {
+                            ...session,
+                            status: 'expired',
+                        };
+
+                        setSession(expiredSession);
+
+                        return expiredSession;
                     }
 
                     return null;

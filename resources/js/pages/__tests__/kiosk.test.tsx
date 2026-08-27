@@ -205,6 +205,7 @@ const baseRoutes: Route[] = [
 
 describe('Kiosk', () => {
     beforeEach(() => {
+        window.sessionStorage.clear();
         paymentStatusState.status = 'paid';
         paymentStatusState.paymentStatus = 'succeeded';
         processingState.galleryToken = null;
@@ -272,6 +273,78 @@ describe('Kiosk', () => {
         expect(
             await screen.findByTestId('kiosk-select-template'),
         ).toBeInTheDocument();
+    });
+
+    it.each(['failed', 'cancelled'] as const)(
+        'shows a recoverable payment failure when the payment is %s',
+        async (paymentStatus) => {
+            const user = userEvent.setup({
+                advanceTimers: vi.advanceTimersByTime,
+            });
+            vi.useFakeTimers({ shouldAdvanceTime: true });
+
+            paymentStatusState.status = 'pending';
+            paymentStatusState.paymentStatus = paymentStatus;
+
+            render(<Kiosk paymentTimeoutSeconds={30} />);
+
+            await user.click(
+                screen.getByRole('button', { name: 'Pay via QR' }),
+            );
+
+            expect(
+                await screen.findByTestId('kiosk-payment-checkout-link'),
+            ).toBeInTheDocument();
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(3000);
+            });
+
+            expect(
+                await screen.findByTestId('kiosk-error-payment-failed'),
+            ).toBeInTheDocument();
+
+            paymentStatusState.paymentStatus = 'pending';
+
+            await user.click(
+                screen.getByRole('button', { name: 'Retry Payment' }),
+            );
+
+            expect(
+                await screen.findByTestId('kiosk-payment-checkout-link'),
+            ).toBeInTheDocument();
+        },
+    );
+
+    it('ends an expired payment session and returns the customer to start', async () => {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        paymentStatusState.status = 'expired';
+        paymentStatusState.paymentStatus = null;
+
+        render(<Kiosk paymentTimeoutSeconds={30} />);
+
+        await user.click(screen.getByRole('button', { name: 'Pay via QR' }));
+
+        expect(
+            await screen.findByTestId('kiosk-payment-checkout-link'),
+        ).toBeInTheDocument();
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(3000);
+        });
+
+        expect(
+            await screen.findByTestId('kiosk-error-expired-session'),
+        ).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Back to Start' }));
+
+        expect(screen.getByTestId('kiosk-welcome')).toBeInTheDocument();
+        expect(
+            window.sessionStorage.getItem('photobooth.session_token'),
+        ).toBeNull();
     });
 
     it('recovers from a transient network failure during payment polling without re-issuing the checkout', async () => {

@@ -384,6 +384,9 @@ export default function Kiosk({
                 ) {
                     stopPolling();
                     raiseKioskError('payment-failed', { retry: retryPayment });
+                } else if (refreshed.status === 'expired') {
+                    stopPolling();
+                    raiseKioskError('expired-session');
                 } else if (refreshed.status === 'paid') {
                     stopPolling();
                     clearKioskError();
@@ -593,7 +596,9 @@ export default function Kiosk({
                                     : undefined
                             }
                             onBackToStart={
-                                activeStep === 'pay-via-qr' && hasLiveCheckout
+                                activeStep === 'pay-via-qr' &&
+                                hasLiveCheckout &&
+                                kioskError !== 'expired-session'
                                     ? backToAuthorization
                                     : startOver
                             }
