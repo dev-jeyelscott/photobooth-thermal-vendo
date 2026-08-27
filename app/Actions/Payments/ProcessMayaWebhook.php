@@ -12,18 +12,6 @@ use Illuminate\Support\Facades\Log;
 class ProcessMayaWebhook
 {
     /**
-     * Statuses reported by Maya that map to a terminal Payment status.
-     *
-     * @var array<string, PaymentStatus>
-     */
-    private const STATUS_MAP = [
-        'PAYMENT_SUCCESS' => PaymentStatus::Success,
-        'PAYMENT_FAILED' => PaymentStatus::Failed,
-        'PAYMENT_CANCELLED' => PaymentStatus::Cancelled,
-        'PAYMENT_EXPIRED' => PaymentStatus::Cancelled,
-    ];
-
-    /**
      * Apply a verified Maya webhook payload to the matching Payment and PhotoboothSession.
      *
      * Returns false when the payload cannot be matched to a known payment, reports an
@@ -38,7 +26,9 @@ class ProcessMayaWebhook
         $status = $payload['status'] ?? null;
         $amount = $payload['amount']['value'] ?? null;
 
-        if (! is_string($status) || ! array_key_exists($status, self::STATUS_MAP)) {
+        $newStatus = is_string($status) ? PaymentStatus::fromMayaStatus($status) : null;
+
+        if ($newStatus === null) {
             Log::warning('Maya webhook reported an unrecognized status.', [
                 'maya_checkout_id' => $checkoutId,
                 'maya_payment_id' => $paymentId,
@@ -89,8 +79,6 @@ class ProcessMayaWebhook
 
             return false;
         }
-
-        $newStatus = self::STATUS_MAP[$status];
 
         return DB::transaction(function () use ($payment, $newStatus, $paymentId) {
             $payment = Payment::whereKey($payment->id)->lockForUpdate()->first();

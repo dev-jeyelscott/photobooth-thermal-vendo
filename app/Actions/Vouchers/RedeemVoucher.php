@@ -57,7 +57,7 @@ class RedeemVoucher
                 return null;
             }
 
-            if ($voucher->valid_from !== null && $voucher->valid_from->isFuture()) {
+            if (! $voucher->hasStarted()) {
                 Log::warning('Voucher redemption failed: voucher not yet valid.', [
                     'voucher_code' => $normalizedCode,
                     'session_token' => $session->session_token,
@@ -66,7 +66,7 @@ class RedeemVoucher
                 return null;
             }
 
-            if ($voucher->expires_at !== null && $voucher->expires_at->isPast()) {
+            if ($voucher->hasExpired()) {
                 Log::warning('Voucher redemption failed: voucher expired.', [
                     'voucher_code' => $normalizedCode,
                     'session_token' => $session->session_token,
@@ -75,7 +75,7 @@ class RedeemVoucher
                 return null;
             }
 
-            if ($voucher->usage_count >= $voucher->usage_limit) {
+            if (! $voucher->hasRemainingUses()) {
                 Log::warning('Voucher redemption failed: voucher exhausted.', [
                     'voucher_code' => $normalizedCode,
                     'session_token' => $session->session_token,

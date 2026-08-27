@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { AnchorHTMLAttributes, ReactNode } from 'react';
+import type {
+    AnchorHTMLAttributes,
+    InputHTMLAttributes,
+    ReactNode,
+} from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import TwoFactorChallenge from '@/pages/auth/two-factor-challenge';
 
@@ -21,6 +25,49 @@ type MockFormProps = {
         clearErrors: () => void;
     }) => ReactNode;
 };
+
+type MockInputOtpProps = Omit<
+    InputHTMLAttributes<HTMLInputElement>,
+    'children' | 'onChange'
+> & {
+    children?: ReactNode;
+    containerClassName?: string;
+    onChange?: (value: string) => void;
+};
+
+vi.mock('@/components/ui/input-otp', () => ({
+    /**
+     * Represent the OTP primitive with its page-facing input contract only.
+     *
+     * The third-party input-otp implementation owns browser measurement and
+     * password-manager timers that are outside this page contract test. Keeping
+     * those timers out of this test prevents work from surviving jsdom teardown
+     * while preserving controlled-value and accessibility behavior.
+     */
+    InputOTP: ({
+        children: _children,
+        containerClassName: _containerClassName,
+        onChange,
+        ...props
+    }: MockInputOtpProps) => (
+        <input
+            {...props}
+            onChange={(event) => onChange?.(event.currentTarget.value)}
+        />
+    ),
+
+    /**
+     * Preserve the child structure expected by the authentication page without
+     * introducing any third-party OTP runtime behavior.
+     */
+    InputOTPGroup: ({ children }: { children?: ReactNode }) => <>{children}</>,
+
+    /**
+     * Individual visual OTP slots are presentation-only for these page contract
+     * tests because the mocked input above owns the actual form value.
+     */
+    InputOTPSlot: () => null,
+}));
 
 vi.mock('@inertiajs/react', () => ({
     Head: () => null,
@@ -80,7 +127,8 @@ describe('ThermaSnap two-factor challenge redesign', () => {
             }),
         ).toBeInTheDocument();
 
-        const authenticationCode = screen.getByLabelText('Authentication code');
+        const authenticationCode =
+            screen.getByLabelText('Authentication code');
 
         expect(authenticationCode).toHaveAttribute('name', 'code');
         expect(authenticationCode).toHaveAttribute('maxlength', '6');
@@ -170,7 +218,8 @@ describe('ThermaSnap two-factor challenge redesign', () => {
 
         render(<TwoFactorChallenge />);
 
-        const authenticationCode = screen.getByLabelText('Authentication code');
+        const authenticationCode =
+            screen.getByLabelText('Authentication code');
 
         expect(authenticationCode).toHaveAttribute('aria-invalid', 'true');
         expect(authenticationCode).toHaveAttribute(

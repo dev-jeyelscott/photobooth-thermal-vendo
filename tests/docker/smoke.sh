@@ -10,7 +10,6 @@ postgres_port="${THERMASNAP_SMOKE_POSTGRES_PORT:-15432}"
 production_nginx_port="${THERMASNAP_PRODUCTION_SMOKE_NGINX_PORT:-18081}"
 production_postgres_port="${THERMASNAP_PRODUCTION_SMOKE_POSTGRES_PORT:-15433}"
 media_probe="storage/app/public/docker-smoke.txt"
-queue_probe="storage/app/public/docker-queue-smoke.txt"
 public_asset_probe="storage/app/public/templates/docker-public-smoke.txt"
 private_capture_probe="storage/app/public/captures/docker-private-smoke.jpg"
 private_receipt_probe="storage/app/public/receipts/docker-private-smoke.png"
@@ -55,7 +54,6 @@ cleanup() {
 
     rm -f \
         "$media_probe" \
-        "$queue_probe" \
         "$public_asset_probe" \
         "$private_capture_probe" \
         "$private_receipt_probe"
@@ -217,21 +215,76 @@ docker compose \
     exec -T scheduler \
     sh -c 'tr "\0" " " </proc/1/cmdline' | grep -q 'schedule:work'
 
+queue_smoke_token="$(cat /proc/sys/kernel/random/uuid)"
+
 docker compose \
     -p "$project_name" \
-    exec -T app \
-    php artisan tinker --execute='dispatch(function (): void { file_put_contents(storage_path("app/public/docker-queue-smoke.txt"), "queue-ok"); });'
+    exec -T \
+    -e QUEUE_SMOKE_TOKEN="$queue_smoke_token" \
+    app \
+    php -r '
+        require "vendor/autoload.php";
+
+        $app = require "bootstrap/app.php";
+        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+        $session = App\Models\PhotoboothSession::create([
+            "session_token" => getenv("QUEUE_SMOKE_TOKEN"),
+        ]);
+
+        $printJob = App\Models\PrintJob::create([
+            "photobooth_session_id" => $session->id,
+            "status" => App\Enums\PrintJobStatus::Printed,
+        ]);
+
+        App\Jobs\ProcessPrintJob::dispatch($printJob);
+    '
+
+development_queue_count="1"
 
 for _ in {1..30}; do
-    if [[ -f "$queue_probe" ]]; then
+    development_queue_count="$(
+        docker compose \
+            -p "$project_name" \
+            exec -T app \
+            php -r '
+                require "vendor/autoload.php";
+
+                $app = require "bootstrap/app.php";
+                $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+                echo Illuminate\Support\Facades\DB::table("jobs")
+                    ->where("payload", "like", "%ProcessPrintJob%")
+                    ->count();
+            ' | tr -d '\r\n'
+    )"
+
+    if [[ "$development_queue_count" == "0" ]]; then
         break
     fi
 
     sleep 1
 done
 
-test -f "$queue_probe"
-grep -q 'queue-ok' "$queue_probe"
+[[ "$development_queue_count" == "0" ]]
+
+development_failed_queue_count="$(
+    docker compose \
+        -p "$project_name" \
+        exec -T app \
+        php -r '
+            require "vendor/autoload.php";
+
+            $app = require "bootstrap/app.php";
+            $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+            echo Illuminate\Support\Facades\DB::table("failed_jobs")
+                ->where("payload", "like", "%ProcessPrintJob%")
+                ->count();
+        ' | tr -d '\r\n'
+)"
+
+[[ "$development_failed_queue_count" == "0" ]]
 
 docker compose -p "$project_name" exec -T scheduler php artisan schedule:run --verbose
 docker compose -p "$project_name" exec -T app php artisan media:prune-expired
@@ -265,7 +318,6 @@ docker compose -p "$project_name" down --volumes --remove-orphans
 
 rm -f \
     "$media_probe" \
-    "$queue_probe" \
     "$public_asset_probe" \
     "$private_capture_probe" \
     "$private_receipt_probe"
@@ -436,8 +488,10 @@ prod_compose exec -T app php artisan migrate:status >/dev/null
 retry_after="$(
     prod_compose exec -T app php -r '
         require "vendor/autoload.php";
+
         $app = require "bootstrap/app.php";
         $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
         echo (int) config("queue.connections.database.retry_after");
     ' | tr -d '\r\n'
 )"
@@ -451,19 +505,69 @@ production_schedule_output="$(prod_compose exec -T app php artisan schedule:list
 grep -q 'photobooth:expire-sessions' <<<"$production_schedule_output"
 grep -q 'media:prune-expired' <<<"$production_schedule_output"
 
-prod_compose exec -T app \
-    php artisan tinker --execute='dispatch(function (): void { file_put_contents(storage_path("app/public/docker-production-queue-smoke.txt"), "production-queue-ok"); });'
+production_queue_smoke_token="$(cat /proc/sys/kernel/random/uuid)"
+
+prod_compose exec \
+    -T \
+    -e QUEUE_SMOKE_TOKEN="$production_queue_smoke_token" \
+    app \
+    php -r '
+        require "vendor/autoload.php";
+
+        $app = require "bootstrap/app.php";
+        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+        $session = App\Models\PhotoboothSession::create([
+            "session_token" => getenv("QUEUE_SMOKE_TOKEN"),
+        ]);
+
+        $printJob = App\Models\PrintJob::create([
+            "photobooth_session_id" => $session->id,
+            "status" => App\Enums\PrintJobStatus::Printed,
+        ]);
+
+        App\Jobs\ProcessPrintJob::dispatch($printJob);
+    '
+
+production_queue_count="1"
 
 for _ in {1..30}; do
-    if [[ -f "$production_media/docker-production-queue-smoke.txt" ]]; then
+    production_queue_count="$(
+        prod_compose exec -T app php -r '
+            require "vendor/autoload.php";
+
+            $app = require "bootstrap/app.php";
+            $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+            echo Illuminate\Support\Facades\DB::table("jobs")
+                ->where("payload", "like", "%ProcessPrintJob%")
+                ->count();
+        ' | tr -d '\r\n'
+    )"
+
+    if [[ "$production_queue_count" == "0" ]]; then
         break
     fi
 
     sleep 1
 done
 
-test -f "$production_media/docker-production-queue-smoke.txt"
-grep -q 'production-queue-ok' "$production_media/docker-production-queue-smoke.txt"
+[[ "$production_queue_count" == "0" ]]
+
+production_failed_queue_count="$(
+    prod_compose exec -T app php -r '
+        require "vendor/autoload.php";
+
+        $app = require "bootstrap/app.php";
+        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+        echo Illuminate\Support\Facades\DB::table("failed_jobs")
+            ->where("payload", "like", "%ProcessPrintJob%")
+            ->count();
+    ' | tr -d '\r\n'
+)"
+
+[[ "$production_failed_queue_count" == "0" ]]
 
 prod_compose exec -T scheduler php artisan schedule:run --verbose
 

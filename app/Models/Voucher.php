@@ -49,4 +49,37 @@ class Voucher extends Model
     {
         return $this->hasMany(PhotoboothSession::class);
     }
+
+    /**
+     * Determine whether this voucher's valid-from date has been reached.
+     */
+    public function hasStarted(): bool
+    {
+        return $this->valid_from === null || ! $this->valid_from->isFuture();
+    }
+
+    /**
+     * Determine whether this voucher is past its expiration timestamp.
+     */
+    public function hasExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    /**
+     * Determine whether this voucher still has redemptions remaining.
+     */
+    public function hasRemainingUses(): bool
+    {
+        return $this->usage_count < $this->usage_limit;
+    }
+
+    /**
+     * Determine whether this voucher is currently eligible for redemption,
+     * covering its active flag, valid-from, expiration, and usage-limit checks.
+     */
+    public function isEligible(): bool
+    {
+        return $this->active && $this->hasStarted() && ! $this->hasExpired() && $this->hasRemainingUses();
+    }
 }
