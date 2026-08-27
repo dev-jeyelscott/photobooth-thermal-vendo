@@ -30,6 +30,13 @@ class MockResizeObserver {
 
 vi.stubGlobal('ResizeObserver', MockResizeObserver);
 
+// jsdom does not implement document.elementFromPoint. input-otp uses this
+// browser API while managing its invisible input and password-manager
+// interaction behavior. Component tests do not perform physical hit testing,
+// so returning null supplies the required browser contract without changing
+// production OTP behavior.
+document.elementFromPoint = vi.fn(() => null);
+
 // jsdom does not implement the canvas 2D API; stub it out so components that
 // draw previews (capture, sticker overlay, print preview) don't crash.
 HTMLCanvasElement.prototype.getContext = vi.fn() as never;

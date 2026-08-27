@@ -109,8 +109,18 @@ describe('ThermaSnap two-factor challenge redesign', () => {
 
         render(<TwoFactorChallenge />);
 
+        const authenticationMethodGroup = screen.getByRole('radiogroup', {
+            name: 'Authentication method',
+        });
+
+        expect(
+            screen.getByRole('radio', {
+                name: 'Authentication code',
+            }),
+        ).toHaveAttribute('aria-checked', 'true');
+
         await user.click(
-            screen.getByRole('button', {
+            screen.getByRole('radio', {
                 name: 'Recovery code',
             }),
         );
@@ -124,10 +134,17 @@ describe('ThermaSnap two-factor challenge redesign', () => {
             document.querySelector('input[name="code"]'),
         ).not.toBeInTheDocument();
 
+        expect(
+            screen.getByRole('radio', {
+                name: 'Recovery code',
+            }),
+        ).toHaveAttribute('aria-checked', 'true');
+
+        expect(authenticationMethodGroup).toBeInTheDocument();
         expect(clearErrorsMock).toHaveBeenCalledTimes(1);
 
         await user.click(
-            screen.getByRole('button', {
+            screen.getByRole('radio', {
                 name: 'Authentication code',
             }),
         );
@@ -136,6 +153,12 @@ describe('ThermaSnap two-factor challenge redesign', () => {
             'name',
             'code',
         );
+
+        expect(
+            screen.getByRole('radio', {
+                name: 'Authentication code',
+            }),
+        ).toHaveAttribute('aria-checked', 'true');
 
         expect(clearErrorsMock).toHaveBeenCalledTimes(2);
     });
@@ -167,12 +190,19 @@ describe('ThermaSnap two-factor challenge redesign', () => {
 
         render(<TwoFactorChallenge />);
 
-        expect(
-            screen.getByRole('button', {
-                name: 'Verify',
-            }),
-        ).toBeDisabled();
+        const verifyButton = document.querySelector(
+            '[data-test="two-factor-challenge-button"]',
+        );
+
+        expect(verifyButton).toBeInstanceOf(HTMLButtonElement);
+        expect(verifyButton).toBeDisabled();
 
         expect(screen.getByLabelText('Authentication code')).toBeDisabled();
+
+        expect(
+            screen.getByRole('status', {
+                name: 'Loading',
+            }),
+        ).toBeInTheDocument();
     });
 });
