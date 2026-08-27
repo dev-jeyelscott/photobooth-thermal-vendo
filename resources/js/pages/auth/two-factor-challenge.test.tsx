@@ -127,8 +127,7 @@ describe('ThermaSnap two-factor challenge redesign', () => {
             }),
         ).toBeInTheDocument();
 
-        const authenticationCode =
-            screen.getByLabelText('Authentication code');
+        const authenticationCode = screen.getByLabelText('Authentication code');
 
         expect(authenticationCode).toHaveAttribute('name', 'code');
         expect(authenticationCode).toHaveAttribute('maxlength', '6');
@@ -218,8 +217,7 @@ describe('ThermaSnap two-factor challenge redesign', () => {
 
         render(<TwoFactorChallenge />);
 
-        const authenticationCode =
-            screen.getByLabelText('Authentication code');
+        const authenticationCode = screen.getByLabelText('Authentication code');
 
         expect(authenticationCode).toHaveAttribute('aria-invalid', 'true');
         expect(authenticationCode).toHaveAttribute(
