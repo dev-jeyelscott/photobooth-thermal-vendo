@@ -85,7 +85,8 @@ test('the full paid commercial journey succeeds end to end through real applicat
     expect(Payment::count())->toBe(1);
     $payment->refresh();
     expect($payment->status)->toBe(PaymentStatus::Success)
-        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Paid);
+        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Paid)
+        ->and(PhotoboothSession::where('status', PhotoboothSessionStatus::Paid)->count())->toBe(1);
 
     // 4. Select the template.
     $this->postJson(route('kiosk.sessions.template.store', $sessionToken), [
@@ -95,34 +96,29 @@ test('the full paid commercial journey succeeds end to end through real applicat
         'requiredCaptureCount' => 2,
     ]);
 
-    // 5. Select a sticker.
+    // 5. Upload captures for the required shot count.
+    $requiredCaptureCount = $session->fresh()->template_snapshot['photo_slots'];
+    $photoPaths = [];
+
+    for ($i = 0; $i < $requiredCaptureCount; $i++) {
+        $photoPaths[] = $this->postJson(route('kiosk.sessions.shots.store', $sessionToken), [
+            'shot' => UploadedFile::fake()->image("shot-{$i}.jpg", 800, 600),
+        ])->assertOk()->json('path');
+    }
+
+    // 6. Select a sticker after capture, then confirm the preview.
     $this->postJson(route('kiosk.sessions.sticker.store', $sessionToken), [
         'stickerDesignId' => $sticker->id,
     ])->assertOk();
 
-    // 6. Upload captures for the required shot count.
-    $requiredCaptureCount = $session->fresh()->template_snapshot['photo_slots'];
-
-    for ($i = 0; $i < $requiredCaptureCount; $i++) {
-        $this->postJson(route('kiosk.sessions.shots.store', $sessionToken), [
-            'shot' => UploadedFile::fake()->image("shot-{$i}.jpg", 800, 600),
-        ])->assertOk();
-    }
-
-    // 7. Confirm the preview.
     $this->postJson(route('kiosk.sessions.preview.store', $sessionToken))
         ->assertOk()
         ->assertJson(['status' => PhotoboothSessionStatus::Processing->value]);
 
-    // 8. Compose the final output, which synchronously (sync queue) processes
+    // 7. Compose the uploaded frames, which synchronously (sync queue) processes
     // the captured media and creates/prints the print job.
-    $photos = [
-        'data:image/png;base64,'.base64_encode(paidSessionEndToEndFixturePng(200)),
-        'data:image/png;base64,'.base64_encode(paidSessionEndToEndFixturePng(20)),
-    ];
-
     $this->postJson(route('kiosk.sessions.color-output.store', $sessionToken), [
-        'photos' => $photos,
+        'photo_paths' => $photoPaths,
     ])->assertStatus(202);
 
     $session->refresh();
