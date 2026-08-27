@@ -44,12 +44,7 @@ vi.mock('@/components/ui/input-otp', () => ({
      * those timers out of this test prevents work from surviving jsdom teardown
      * while preserving controlled-value and accessibility behavior.
      */
-    InputOTP: ({
-        children: _children,
-        containerClassName: _containerClassName,
-        onChange,
-        ...props
-    }: MockInputOtpProps) => (
+    InputOTP: ({ onChange, ...props }: MockInputOtpProps) => (
         <input
             {...props}
             onChange={(event) => onChange?.(event.currentTarget.value)}
