@@ -92,7 +92,9 @@ vi.mock('@inertiajs/react', () => ({
 }));
 
 vi.mock('@/components/passkey-verify', () => ({
-    default: () => null,
+    default: ({ label = 'Sign in with a passkey' }: { label?: string }) => (
+        <button type="button">{label}</button>
+    ),
 }));
 
 beforeEach(() => {
@@ -107,15 +109,12 @@ describe('ThermaSnap authentication redesign', () => {
         expect(
             screen.getByRole('heading', {
                 level: 1,
-                name: 'Sign in',
+                name: 'Log in',
             }),
         ).toBeInTheDocument();
 
-        expect(screen.getByLabelText('Email address')).toHaveAttribute(
-            'name',
-            'email',
-        );
-        expect(screen.getByLabelText('Email address')).toHaveAttribute(
+        expect(screen.getByLabelText('Email')).toHaveAttribute('name', 'email');
+        expect(screen.getByLabelText('Email')).toHaveAttribute(
             'autocomplete',
             'email',
         );
@@ -143,9 +142,15 @@ describe('ThermaSnap authentication redesign', () => {
 
         expect(
             screen.getByRole('link', {
-                name: 'Create an account',
+                name: 'Create account',
             }),
         ).toHaveAttribute('href', '/register');
+
+        expect(
+            screen.getByRole('button', {
+                name: 'Sign in with a passkey',
+            }),
+        ).toBeInTheDocument();
 
         expect(screen.getByText('Password reset successful.')).toHaveAttribute(
             'role',
@@ -157,7 +162,7 @@ describe('ThermaSnap authentication redesign', () => {
         ).toBeInTheDocument();
     });
 
-    it('keeps login validation, processing, and password visibility accessible', async () => {
+    it('keeps login validation generic and accessible without fabricating field errors', async () => {
         const user = userEvent.setup();
 
         formState.processing = true;
@@ -167,14 +172,31 @@ describe('ThermaSnap authentication redesign', () => {
 
         render(<Login canResetPassword />);
 
-        expect(screen.getByLabelText('Email address')).toHaveAttribute(
+        expect(
+            screen.getByText(
+                "We couldn't sign you in. Please check your email or password.",
+            ),
+        ).toHaveAttribute('role', 'alert');
+
+        expect(screen.getByLabelText('Email')).toHaveAttribute(
             'aria-invalid',
             'true',
+        );
+        expect(screen.getByLabelText('Email')).toHaveAttribute(
+            'aria-describedby',
+            'login-email-error',
         );
 
         expect(
             screen.getByText('These credentials do not match our records.'),
         ).toHaveAttribute('role', 'alert');
+
+        expect(screen.getByLabelText('Password')).not.toHaveAttribute(
+            'aria-invalid',
+        );
+        expect(
+            screen.queryByText(/Incorrect password/i),
+        ).not.toBeInTheDocument();
 
         expect(
             document.querySelector('[data-test="login-button"]'),
@@ -248,10 +270,8 @@ describe('ThermaSnap authentication redesign', () => {
         });
     });
 
-    it('preserves the forgot-password status and email submission contract', () => {
-        render(
-            <ForgotPassword status="We have emailed your password reset link." />,
-        );
+    it('preserves the forgot-password request submission contract', () => {
+        render(<ForgotPassword passwordResetExpirationMinutes={60} />);
 
         expect(
             screen.getByRole('heading', {
@@ -273,14 +293,85 @@ describe('ThermaSnap authentication redesign', () => {
         ).toBeInTheDocument();
 
         expect(
+            screen.getByRole('link', {
+                name: /Back to login/i,
+            }),
+        ).toHaveAttribute('href', '/login');
+    });
+
+    it('preserves the submitted email through the password-reset success and resend state', async () => {
+        const user = userEvent.setup();
+
+        const { rerender } = render(
+            <ForgotPassword passwordResetExpirationMinutes={60} />,
+        );
+
+        await user.type(
+            screen.getByLabelText('Email address'),
+            'hello@example.com',
+        );
+
+        rerender(
+            <ForgotPassword
+                status="We have emailed your password reset link."
+                passwordResetExpirationMinutes={60}
+            />,
+        );
+
+        expect(
+            screen.getByRole('heading', {
+                level: 1,
+                name: 'Check your email',
+            }),
+        ).toBeInTheDocument();
+
+        expect(screen.getByText('hello@example.com')).toBeInTheDocument();
+
+        expect(
             screen.getByText('We have emailed your password reset link.'),
         ).toHaveAttribute('role', 'status');
+
+        expect(screen.getByText('60 minutes')).toBeInTheDocument();
+
+        expect(
+            screen.getByText(
+                /If you don't see the email, check your spam or junk folder/i,
+            ),
+        ).toBeInTheDocument();
+
+        const resendButton = screen.getByRole('button', {
+            name: 'Resend email',
+        });
+        const resendForm = resendButton.closest('form');
+        const resendEmailInput = resendForm?.querySelector<HTMLInputElement>(
+            'input[name="email"]',
+        );
+
+        expect(resendForm).toHaveAttribute('action', '/forgot-password');
+        expect(resendForm).toHaveAttribute('method', 'post');
+        expect(resendEmailInput).toHaveValue('hello@example.com');
+        expect(resendButton).toBeEnabled();
 
         expect(
             screen.getByRole('link', {
                 name: /Back to login/i,
             }),
         ).toHaveAttribute('href', '/login');
+
+        formState.processing = true;
+
+        rerender(
+            <ForgotPassword
+                status="We have emailed your password reset link."
+                passwordResetExpirationMinutes={60}
+            />,
+        );
+
+        expect(
+            screen.getByRole('button', {
+                name: 'Resend email',
+            }),
+        ).toBeDisabled();
     });
 
     it('keeps the reset token and authoritative email in the Fortify transform', () => {

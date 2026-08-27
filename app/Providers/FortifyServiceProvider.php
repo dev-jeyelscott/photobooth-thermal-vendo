@@ -61,6 +61,9 @@ class FortifyServiceProvider extends ServiceProvider
 
         Fortify::requestPasswordResetLinkView(fn (Request $request) => Inertia::render('auth/forgot-password', [
             'status' => $request->session()->get('status'),
+            'passwordResetExpirationMinutes' => (int) config(
+                'auth.passwords.'.(string) config('auth.defaults.passwords').'.expire',
+            ),
         ]));
 
         Fortify::verifyEmailView(fn (Request $request) => Inertia::render('auth/verify-email', [
@@ -77,7 +80,7 @@ class FortifyServiceProvider extends ServiceProvider
     }
 
     /**
-     * Configure rate limiting.
+     * Configure Fortify rate limiting.
      */
     private function configureRateLimiting(): void
     {
