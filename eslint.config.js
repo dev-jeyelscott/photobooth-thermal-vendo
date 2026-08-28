@@ -17,6 +17,7 @@ const controlStatements = [
     'try',
     'throw',
 ];
+
 const paddingAroundControl = [
     ...controlStatements.flatMap((stmt) => [
         { blankLine: 'always', prev: '*', next: stmt },
@@ -26,6 +27,24 @@ const paddingAroundControl = [
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
+    {
+        ignores: [
+            'vendor',
+            'node_modules',
+            'public',
+            'bootstrap/ssr',
+            'tailwind.config.js',
+            'vite.config.ts',
+            '.agents/**',
+            '.claude/**',
+            '.codex/**',
+            '.ai/**',
+            'resources/js/actions/**',
+            'resources/js/components/ui/*',
+            'resources/js/routes/**',
+            'resources/js/wayfinder/**',
+        ],
+    },
     js.configs.recommended,
     reactHooks.configs.flat['recommended-latest'],
     ...typescript.configs.recommended,
@@ -81,7 +100,10 @@ export default [
                         'sibling',
                         'index',
                     ],
-                    alphabetize: { order: 'asc', caseInsensitive: true },
+                    alphabetize: {
+                        order: 'asc',
+                        caseInsensitive: true,
+                    },
                 },
             ],
             'import/consistent-type-specifier-style': [
@@ -95,26 +117,18 @@ export default [
             '@stylistic': stylistic,
         },
         rules: {
-            '@stylistic/brace-style': ['error', '1tbs', { allowSingleLine: false }],
+            '@stylistic/brace-style': [
+                'error',
+                '1tbs',
+                {
+                    allowSingleLine: false,
+                },
+            ],
             '@stylistic/padding-line-between-statements': [
                 'error',
                 ...paddingAroundControl,
             ],
         },
-    },
-    {
-        ignores: [
-            'vendor',
-            'node_modules',
-            'public',
-            'bootstrap/ssr',
-            'tailwind.config.js',
-            'vite.config.ts',
-            'resources/js/actions/**',
-            'resources/js/components/ui/*',
-            'resources/js/routes/**',
-            'resources/js/wayfinder/**',
-        ],
     },
     prettier,
     {
@@ -123,7 +137,13 @@ export default [
         },
         rules: {
             curly: ['error', 'all'],
-            '@stylistic/brace-style': ['error', '1tbs', { allowSingleLine: false }],
+            '@stylistic/brace-style': [
+                'error',
+                '1tbs',
+                {
+                    allowSingleLine: false,
+                },
+            ],
         },
     },
 ];

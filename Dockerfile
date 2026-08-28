@@ -10,6 +10,7 @@ FROM php:${PHP_VERSION}-fpm-bookworm AS php-extensions
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libfreetype6-dev \
+        libicu-dev \
         libjpeg62-turbo-dev \
         libpng-dev \
         libpq-dev \
@@ -22,6 +23,7 @@ RUN apt-get update \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
         gd \
+        intl \
         pcntl \
         pdo_pgsql \
         zip \
@@ -40,6 +42,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         libfreetype6 \
+        libicu72 \
         libjpeg62-turbo \
         libpng16-16 \
         libpq5 \
