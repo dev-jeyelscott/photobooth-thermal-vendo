@@ -41,7 +41,7 @@ test('composing the final color photo sets expires_at based on the configured ga
 
     $photo = 'data:image/png;base64,'.base64_encode(mediaExpirationPng());
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo],
     ]);
 

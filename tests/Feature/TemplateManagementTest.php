@@ -438,7 +438,7 @@ test('admin can reorder templates and the new order affects public selection', f
         ->where('templates.1.id', $first->id)
     );
 
-    $publicIndex = $this->getJson(route('templates.index'));
+    $publicIndex = $this->getJson(businessRoute('templates.index'));
 
     $publicIndex->assertJsonPath('templates.0.id', $second->id);
     $publicIndex->assertJsonPath('templates.1.id', $first->id);

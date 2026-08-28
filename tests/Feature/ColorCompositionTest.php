@@ -50,7 +50,7 @@ test('composing the final color photo advances the session and persists the colo
 
     $photo = 'data:image/png;base64,'.base64_encode(imagecreatetruecolorPng());
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo, $photo],
     ]);
 
@@ -138,7 +138,7 @@ test('composing the final color photo accepts stored frame path references', fun
     Storage::disk('public')->put($firstPath, imagecreatetruecolorPng());
     Storage::disk('public')->put($secondPath, imagecreatetruecolorPng());
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photo_paths' => [$firstPath, $secondPath],
     ]);
 
@@ -163,7 +163,7 @@ test('composing the final color photo rejects a stored frame path outside the se
     $foreignPath = 'captures/'.$otherSession->session_token.'/1.png';
     Storage::disk('public')->put($foreignPath, imagecreatetruecolorPng());
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photo_paths' => [$foreignPath],
     ]);
 
@@ -182,7 +182,7 @@ test('composing the final color photo without enough confirmed photos is rejecte
 
     $photo = 'data:image/png;base64,'.base64_encode(imagecreatetruecolorPng());
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo],
     ]);
 
@@ -200,7 +200,7 @@ test('composing the final color photo before a template has been chosen is rejec
         'photo_template_id' => null,
     ]);
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => ['data:image/png;base64,'.base64_encode(imagecreatetruecolorPng())],
     ]);
 
@@ -208,7 +208,7 @@ test('composing the final color photo before a template has been chosen is rejec
 });
 
 test('composing the final color photo for an unknown session returns not found', function () {
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', (string) Str::uuid()), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', (string) Str::uuid()), [
         'photos' => ['data:image/png;base64,'.base64_encode(imagecreatetruecolorPng())],
     ]);
 
@@ -222,7 +222,7 @@ test('composing the final color photo with a non-image payload is rejected', fun
         'photo_template_id' => $template->id,
     ]);
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => ['not-an-image-payload'],
     ]);
 
@@ -241,7 +241,7 @@ test('composing the final color photo with an oversized photo is rejected', func
 
     $photo = 'data:image/png;base64,'.base64_encode(imagecreatetruecolorPng());
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo],
     ]);
 

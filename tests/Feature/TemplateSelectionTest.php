@@ -24,7 +24,7 @@ test('the public template list only returns active templates with their layout a
 
     PhotoTemplate::factory()->inactive()->create();
 
-    $response = $this->getJson(route('templates.index'));
+    $response = $this->getJson(businessRoute('templates.index'));
 
     $response->assertOk();
     $response->assertJson([
@@ -60,9 +60,7 @@ test('selecting a template on a paid session attaches it and advances to templat
     ]);
 
     $response = $this->postJson(
-        route(
-            'kiosk.sessions.template.store',
-            $session->session_token,
+        kioskSessionRoute('kiosk.sessions.template.store', $session->session_token,
         ),
         ['photoTemplateId' => $template->id],
     );
@@ -97,9 +95,7 @@ test('selecting a template snapshots its complete rendering configuration onto t
     ]);
 
     $this->postJson(
-        route(
-            'kiosk.sessions.template.store',
-            $session->session_token,
+        kioskSessionRoute('kiosk.sessions.template.store', $session->session_token,
         ),
         ['photoTemplateId' => $template->id],
     )->assertOk();
@@ -141,9 +137,7 @@ test('editing the template after selection does not alter the session stored sna
     ]);
 
     $this->postJson(
-        route(
-            'kiosk.sessions.template.store',
-            $session->session_token,
+        kioskSessionRoute('kiosk.sessions.template.store', $session->session_token,
         ),
         ['photoTemplateId' => $template->id],
     )->assertOk();
@@ -193,9 +187,7 @@ test('selecting a template returns its photo slot count as required capture coun
     ]);
 
     $response = $this->postJson(
-        route(
-            'kiosk.sessions.template.store',
-            $session->session_token,
+        kioskSessionRoute('kiosk.sessions.template.store', $session->session_token,
         ),
         ['photoTemplateId' => $template->id],
     );
@@ -217,9 +209,7 @@ test('selecting an inactive template is rejected', function () {
     ]);
 
     $response = $this->postJson(
-        route(
-            'kiosk.sessions.template.store',
-            $session->session_token,
+        kioskSessionRoute('kiosk.sessions.template.store', $session->session_token,
         ),
         ['photoTemplateId' => $template->id],
     );
@@ -241,9 +231,7 @@ test('selecting a template on a non-paid session is rejected', function () {
     ]);
 
     $response = $this->postJson(
-        route(
-            'kiosk.sessions.template.store',
-            $session->session_token,
+        kioskSessionRoute('kiosk.sessions.template.store', $session->session_token,
         ),
         ['photoTemplateId' => $template->id],
     );
@@ -266,9 +254,7 @@ test('selecting a template on an expired session is rejected', function () {
     ]);
 
     $response = $this->postJson(
-        route(
-            'kiosk.sessions.template.store',
-            $session->session_token,
+        kioskSessionRoute('kiosk.sessions.template.store', $session->session_token,
         ),
         ['photoTemplateId' => $template->id],
     );
@@ -285,9 +271,7 @@ test('selecting a template for an unknown session returns not found', function (
     $template = PhotoTemplate::factory()->create();
 
     $response = $this->postJson(
-        route(
-            'kiosk.sessions.template.store',
-            (string) Str::uuid(),
+        kioskSessionRoute('kiosk.sessions.template.store', (string) Str::uuid(),
         ),
         ['photoTemplateId' => $template->id],
     );

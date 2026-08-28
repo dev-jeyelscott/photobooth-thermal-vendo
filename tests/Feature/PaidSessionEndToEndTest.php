@@ -47,7 +47,7 @@ test('the full paid commercial journey succeeds end to end through real applicat
     Storage::disk('public')->put('stickers/e2e-sticker.png', paidSessionEndToEndFixturePng(80));
 
     // 1. Start the session.
-    $sessionToken = $this->postJson(route('kiosk.sessions.store'))
+    $sessionToken = $this->postJson(businessRoute('kiosk.sessions.store'))
         ->assertCreated()
         ->json('sessionToken');
 
@@ -62,7 +62,7 @@ test('the full paid commercial journey succeeds end to end through real applicat
         ], 200),
     ]);
 
-    $this->postJson(route('kiosk.sessions.payments.store', $sessionToken))
+    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $sessionToken))
         ->assertCreated()
         ->assertJson(['checkoutUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-e2e']);
 
@@ -89,7 +89,7 @@ test('the full paid commercial journey succeeds end to end through real applicat
         ->and(PhotoboothSession::where('status', PhotoboothSessionStatus::Paid)->count())->toBe(1);
 
     // 4. Select the template.
-    $this->postJson(route('kiosk.sessions.template.store', $sessionToken), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.template.store', $sessionToken), [
         'photoTemplateId' => $template->id,
     ])->assertOk()->assertJson([
         'status' => PhotoboothSessionStatus::TemplateSelected->value,
@@ -101,23 +101,23 @@ test('the full paid commercial journey succeeds end to end through real applicat
     $photoPaths = [];
 
     for ($i = 0; $i < $requiredCaptureCount; $i++) {
-        $photoPaths[] = $this->postJson(route('kiosk.sessions.shots.store', $sessionToken), [
+        $photoPaths[] = $this->postJson(kioskSessionRoute('kiosk.sessions.shots.store', $sessionToken), [
             'shot' => UploadedFile::fake()->image("shot-{$i}.jpg", 800, 600),
         ])->assertOk()->json('path');
     }
 
     // 6. Select a sticker after capture, then confirm the preview.
-    $this->postJson(route('kiosk.sessions.sticker.store', $sessionToken), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $sessionToken), [
         'stickerDesignId' => $sticker->id,
     ])->assertOk();
 
-    $this->postJson(route('kiosk.sessions.preview.store', $sessionToken))
+    $this->postJson(kioskSessionRoute('kiosk.sessions.preview.store', $sessionToken))
         ->assertOk()
         ->assertJson(['status' => PhotoboothSessionStatus::Processing->value]);
 
     // 7. Compose the uploaded frames, which synchronously (sync queue) processes
     // the captured media and creates/prints the print job.
-    $this->postJson(route('kiosk.sessions.color-output.store', $sessionToken), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $sessionToken), [
         'photo_paths' => $photoPaths,
     ])->assertStatus(202);
 
@@ -150,7 +150,7 @@ test('the full paid commercial journey succeeds end to end through real applicat
 
     $this->get(route('gallery.qr-code', $capturedMedia->public_token))->assertOk();
 
-    $resumed = $this->getJson(route('kiosk.sessions.show', $sessionToken));
+    $resumed = $this->getJson(kioskSessionRoute('kiosk.sessions.show', $sessionToken));
     $resumed->assertOk()->assertJson([
         'status' => PhotoboothSessionStatus::Completed->value,
         'galleryToken' => $capturedMedia->public_token,

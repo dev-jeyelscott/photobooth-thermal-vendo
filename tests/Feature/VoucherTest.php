@@ -12,7 +12,7 @@ test('a valid voucher redemption unlocks the session', function () {
     $voucher = Voucher::factory()->create(['usage_limit' => 1, 'usage_count' => 0]);
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => $voucher->code,
     ]);
 
@@ -30,7 +30,7 @@ test('a voucher redemption snapshots the price, currency, payment method, and re
     $voucher = Voucher::factory()->create(['usage_limit' => 1, 'usage_count' => 0]);
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => $voucher->code,
     ])->assertOk();
 
@@ -45,7 +45,7 @@ test('a voucher redemption snapshots the price, currency, payment method, and re
 test('a real session snapshots currency and capture count at creation and keeps them when settings change before voucher redemption', function () {
     config(['photobooth.capture_shot_count' => 4]);
 
-    $sessionToken = $this->postJson(route('kiosk.sessions.store'))->json('sessionToken');
+    $sessionToken = $this->postJson(businessRoute('kiosk.sessions.store'))->json('sessionToken');
     $session = PhotoboothSession::where('session_token', $sessionToken)->firstOrFail();
 
     ApplicationSetting::updateOrCreate(['key' => 'currency'], ['value' => 'USD']);
@@ -53,7 +53,7 @@ test('a real session snapshots currency and capture count at creation and keeps 
 
     $voucher = Voucher::factory()->create(['usage_limit' => 1, 'usage_count' => 0]);
 
-    $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => $voucher->code,
     ])->assertOk();
 
@@ -67,7 +67,7 @@ test('an expired voucher is rejected without mutating usage_count or the session
     $voucher = Voucher::factory()->expired()->create(['usage_limit' => 1, 'usage_count' => 0]);
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => $voucher->code,
     ]);
 
@@ -82,7 +82,7 @@ test('a not-yet-valid voucher is rejected without mutating usage_count or the se
     $voucher = Voucher::factory()->notYetValid()->create(['usage_limit' => 1, 'usage_count' => 0]);
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => $voucher->code,
     ]);
 
@@ -98,7 +98,7 @@ test('an inactive voucher is rejected without mutating usage_count or the sessio
     $voucher = Voucher::factory()->inactive()->create(['usage_limit' => 1, 'usage_count' => 0]);
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => $voucher->code,
     ]);
 
@@ -113,7 +113,7 @@ test('an exhausted voucher is rejected without mutating usage_count or the sessi
     $voucher = Voucher::factory()->exhausted()->create(['usage_limit' => 1, 'usage_count' => 1]);
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => $voucher->code,
     ]);
 
@@ -129,7 +129,7 @@ test('an unknown voucher code logs a warning with the code and session token', f
 
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => 'DOES-NOT-EXIST',
     ])->assertStatus(422);
 
@@ -149,7 +149,7 @@ test('a redemption attempt against an expired session logs a warning with the co
         'expires_at' => now()->subMinute(),
     ]);
 
-    $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => $voucher->code,
     ])->assertStatus(422);
 
@@ -163,7 +163,7 @@ test('a redemption attempt against an expired session logs a warning with the co
 test('a voucher code with an invalid format is rejected', function () {
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => '<script>alert(1)</script>',
     ]);
 
@@ -174,7 +174,7 @@ test('a voucher code with an invalid format is rejected', function () {
 test('an unknown voucher code is rejected', function () {
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => 'DOES-NOT-EXIST',
     ]);
 
@@ -188,7 +188,7 @@ test('concurrent redemption attempts at the usage limit boundary cannot exceed u
     $sessions = PhotoboothSession::factory()->count(2)->create(['status' => PhotoboothSessionStatus::New]);
 
     foreach ($sessions as $session) {
-        $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
             'code' => $voucher->code,
         ]);
     }

@@ -46,7 +46,7 @@ test('composing the final output persists a distinct grayscale version alongside
 
     $photo = 'data:image/png;base64,'.base64_encode(bwFixturePng());
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo, $photo],
     ]);
 
@@ -74,7 +74,7 @@ test('composing the final output persists a distinct grayscale version alongside
 });
 
 test('composing the final output for an unknown session returns not found', function () {
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', (string) Str::uuid()), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', (string) Str::uuid()), [
         'photos' => ['data:image/png;base64,'.base64_encode(bwFixturePng())],
     ]);
 

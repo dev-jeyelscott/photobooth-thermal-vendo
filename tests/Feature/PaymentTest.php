@@ -30,7 +30,7 @@ test('a maya checkout session is created and associated with the photobooth sess
 
     $session = PhotoboothSession::factory()->create();
 
-    $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
 
     $response->assertCreated();
     $response->assertJson([
@@ -57,7 +57,7 @@ test('a second active payment request for the same session is rejected', functio
     $session = PhotoboothSession::factory()->create();
     Payment::factory()->for($session, 'photoboothSession')->create(['status' => PaymentStatus::Pending]);
 
-    $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
 
     $response->assertStatus(409);
     expect(Payment::count())->toBe(1);
@@ -74,7 +74,7 @@ test('a new payment request is allowed once the prior payment has failed', funct
     $session = PhotoboothSession::factory()->create();
     Payment::factory()->for($session, 'photoboothSession')->create(['status' => PaymentStatus::Failed]);
 
-    $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
 
     $response->assertCreated();
     expect(Payment::count())->toBe(2);
@@ -97,14 +97,14 @@ test('a retried checkout after a failed payment charges and keeps the original s
 
     $session = PhotoboothSession::factory()->create();
 
-    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
 
     Payment::first()->update(['status' => PaymentStatus::Failed]);
 
     ApplicationSetting::where('key', 'session_price')->update(['value' => '999.00']);
     config(['photobooth.capture_shot_count' => 10]);
 
-    $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
 
     $response->assertCreated();
 
@@ -118,7 +118,7 @@ test('a retried checkout after a failed payment charges and keeps the original s
 test('a payment request for an already paid session is rejected without creating a payment', function () {
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Paid]);
 
-    $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
 
     $response->assertStatus(409);
     expect(Payment::count())->toBe(0)
@@ -128,7 +128,7 @@ test('a payment request for an already paid session is rejected without creating
 test('a payment request for a completed session is rejected without creating a payment', function () {
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Completed]);
 
-    $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
 
     $response->assertStatus(409);
     expect(Payment::count())->toBe(0)
@@ -147,7 +147,7 @@ test('a maya checkout snapshots the price, currency, payment method, and require
 
     $session = PhotoboothSession::factory()->create();
 
-    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
 
     $session->refresh();
 
@@ -172,7 +172,7 @@ test('a maya checkout sets the payment method on a session that already has crea
         'payment_method' => null,
     ]);
 
-    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
 
     $session->refresh();
 
@@ -194,7 +194,7 @@ test('a maya checkout snapshots the currency application setting rather than a h
 
     $session = PhotoboothSession::factory()->create();
 
-    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
 
     expect($session->fresh()->currency)->toBe('USD');
 
@@ -211,7 +211,7 @@ test('changing the session price setting after checkout does not alter an alread
 
     $session = PhotoboothSession::factory()->create();
 
-    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
 
     ApplicationSetting::where('key', 'session_price')->update(['value' => '999.00']);
 
@@ -228,7 +228,7 @@ test('a real session snapshots price, currency, and capture count at creation an
         ], 200),
     ]);
 
-    $sessionToken = $this->postJson(route('kiosk.sessions.store'))->json('sessionToken');
+    $sessionToken = $this->postJson(businessRoute('kiosk.sessions.store'))->json('sessionToken');
     $session = PhotoboothSession::where('session_token', $sessionToken)->firstOrFail();
 
     expect((float) $session->price)->toBe(150.0)
@@ -239,7 +239,7 @@ test('a real session snapshots price, currency, and capture count at creation an
     ApplicationSetting::updateOrCreate(['key' => 'currency'], ['value' => 'USD']);
     config(['photobooth.capture_shot_count' => 10]);
 
-    $this->postJson(route('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
 
     $session->refresh();
 
@@ -260,7 +260,7 @@ test('no maya secret key appears in the checkout response', function () {
 
     $session = PhotoboothSession::factory()->create();
 
-    $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
 
     $response->assertCreated();
     $response->assertDontSee('sk_super_secret_value');

@@ -50,14 +50,14 @@ test('the full voucher commercial journey succeeds end to end without Maya', fun
     $sticker = StickerDesign::factory()->create(['asset_path' => 'stickers/voucher-e2e-sticker.png']);
     Storage::disk('public')->put('stickers/voucher-e2e-sticker.png', voucherSessionEndToEndFixturePng(80));
 
-    $sessionToken = $this->postJson(route('kiosk.sessions.store'))
+    $sessionToken = $this->postJson(businessRoute('kiosk.sessions.store'))
         ->assertCreated()
         ->json('sessionToken');
 
     $session = PhotoboothSession::where('session_token', $sessionToken)->firstOrFail();
     expect($session->status)->toBe(PhotoboothSessionStatus::New);
 
-    $this->postJson(route('kiosk.sessions.voucher.store', $sessionToken), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $sessionToken), [
         'code' => $voucher->code,
     ])->assertOk()->assertJson(['status' => PhotoboothSessionStatus::Paid->value]);
 
@@ -82,7 +82,7 @@ test('the full voucher commercial journey succeeds end to end without Maya', fun
             ->where('vouchers.0.redemptions.0.sessionToken', $sessionToken)
         );
 
-    $this->postJson(route('kiosk.sessions.template.store', $sessionToken), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.template.store', $sessionToken), [
         'photoTemplateId' => $template->id,
     ])->assertOk()->assertJson([
         'status' => PhotoboothSessionStatus::TemplateSelected->value,
@@ -93,20 +93,20 @@ test('the full voucher commercial journey succeeds end to end without Maya', fun
     $requiredCaptureCount = $session->fresh()->template_snapshot['photo_slots'];
 
     for ($i = 0; $i < $requiredCaptureCount; $i++) {
-        $photoPaths[] = $this->postJson(route('kiosk.sessions.shots.store', $sessionToken), [
+        $photoPaths[] = $this->postJson(kioskSessionRoute('kiosk.sessions.shots.store', $sessionToken), [
             'shot' => UploadedFile::fake()->image("voucher-shot-{$i}.jpg", 800, 600),
         ])->assertOk()->json('path');
     }
 
-    $this->postJson(route('kiosk.sessions.sticker.store', $sessionToken), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $sessionToken), [
         'stickerDesignId' => $sticker->id,
     ])->assertOk();
 
-    $this->postJson(route('kiosk.sessions.preview.store', $sessionToken))
+    $this->postJson(kioskSessionRoute('kiosk.sessions.preview.store', $sessionToken))
         ->assertOk()
         ->assertJson(['status' => PhotoboothSessionStatus::Processing->value]);
 
-    $this->postJson(route('kiosk.sessions.color-output.store', $sessionToken), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $sessionToken), [
         'photo_paths' => $photoPaths,
     ])->assertStatus(202);
 
@@ -134,7 +134,7 @@ test('the full voucher commercial journey succeeds end to end without Maya', fun
 
     $this->get(route('gallery.qr-code', $capturedMedia->public_token))->assertOk();
 
-    $this->getJson(route('kiosk.sessions.show', $sessionToken))
+    $this->getJson(kioskSessionRoute('kiosk.sessions.show', $sessionToken))
         ->assertOk()
         ->assertJson([
             'status' => PhotoboothSessionStatus::Completed->value,

@@ -16,18 +16,43 @@ use RuntimeException;
 class CreateMayaCheckout
 {
     /**
-     * Create a Maya checkout session for the given photobooth session and persist a pending Payment.
+     * Create a Maya checkout session for the given photobooth session and
+     * persist a pending Payment.
+     *
+     * Maya callback URLs are always generated from the Business that
+     * authoritatively owns the session.
      *
      * @return array{payment: Payment, checkoutUrl: string}
      */
     public function handle(PhotoboothSession $session): array
     {
-        $amount = $session->price !== null ? (string) $session->price : $this->resolveSessionPrice();
-        $currency = $session->currency ?? (string) Settings::get('currency');
+        $business = $session->business;
+
+        if ($business === null) {
+            throw new RuntimeException(
+                'The photobooth session is not assigned to a business.',
+            );
+        }
+
+        $amount = $session->price !== null
+            ? (string) $session->price
+            : $this->resolveSessionPrice();
+
+        $currency = $session->currency
+            ?? (string) Settings::get('currency');
+
         $referenceNumber = (string) Str::uuid();
 
+        $sessionUrl = route('kiosk.sessions.show', [
+            'business' => $business,
+            'photoboothSession' => $session->session_token,
+        ]);
+
         $response = Http::baseUrl(config('services.maya.base_url'))
-            ->withBasicAuth((string) config('services.maya.secret_key'), '')
+            ->withBasicAuth(
+                (string) config('services.maya.secret_key'),
+                '',
+            )
             ->acceptJson()
             ->post('/checkout/v1/checkouts', [
                 'totalAmount' => [
@@ -36,49 +61,71 @@ class CreateMayaCheckout
                 ],
                 'requestReferenceNumber' => $referenceNumber,
                 'redirectUrl' => [
-                    'success' => route('kiosk.sessions.show', $session->session_token),
-                    'failure' => route('kiosk.sessions.show', $session->session_token),
-                    'cancel' => route('kiosk.sessions.show', $session->session_token),
+                    'success' => $sessionUrl,
+                    'failure' => $sessionUrl,
+                    'cancel' => $sessionUrl,
                 ],
             ]);
 
         if ($response->failed()) {
-            throw new RuntimeException('Failed to create Maya checkout session.');
+            throw new RuntimeException(
+                'Failed to create Maya checkout session.',
+            );
         }
 
         $checkoutId = $response->json('checkoutId');
 
-        $payment = DB::transaction(function () use ($session, $amount, $currency, $checkoutId): Payment {
-            $lockedSession = PhotoboothSession::whereKey($session->id)->lockForUpdate()->first();
+        $payment = DB::transaction(
+            function () use (
+                $session,
+                $amount,
+                $currency,
+                $checkoutId,
+            ): Payment {
+                $lockedSession = PhotoboothSession::query()
+                    ->whereKey($session->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            $hasActivePayment = $lockedSession->payment()
-                ->whereNotIn('status', [PaymentStatus::Failed, PaymentStatus::Cancelled])
-                ->exists();
+                $hasActivePayment = $lockedSession
+                    ->payment()
+                    ->whereNotIn('status', [
+                        PaymentStatus::Failed,
+                        PaymentStatus::Cancelled,
+                    ])
+                    ->exists();
 
-            if ($hasActivePayment) {
-                throw new RuntimeException('A payment is already in progress for this session.');
-            }
+                if ($hasActivePayment) {
+                    throw new RuntimeException(
+                        'A payment is already in progress for this session.',
+                    );
+                }
 
-            $payment = Payment::create([
-                'photobooth_session_id' => $lockedSession->id,
-                'method' => PaymentMethod::Maya,
-                'status' => PaymentStatus::Pending,
-                'maya_checkout_id' => $checkoutId,
-                'amount' => $amount,
-            ]);
-
-            if ($lockedSession->price === null) {
-                $lockedSession->update([
-                    'price' => $amount,
-                    'currency' => $currency,
-                    'required_capture_count' => Settings::get('capture_shot_count'),
+                $payment = Payment::create([
+                    'photobooth_session_id' => $lockedSession->id,
+                    'method' => PaymentMethod::Maya,
+                    'status' => PaymentStatus::Pending,
+                    'maya_checkout_id' => $checkoutId,
+                    'amount' => $amount,
                 ]);
-            }
 
-            $lockedSession->update(['payment_method' => PaymentMethod::Maya]);
+                if ($lockedSession->price === null) {
+                    $lockedSession->update([
+                        'price' => $amount,
+                        'currency' => $currency,
+                        'required_capture_count' => Settings::get(
+                            'capture_shot_count',
+                        ),
+                    ]);
+                }
 
-            return $payment;
-        });
+                $lockedSession->update([
+                    'payment_method' => PaymentMethod::Maya,
+                ]);
+
+                return $payment;
+            },
+        );
 
         return [
             'payment' => $payment,
@@ -91,10 +138,14 @@ class CreateMayaCheckout
      */
     private function resolveSessionPrice(): string
     {
-        $setting = ApplicationSetting::where('key', 'session_price')->first();
+        $setting = ApplicationSetting::query()
+            ->where('key', 'session_price')
+            ->first();
 
         if ($setting === null || $setting->value === null) {
-            throw new RuntimeException('Session pricing has not been configured.');
+            throw new RuntimeException(
+                'Session pricing has not been configured.',
+            );
         }
 
         return $setting->value;

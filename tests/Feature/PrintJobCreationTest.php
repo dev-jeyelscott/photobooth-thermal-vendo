@@ -49,7 +49,7 @@ test('composing the final output creates a pending print job for the session', f
         'data:image/png;base64,'.base64_encode(printJobFixturePng(20)),
     ];
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => $photos,
     ]);
 
@@ -100,7 +100,7 @@ test('a failure while creating the print job rolls back the session transition a
         'data:image/png;base64,'.base64_encode(printJobFixturePng(20)),
     ];
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => $photos,
     ]);
 

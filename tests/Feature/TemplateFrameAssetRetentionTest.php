@@ -95,9 +95,7 @@ test('replacing a selected template frame preserves the snapshotted immutable as
     ]);
 
     $this->postJson(
-        route(
-            'kiosk.sessions.template.store',
-            $session->session_token,
+        kioskSessionRoute('kiosk.sessions.template.store', $session->session_token,
         ),
         ['photoTemplateId' => $template->id],
     )->assertOk();

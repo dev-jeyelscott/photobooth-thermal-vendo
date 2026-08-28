@@ -3,7 +3,6 @@
 use App\Models\Business;
 use App\Models\PhotoboothSession;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use InvalidArgumentException;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
@@ -14,15 +13,34 @@ pest()->extend(TestCase::class)
     ->in('Unit');
 
 /**
- * Build a Business-prefixed route using the canonical route model.
+ * Build a Business-prefixed route.
+ *
+ * When no Business is supplied, create a valid test Business. If the route
+ * includes a sessionToken query parameter, prefer the Business that owns that
+ * session so scoped public lookups continue exercising the real tenant
+ * boundary.
  *
  * @param  array<string, mixed>  $parameters
  */
 function businessRoute(
     string $name,
-    Business $business,
+    ?Business $business = null,
     array $parameters = [],
 ): string {
+    $sessionToken = $parameters['sessionToken'] ?? null;
+
+    if (
+        $business === null
+        && is_string($sessionToken)
+    ) {
+        $business = PhotoboothSession::query()
+            ->where('session_token', $sessionToken)
+            ->first()
+            ?->business;
+    }
+
+    $business ??= Business::factory()->create();
+
     return route($name, [
         'business' => $business,
         ...$parameters,
@@ -31,6 +49,10 @@ function businessRoute(
 
 /**
  * Build a Business-prefixed session route while preserving the public token.
+ *
+ * Existing sessions infer their authoritative Business from the database.
+ * Unknown tokens receive a valid Business context so scoped route-model
+ * binding can produce the expected 404 instead of URL generation failing.
  *
  * @param  array<string, mixed>  $parameters
  */
@@ -45,13 +67,16 @@ function kioskSessionRoute(
         $sessionToken = $session->session_token;
     } else {
         $sessionToken = $session;
+
+        if ($business === null) {
+            $business = PhotoboothSession::query()
+                ->where('session_token', $sessionToken)
+                ->first()
+                ?->business;
+        }
     }
 
-    if ($business === null) {
-        throw new InvalidArgumentException(
-            'A Business is required when routing an unknown session token.',
-        );
-    }
+    $business ??= Business::factory()->create();
 
     return route($name, [
         'business' => $business,

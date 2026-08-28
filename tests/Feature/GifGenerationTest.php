@@ -42,7 +42,7 @@ test('composing the final output persists an animated gif of the captured photo 
         'data:image/png;base64,'.base64_encode(gifFixturePng(20)),
     ];
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => $photos,
     ]);
 

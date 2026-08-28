@@ -45,7 +45,7 @@ test('composing the final color photo uses the template snapshot taken at select
         'photo_template_id' => null,
     ]);
 
-    $this->postJson(route('kiosk.sessions.template.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.template.store', $session->session_token), [
         'photoTemplateId' => $template->id,
     ])->assertOk();
 
@@ -62,7 +62,7 @@ test('composing the final color photo uses the template snapshot taken at select
 
     $photo = 'data:image/png;base64,'.base64_encode(composeColorPhotoTestPng());
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo, $photo],
     ]);
 
@@ -117,11 +117,11 @@ test('composing the final color photo uses the sticker placement snapshot taken 
         'photo_template_id' => null,
     ]);
 
-    $this->postJson(route('kiosk.sessions.template.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.template.store', $session->session_token), [
         'photoTemplateId' => $template->id,
     ])->assertOk();
 
-    $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $session->session_token), [
         'stickerDesignId' => $sticker->id,
     ])->assertOk();
 
@@ -129,7 +129,7 @@ test('composing the final color photo uses the sticker placement snapshot taken 
 
     $photo = 'data:image/png;base64,'.base64_encode(composeColorPhotoTestPng());
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo],
     ]);
 
@@ -166,19 +166,19 @@ test('re-submitting composition after a session has already advanced past Proces
         'photo_template_id' => null,
     ]);
 
-    $this->postJson(route('kiosk.sessions.template.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.template.store', $session->session_token), [
         'photoTemplateId' => $template->id,
     ])->assertOk();
 
     $photo = 'data:image/png;base64,'.base64_encode(composeColorPhotoTestPng());
 
-    $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo],
     ])->assertStatus(202);
 
     expect($session->fresh()->status)->toBe(PhotoboothSessionStatus::Printing);
 
-    $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo],
     ])->assertStatus(422);
 
@@ -211,7 +211,7 @@ test('re-running composition while a session is still Processing overwrites the 
 
     $photo = 'data:image/png;base64,'.base64_encode(composeColorPhotoTestPng());
 
-    $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo],
     ])->assertStatus(202);
 
@@ -219,7 +219,7 @@ test('re-running composition while a session is still Processing overwrites the 
 
     $session->refresh()->update(['status' => PhotoboothSessionStatus::Processing]);
 
-    $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => [$photo],
     ])->assertStatus(202);
 

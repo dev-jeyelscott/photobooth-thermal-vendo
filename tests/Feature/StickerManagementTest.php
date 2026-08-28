@@ -284,7 +284,7 @@ test('admin can reorder stickers and the new order affects public selection', fu
         ->where('stickers.1.id', $first->id)
     );
 
-    $publicIndex = $this->getJson(route('stickers.index'));
+    $publicIndex = $this->getJson(businessRoute('stickers.index'));
     $publicIndex->assertJsonPath('stickers.0.id', $second->id);
     $publicIndex->assertJsonPath('stickers.1.id', $first->id);
 });

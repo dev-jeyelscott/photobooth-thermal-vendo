@@ -259,7 +259,7 @@ test('redeeming a voucher before its valid_from date is rejected without mutatin
     ]);
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => $voucher->code,
     ]);
 
@@ -281,7 +281,7 @@ test('redeeming a voucher after its valid_from date succeeds', function () {
     ]);
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => $voucher->code,
     ]);
 
@@ -300,7 +300,7 @@ test('redeeming a voucher matches the code case- and whitespace-insensitively wi
     ]);
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
 
-    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.voucher.store', $session->session_token), [
         'code' => '  promo-code  ',
     ]);
 

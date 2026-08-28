@@ -53,7 +53,7 @@ test('the color-output endpoint dispatches a queued job carrying the session and
 
     [$session, $photos] = makeComposableSession();
 
-    $response = $this->postJson(route('kiosk.sessions.color-output.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.color-output.store', $session->session_token), [
         'photos' => $photos,
     ]);
 

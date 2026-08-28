@@ -12,7 +12,7 @@ test('the public sticker list only returns active stickers with their asset deta
     ]);
     StickerDesign::factory()->inactive()->create();
 
-    $response = $this->getJson(route('stickers.index'));
+    $response = $this->getJson(businessRoute('stickers.index'));
 
     $response->assertOk();
     $response->assertJson([
@@ -37,7 +37,7 @@ test('selecting a sticker on a session with a template attaches it without chang
         'sticker_design_id' => null,
     ]);
 
-    $response = $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $session->session_token), [
         'stickerDesignId' => $sticker->id,
     ]);
 
@@ -60,7 +60,7 @@ test('selecting a sticker snapshots its rendering configuration onto the session
         'sticker_design_id' => null,
     ]);
 
-    $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $session->session_token), [
         'stickerDesignId' => $sticker->id,
     ])->assertOk();
 
@@ -82,7 +82,7 @@ test('editing the sticker after selection does not alter the session\'s stored s
         'sticker_design_id' => null,
     ]);
 
-    $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+    $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $session->session_token), [
         'stickerDesignId' => $sticker->id,
     ])->assertOk();
 
@@ -107,7 +107,7 @@ test('the customer can change their sticker selection before finalizing', functi
         'sticker_design_id' => $firstSticker->id,
     ]);
 
-    $response = $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $session->session_token), [
         'stickerDesignId' => $secondSticker->id,
     ]);
 
@@ -126,7 +126,7 @@ test('selecting an inactive sticker is rejected', function () {
         'sticker_design_id' => null,
     ]);
 
-    $response = $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $session->session_token), [
         'stickerDesignId' => $sticker->id,
     ]);
 
@@ -143,7 +143,7 @@ test('selecting a sticker before a template has been chosen is rejected', functi
         'sticker_design_id' => null,
     ]);
 
-    $response = $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $session->session_token), [
         'stickerDesignId' => $sticker->id,
     ]);
 
@@ -162,7 +162,7 @@ test('selecting a sticker on an expired session is rejected', function () {
         'expires_at' => now()->subMinute(),
     ]);
 
-    $response = $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $session->session_token), [
         'stickerDesignId' => $sticker->id,
     ]);
 
@@ -185,7 +185,7 @@ test('the sticker list is scoped to stickers compatible with the session\'s sele
         'photo_template_id' => $template->id,
     ]);
 
-    $response = $this->getJson(route('stickers.index', ['sessionToken' => $session->session_token]));
+    $response = $this->getJson(businessRoute('stickers.index', null, ['sessionToken' => $session->session_token]));
 
     $response->assertOk();
     $names = collect($response->json('stickers'))->pluck('name');
@@ -204,7 +204,7 @@ test('the sticker list is unfiltered when the session has not selected a templat
         'photo_template_id' => null,
     ]);
 
-    $response = $this->getJson(route('stickers.index', ['sessionToken' => $session->session_token]));
+    $response = $this->getJson(businessRoute('stickers.index', null, ['sessionToken' => $session->session_token]));
 
     $response->assertOk();
     expect($response->json('stickers'))->toHaveCount(1);
@@ -221,7 +221,7 @@ test('selecting a sticker that is not compatible with the session\'s selected te
         'sticker_design_id' => null,
     ]);
 
-    $response = $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $session->session_token), [
         'stickerDesignId' => $incompatibleSticker->id,
     ]);
 
@@ -239,7 +239,7 @@ test('selecting a sticker with no compatible-template restrictions is accepted f
         'sticker_design_id' => null,
     ]);
 
-    $response = $this->postJson(route('kiosk.sessions.sticker.store', $session->session_token), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', $session->session_token), [
         'stickerDesignId' => $universalSticker->id,
     ]);
 
@@ -251,7 +251,7 @@ test('selecting a sticker with no compatible-template restrictions is accepted f
 test('selecting a sticker for an unknown session returns not found', function () {
     $sticker = StickerDesign::factory()->create();
 
-    $response = $this->postJson(route('kiosk.sessions.sticker.store', (string) Str::uuid()), [
+    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.sticker.store', (string) Str::uuid()), [
         'stickerDesignId' => $sticker->id,
     ]);
 

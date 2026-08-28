@@ -20,22 +20,25 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
-        $canManageTwoFactor = Features::canManageTwoFactorAuthentication();
+        $canManageTwoFactor =
+            Features::canManageTwoFactorAuthentication();
 
         return Inertia::render('settings/profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
             'canManageTwoFactor' => $canManageTwoFactor,
             'twoFactorEnabled' => $canManageTwoFactor
-                && $request->user()->hasEnabledTwoFactorAuthentication(),
+                && $request->user()
+                    ->hasEnabledTwoFactorAuthentication(),
         ]);
     }
 
     /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
-    {
+    public function update(
+        ProfileUpdateRequest $request,
+    ): RedirectResponse {
         $request->user()->fill($request->validated());
 
         if ($request->user()->isDirty('email')) {
@@ -44,17 +47,33 @@ class ProfileController extends Controller
 
         $request->user()->save();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Profile updated.')]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Profile updated.'),
+        ]);
 
         return to_route('profile.edit');
     }
 
     /**
-     * Delete the user's profile.
+     * Delete the user's profile only when the user does not still own a
+     * Business.
+     *
+     * Ownership must be resolved explicitly before account deletion so the
+     * application never relies on a database FK exception as control flow.
      */
-    public function destroy(ProfileDeleteRequest $request): RedirectResponse
-    {
+    public function destroy(
+        ProfileDeleteRequest $request,
+    ): RedirectResponse {
         $user = $request->user();
+
+        if ($user->ownedBusiness()->exists()) {
+            return back()->withErrors([
+                'password' => __(
+                    'Transfer or remove your business ownership before deleting your account.',
+                ),
+            ]);
+        }
 
         Auth::logout();
 
