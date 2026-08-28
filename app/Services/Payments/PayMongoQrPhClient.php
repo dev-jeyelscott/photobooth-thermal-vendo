@@ -134,6 +134,59 @@ class PayMongoQrPhClient
     }
 
     /**
+     * Retrieve the authoritative historical Payment Intent using the exact tenant secret key.
+     *
+     * @return array{
+     *     id: string,
+     *     status: string,
+     *     amount: int,
+     *     currency: string,
+     *     livemode: bool,
+     *     paymentId: string|null
+     * }
+     */
+    public function retrievePaymentIntent(
+        PayMongoAccount $account,
+        string $paymentIntentId,
+    ): array {
+        if (
+            $paymentIntentId === ''
+            || ! str_starts_with($paymentIntentId, 'pi_')
+        ) {
+            throw PayMongoProviderException::definitive();
+        }
+
+        $response = $this->get(
+            $account->secret_key,
+            '/v1/payment_intents/'.rawurlencode($paymentIntentId),
+        );
+
+        return [
+            'id' => $this->requiredString($response, 'data.id'),
+            'status' => $this->requiredString(
+                $response,
+                'data.attributes.status',
+            ),
+            'amount' => $this->requiredInteger(
+                $response,
+                'data.attributes.amount',
+            ),
+            'currency' => $this->requiredString(
+                $response,
+                'data.attributes.currency',
+            ),
+            'livemode' => $this->requiredBoolean(
+                $response,
+                'data.attributes.livemode',
+            ),
+            'paymentId' => $this->optionalString(
+                $response,
+                'data.attributes.payments.0.id',
+            ),
+        ];
+    }
+
+    /**
      * Build a tenant-key authenticated HTTP client with the repository retry policy.
      */
     private function client(string $apiKey): PendingRequest
@@ -152,8 +205,10 @@ class PayMongoQrPhClient
                 0,
                 function (Throwable $exception): bool {
                     return $exception instanceof ConnectionException
-                        || ($exception instanceof RequestException
-                            && $exception->response->serverError());
+                        || (
+                            $exception instanceof RequestException
+                            && $exception->response->serverError()
+                        );
                 },
                 throw: false,
             )
@@ -164,7 +219,7 @@ class PayMongoQrPhClient
     /**
      * Execute one idempotent PayMongo POST and classify safe failure semantics.
      *
-     * @param  array<string, mixed>  $payload
+     * @param array<string, mixed> $payload
      */
     private function post(
         string $apiKey,
@@ -180,6 +235,30 @@ class PayMongoQrPhClient
             throw PayMongoProviderException::uncertain();
         }
 
+        return $this->validateResponse($response);
+    }
+
+    /**
+     * Execute one read-only PayMongo request with the existing transient retry policy.
+     */
+    private function get(
+        string $apiKey,
+        string $path,
+    ): Response {
+        try {
+            $response = $this->client($apiKey)->get($path);
+        } catch (ConnectionException) {
+            throw PayMongoProviderException::uncertain();
+        }
+
+        return $this->validateResponse($response);
+    }
+
+    /**
+     * Convert one provider HTTP response into safe internal failure semantics.
+     */
+    private function validateResponse(Response $response): Response
+    {
         if ($response->serverError()) {
             throw PayMongoProviderException::uncertain();
         }
@@ -217,11 +296,45 @@ class PayMongoQrPhClient
     /**
      * Read a required non-empty string from a successful provider response.
      */
-    private function requiredString(Response $response, string $path): string
-    {
+    private function requiredString(
+        Response $response,
+        string $path,
+    ): string {
         $value = $response->json($path);
 
         if (! is_string($value) || $value === '') {
+            throw PayMongoProviderException::uncertain();
+        }
+
+        return $value;
+    }
+
+    /**
+     * Read a required integer from a successful provider response.
+     */
+    private function requiredInteger(
+        Response $response,
+        string $path,
+    ): int {
+        $value = $response->json($path);
+
+        if (! is_int($value)) {
+            throw PayMongoProviderException::uncertain();
+        }
+
+        return $value;
+    }
+
+    /**
+     * Read a required boolean from a successful provider response.
+     */
+    private function requiredBoolean(
+        Response $response,
+        string $path,
+    ): bool {
+        $value = $response->json($path);
+
+        if (! is_bool($value)) {
             throw PayMongoProviderException::uncertain();
         }
 
