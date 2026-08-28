@@ -375,6 +375,102 @@ describe('Kiosk', () => {
         expect(window.sessionStorage.getItem(KIOSK_STORAGE_KEY)).toBeNull();
     });
 
+    it('shows a recoverable invalid-voucher error for a rejected code without leaving the voucher step', async () => {
+        const user = userEvent.setup();
+
+        global.fetch = createFetchMock([
+            {
+                method: 'post',
+                pattern: /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+\/voucher$/,
+                handler: () => ({
+                    status: 422,
+                    body: {
+                        message:
+                            'This voucher code is invalid or can no longer be used.',
+                    },
+                }),
+            },
+            ...baseRoutes,
+        ]) as unknown as typeof fetch;
+
+        render(<Kiosk />);
+
+        await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
+        await user.type(screen.getByTestId('kiosk-voucher-input'), 'BAD-CODE');
+        await user.click(
+            screen.getByRole('button', { name: 'Redeem Voucher' }),
+        );
+
+        expect(
+            await screen.findByTestId('kiosk-error-invalid-voucher'),
+        ).toBeInTheDocument();
+
+        await user.click(
+            screen.getByRole('button', { name: 'Try Another Code' }),
+        );
+
+        expect(
+            screen.queryByTestId('kiosk-error-invalid-voucher'),
+        ).not.toBeInTheDocument();
+        expect(screen.getByTestId('kiosk-enter-voucher')).toBeInTheDocument();
+        expect(screen.getByTestId('kiosk-voucher-input')).toBeInTheDocument();
+    });
+
+    it('shows a recoverable processing-failure error when composing the final output is rejected', async () => {
+        const user = userEvent.setup();
+
+        global.fetch = createFetchMock([
+            {
+                method: 'post',
+                pattern:
+                    /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+\/color-output$/,
+                handler: () => ({
+                    status: 500,
+                    body: {
+                        message: 'This session could not be processed.',
+                    },
+                }),
+            },
+            ...baseRoutes,
+        ]) as unknown as typeof fetch;
+
+        render(<Kiosk />);
+
+        await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
+        await user.type(screen.getByTestId('kiosk-voucher-input'), 'FREE-2026');
+        await user.click(
+            screen.getByRole('button', { name: 'Redeem Voucher' }),
+        );
+
+        const templateOption = await screen.findByTestId('kiosk-template-1');
+        await user.click(templateOption);
+        await user.click(
+            screen.getByRole('button', { name: 'Use selected template' }),
+        );
+
+        await user.click(
+            screen.getByRole('button', { name: 'complete capture' }),
+        );
+
+        const stickerOption = await screen.findByTestId('kiosk-sticker-1');
+        await user.click(stickerOption);
+
+        await waitFor(() => {
+            expect(
+                screen.getByRole('button', { name: 'Continue' }),
+            ).toBeEnabled();
+        });
+        await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+        await user.click(
+            await screen.findByRole('button', { name: 'Confirm preview' }),
+        );
+
+        expect(
+            await screen.findByTestId('kiosk-error-processing-failure'),
+        ).toBeInTheDocument();
+    });
+
     it('recovers from a transient network failure during payment polling without re-issuing the checkout', async () => {
         const user = userEvent.setup({
             advanceTimers: vi.advanceTimersByTime,

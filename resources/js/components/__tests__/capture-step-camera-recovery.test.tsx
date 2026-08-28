@@ -130,6 +130,30 @@ describe('CaptureStep camera error recovery', () => {
         expect(onComplete.mock.calls[0][0]).toHaveLength(2);
     });
 
+    it('surfaces a recoverable no-camera-permission error when access is denied', async () => {
+        hookState = {
+            stream: null,
+            error: 'permission-denied',
+            devices: [],
+            selectedDeviceId: null,
+        };
+
+        render(<CaptureStep {...captureStepProps} onComplete={vi.fn()} />);
+
+        expect(
+            screen.getByTestId('kiosk-error-no-camera-permission'),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByRole('button', { name: 'Back to Start' }),
+        ).not.toBeInTheDocument();
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
+        });
+
+        expect(start).toHaveBeenCalled();
+    });
+
     it('only offers Back to Start when the camera disconnects with no devices left', () => {
         hookState = {
             stream: null,
