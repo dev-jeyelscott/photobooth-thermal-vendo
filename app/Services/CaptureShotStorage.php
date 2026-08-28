@@ -17,7 +17,7 @@ class CaptureShotStorage
 
     /**
      * Store an uploaded capture-step frame under the session's captures
-     * directory via the public disk, downscaling it first if it exceeds the
+     * directory via the configured media disk, downscaling it first if it exceeds the
      * configured maximum dimension. Frames already within bounds are stored
      * as-is, unmodified. Returns the stored path.
      */
@@ -34,7 +34,7 @@ class CaptureShotStorage
                 ->decode($shot->get())
                 ->scaleDown($maxDimension, $maxDimension);
 
-            Storage::disk('public')->put(
+            Storage::disk(config('filesystems.media'))->put(
                 $path,
                 (string) $downscaled->encode(new AutoEncoder(quality: self::JPEG_QUALITY)),
             );
@@ -42,7 +42,7 @@ class CaptureShotStorage
             return $path;
         }
 
-        Storage::disk('public')->put($path, (string) $shot->get());
+        Storage::disk(config('filesystems.media'))->put($path, (string) $shot->get());
 
         return $path;
     }

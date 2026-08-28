@@ -29,7 +29,7 @@ class ColorCompositionController extends Controller
 
         $photos = isset($validated['photo_paths'])
             ? array_map(
-                fn (string $path): string => (string) Storage::disk('public')->get($path),
+                fn (string $path): string => (string) Storage::disk(config('filesystems.media'))->get($path),
                 $validated['photo_paths'],
             )
             : $validated['photos'];

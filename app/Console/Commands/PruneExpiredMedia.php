@@ -43,7 +43,7 @@ class PruneExpiredMedia extends Command
                 foreach (['color_path', 'bw_path', 'gif_path'] as $attribute) {
                     if ($capturedMedia->{$attribute} !== null) {
                         $currentPath = $capturedMedia->{$attribute};
-                        Storage::disk('public')->delete($currentPath);
+                        Storage::disk(config('filesystems.media'))->delete($currentPath);
                     }
                 }
 

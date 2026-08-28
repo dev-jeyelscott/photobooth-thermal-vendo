@@ -39,7 +39,7 @@ class ReceiptRenderer
      */
     public function render(CapturedMedia $capturedMedia): string
     {
-        $source = $this->imageManager->decode(Storage::disk('public')->get($capturedMedia->bw_path));
+        $source = $this->imageManager->decode(Storage::disk(config('filesystems.media'))->get($capturedMedia->bw_path));
 
         $rendered = (clone $source)->scale(width: (int) config('photobooth.receipt_printer_width_px'));
 
@@ -51,7 +51,7 @@ class ReceiptRenderer
 
         $path = 'receipts/'.$capturedMedia->public_token.'-receipt.png';
 
-        Storage::disk('public')->put($path, (string) $rendered->encode(new PngEncoder));
+        Storage::disk(config('filesystems.media'))->put($path, (string) $rendered->encode(new PngEncoder));
 
         return $path;
     }

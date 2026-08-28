@@ -25,7 +25,7 @@ class PhotoTemplateController extends Controller
                 'name' => $template->name,
                 'slug' => $template->slug,
                 'orientation' => $template->orientation,
-                'layoutUrl' => Storage::disk('public')->url($template->layout_path),
+                'layoutUrl' => Storage::disk(config('filesystems.media'))->url($template->layout_path),
                 'thumbnailPath' => $template->thumbnail_path,
                 'photoSlots' => $template->photo_slots,
                 'layoutConfig' => $template->layout_config,

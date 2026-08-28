@@ -236,10 +236,10 @@ class StickerController extends Controller
             'id' => $sticker->id,
             'name' => $sticker->name,
             'assetPath' => $sticker->asset_path,
-            'assetUrl' => Storage::disk('public')->url($sticker->asset_path),
+            'assetUrl' => Storage::disk(config('filesystems.media'))->url($sticker->asset_path),
             'thumbnailPath' => $sticker->thumbnail_path,
             'thumbnailUrl' => $sticker->thumbnail_path !== null
-                ? Storage::disk('public')->url($sticker->thumbnail_path)
+                ? Storage::disk(config('filesystems.media'))->url($sticker->thumbnail_path)
                 : null,
             'active' => $sticker->active,
             'sortOrder' => $sticker->sort_order,
@@ -270,7 +270,7 @@ class StickerController extends Controller
 
     private function storePublicAsset(UploadedFile $file, string $directory): string
     {
-        $path = $file->store($directory, 'public');
+        $path = $file->store($directory, config('filesystems.media'));
 
         if (! is_string($path)) {
             throw new RuntimeException("Unable to store sticker asset in [{$directory}].");
@@ -288,6 +288,6 @@ class StickerController extends Controller
             return;
         }
 
-        Storage::disk('public')->delete(array_values(array_unique($paths)));
+        Storage::disk(config('filesystems.media'))->delete(array_values(array_unique($paths)));
     }
 }

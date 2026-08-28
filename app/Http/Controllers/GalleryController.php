@@ -52,12 +52,12 @@ class GalleryController extends Controller
             $media === null
             || $media['path'] === null
             || ! str_starts_with($media['path'], 'captures/')
-            || ! Storage::disk('public')->exists($media['path'])
+            || ! Storage::disk(config('filesystems.media'))->exists($media['path'])
         ) {
             abort(404);
         }
 
-        return Storage::disk('public')->response(
+        return Storage::disk(config('filesystems.media'))->response(
             $media['path'],
             null,
             [

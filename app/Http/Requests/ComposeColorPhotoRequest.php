@@ -67,7 +67,7 @@ class ComposeColorPhotoRequest extends FormRequest
                 return;
             }
 
-            if (! Storage::disk('public')->exists($value)) {
+            if (! Storage::disk(config('filesystems.media'))->exists($value)) {
                 $fail('Each photo reference must point to a previously stored frame.');
             }
         };

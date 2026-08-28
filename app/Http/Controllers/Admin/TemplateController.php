@@ -296,10 +296,10 @@ class TemplateController extends Controller
             'slug' => $template->slug,
             'orientation' => $template->orientation,
             'layoutPath' => $template->layout_path,
-            'layoutUrl' => Storage::disk('public')->url($template->layout_path),
+            'layoutUrl' => Storage::disk(config('filesystems.media'))->url($template->layout_path),
             'thumbnailPath' => $template->thumbnail_path,
             'thumbnailUrl' => $template->thumbnail_path !== null
-                ? Storage::disk('public')->url($template->thumbnail_path)
+                ? Storage::disk(config('filesystems.media'))->url($template->thumbnail_path)
                 : null,
             'photoSlots' => $template->photo_slots,
             'layoutConfig' => $template->layout_config,
@@ -375,7 +375,7 @@ class TemplateController extends Controller
         UploadedFile $file,
         string $directory,
     ): string {
-        $path = $file->store($directory, 'public');
+        $path = $file->store($directory, config('filesystems.media'));
 
         if (! is_string($path)) {
             throw new RuntimeException(
@@ -419,7 +419,7 @@ class TemplateController extends Controller
             return;
         }
 
-        Storage::disk('public')->delete(
+        Storage::disk(config('filesystems.media'))->delete(
             array_values(array_unique($paths)),
         );
     }

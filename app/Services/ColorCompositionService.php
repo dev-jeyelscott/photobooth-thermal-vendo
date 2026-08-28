@@ -115,7 +115,7 @@ class ColorCompositionService
         int $canvasHeight,
     ): void {
         $templateFrame = $this->imageManager
-            ->decode(Storage::disk('public')->get($assetPath))
+            ->decode(Storage::disk(config('filesystems.media'))->get($assetPath))
             ->resize($canvasWidth, $canvasHeight);
 
         $canvas->insert($templateFrame);
@@ -133,7 +133,7 @@ class ColorCompositionService
         ?array $placement,
     ): void {
         $stickerImage = $this->imageManager->decode(
-            Storage::disk('public')->get($assetPath),
+            Storage::disk(config('filesystems.media'))->get($assetPath),
         );
 
         $sizeRatio = $placement['size_ratio'] ?? self::STICKER_SIZE_RATIO;

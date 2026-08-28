@@ -54,17 +54,17 @@ class ComposeColorPhoto
         $bwPath = 'captures/'.$session->session_token.'-bw.jpg';
         $gifPath = 'captures/'.$session->session_token.'-animation.gif';
 
-        Storage::disk('public')->put(
+        Storage::disk(config('filesystems.media'))->put(
             $colorPath,
             (string) $composite->encode(new JpegEncoder(quality: self::JPEG_QUALITY)),
         );
 
-        Storage::disk('public')->put(
+        Storage::disk(config('filesystems.media'))->put(
             $bwPath,
             (string) $blackAndWhite->encode(new JpegEncoder(quality: self::JPEG_QUALITY)),
         );
 
-        Storage::disk('public')->put($gifPath, (string) $gif);
+        Storage::disk(config('filesystems.media'))->put($gifPath, (string) $gif);
 
         return DB::transaction(function () use (
             $session,
@@ -146,7 +146,7 @@ class ComposeColorPhoto
     /**
      * Resolve rendering-critical template configuration from the immutable
      * selection-time snapshot. Historical snapshots that predate layout_path
-     * may fall back to a still-existing live public-disk frame.
+     * may fall back to a still-existing live media-disk frame.
      *
      * @return array{layout_path: string|null, layout_config: array<string, mixed>|null, photo_slots: int, print_width_mm: int, print_height_mm: int}
      */
@@ -180,7 +180,7 @@ class ComposeColorPhoto
     }
 
     /**
-     * Return a legacy live-template frame only when its public-disk asset still
+     * Return a legacy live-template frame only when its media-disk asset still
      * exists. Newly created snapshots do not use this fallback.
      */
     private function legacyLayoutPath(PhotoboothSession $session): ?string
@@ -190,7 +190,7 @@ class ComposeColorPhoto
         if (
             ! is_string($layoutPath)
             || $layoutPath === ''
-            || ! Storage::disk('public')->exists($layoutPath)
+            || ! Storage::disk(config('filesystems.media'))->exists($layoutPath)
         ) {
             return null;
         }
