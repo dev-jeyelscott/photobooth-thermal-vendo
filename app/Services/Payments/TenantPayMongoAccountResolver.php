@@ -10,17 +10,23 @@ use RuntimeException;
 class TenantPayMongoAccountResolver
 {
     /**
-     * Resolve the verified account selected by the Business's active mode.
+     * Resolve the operational account selected by the Business's active mode.
      */
     public function resolve(Business $business): PayMongoAccount
     {
         $mode = $business->active_paymongo_mode;
 
-        $account = $this->selectedForMode($business, $mode);
+        $account = $this->selectedForMode(
+            $business,
+            $mode,
+        );
 
-        if ($account === null || $account->verified_at === null) {
+        if (
+            $account === null
+            || ! $account->isReadyForPayments()
+        ) {
             throw new RuntimeException(
-                'The business does not have a verified PayMongo account for its active mode.',
+                'The business does not have a verified and webhook-provisioned PayMongo account for its active mode.',
             );
         }
 

@@ -23,7 +23,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
-        $middleware->validateCsrfTokens(except: ['webhooks/maya']);
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/maya',
+            'webhooks/paymongo/*',
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,

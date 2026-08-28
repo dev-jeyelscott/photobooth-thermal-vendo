@@ -39,6 +39,12 @@ vi.mock(
                     method: 'post',
                 }),
             },
+            reprovision: {
+                form: (mode: string) => ({
+                    action: `/admin/payment-settings/${mode}/webhook/reprovision`,
+                    method: 'post',
+                }),
+            },
             activate: {
                 form: (mode: string) => ({
                     action: `/admin/payment-settings/${mode}/activate`,
@@ -60,16 +66,18 @@ const props = {
         test: {
             mode: 'test' as const,
             configured: true,
+            webhookReady: true,
             maskedPublicKey: 'pk_test_••••1234',
             maskedSecretKey: 'sk_test_••••5678',
             verifiedAt: '2026-08-28T08:00:00+08:00',
-            webhookStatus: null,
-            webhookProvisionedAt: null,
+            webhookStatus: 'enabled',
+            webhookProvisionedAt: '2026-08-28T08:01:00+08:00',
             supersededAt: null,
         },
         live: {
             mode: 'live' as const,
             configured: false,
+            webhookReady: false,
             maskedPublicKey: null,
             maskedSecretKey: null,
             verifiedAt: null,
@@ -103,11 +111,9 @@ describe('admin payment settings', () => {
         render(<PaymentSettingsEdit {...props} />);
 
         expect(screen.getByText('pk_test_••••1234')).toBeInTheDocument();
-
         expect(screen.getByText('sk_test_••••5678')).toBeInTheDocument();
 
         expect(screen.queryByDisplayValue(/pk_test_/)).not.toBeInTheDocument();
-
         expect(screen.queryByDisplayValue(/sk_test_/)).not.toBeInTheDocument();
     });
 
@@ -126,7 +132,7 @@ describe('admin payment settings', () => {
         expect(document.querySelector('[name="mode"]')).not.toBeInTheDocument();
     });
 
-    it('renders connection, replacement, configuration, and activation actions', () => {
+    it('renders connection replacement webhook recovery and activation actions', () => {
         render(<PaymentSettingsEdit {...props} />);
 
         expect(
@@ -148,6 +154,12 @@ describe('admin payment settings', () => {
         ).toHaveLength(2);
 
         expect(
+            screen.getAllByRole('button', {
+                name: 'Recover webhook',
+            }),
+        ).toHaveLength(2);
+
+        expect(
             screen.getByRole('button', {
                 name: 'Activate Live',
             }),
@@ -158,6 +170,64 @@ describe('admin payment settings', () => {
                 name: 'Active mode',
             }),
         ).toBeDisabled();
+    });
+
+    it('blocks activation until webhook provisioning is complete', () => {
+        render(
+            <PaymentSettingsEdit
+                {...props}
+                accounts={{
+                    ...props.accounts,
+                    live: {
+                        mode: 'live',
+                        configured: true,
+                        webhookReady: false,
+                        maskedPublicKey: 'pk_live_••••1111',
+                        maskedSecretKey: 'sk_live_••••2222',
+                        verifiedAt: '2026-08-28T08:00:00+08:00',
+                        webhookStatus: null,
+                        webhookProvisionedAt: null,
+                        supersededAt: null,
+                    },
+                }}
+            />,
+        );
+
+        expect(
+            screen.getByRole('button', {
+                name: 'Activate Live',
+            }),
+        ).toBeDisabled();
+
+        expect(screen.getAllByText('Webhook required')).not.toHaveLength(0);
+    });
+
+    it('allows activation when the target account is fully webhook ready', () => {
+        render(
+            <PaymentSettingsEdit
+                {...props}
+                accounts={{
+                    ...props.accounts,
+                    live: {
+                        mode: 'live',
+                        configured: true,
+                        webhookReady: true,
+                        maskedPublicKey: 'pk_live_••••1111',
+                        maskedSecretKey: 'sk_live_••••2222',
+                        verifiedAt: '2026-08-28T08:00:00+08:00',
+                        webhookStatus: 'enabled',
+                        webhookProvisionedAt: '2026-08-28T08:01:00+08:00',
+                        supersededAt: null,
+                    },
+                }}
+            />,
+        );
+
+        expect(
+            screen.getByRole('button', {
+                name: 'Activate Live',
+            }),
+        ).toBeEnabled();
     });
 
     it('uses password-style inputs for newly supplied credentials', () => {

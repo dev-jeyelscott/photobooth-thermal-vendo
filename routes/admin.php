@@ -40,6 +40,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('payment-settings/{mode}/test', [PaymentSettingController::class, 'test'])
         ->name('payment-settings.test');
 
+    Route::post(
+        'payment-settings/{mode}/webhook/reprovision',
+        [PaymentSettingController::class, 'reprovision'],
+    )
+        ->middleware(RequirePassword::class)
+        ->name('payment-settings.webhook.reprovision');
+
     Route::post('payment-settings/{mode}/activate', [PaymentSettingController::class, 'activate'])
         ->middleware(RequirePassword::class)
         ->name('payment-settings.activate');

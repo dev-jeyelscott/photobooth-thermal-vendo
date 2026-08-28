@@ -1,5 +1,11 @@
 import { Form, Head, setLayoutProps } from '@inertiajs/react';
-import { CheckCircle2, KeyRound, RotateCcw, ShieldCheck } from 'lucide-react';
+import {
+    CheckCircle2,
+    KeyRound,
+    RefreshCw,
+    RotateCcw,
+    ShieldCheck,
+} from 'lucide-react';
 import PaymentSettingController from '@/actions/App/Http/Controllers/Admin/PaymentSettingController';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +20,7 @@ type PayMongoMode = 'test' | 'live';
 export type PayMongoAccountSummary = {
     mode: PayMongoMode;
     configured: boolean;
+    webhookReady: boolean;
     maskedPublicKey: string | null;
     maskedSecretKey: string | null;
     verifiedAt: string | null;
@@ -57,6 +64,7 @@ function PayMongoModePanel({
     const label = mode === 'test' ? 'Test' : 'Live';
     const isActive = activeMode === mode;
     const connectionErrorKey = `${mode}_connection`;
+    const webhookErrorKey = `${mode}_webhook`;
     const activationErrorKey = `${mode}_activation`;
 
     return (
@@ -81,13 +89,20 @@ function PayMongoModePanel({
                     </p>
                 </div>
 
-                {account.verifiedAt ? (
+                {account.webhookReady ? (
                     <Badge
                         variant="outline"
                         className="w-fit border-success/30 bg-success-subtle text-success-foreground"
                     >
                         <CheckCircle2 aria-hidden="true" />
-                        Verified
+                        Ready
+                    </Badge>
+                ) : account.verifiedAt ? (
+                    <Badge
+                        variant="outline"
+                        className="w-fit border-warning/30 bg-warning-subtle text-warning-foreground"
+                    >
+                        Webhook required
                     </Badge>
                 ) : account.configured ? (
                     <Badge
@@ -140,7 +155,7 @@ function PayMongoModePanel({
                             <p className="mt-1 text-sm font-medium">
                                 {account.webhookProvisionedAt
                                     ? (account.webhookStatus ?? 'Provisioned')
-                                    : 'Not provisioned yet'}
+                                    : 'Not provisioned'}
                             </p>
                         </div>
                     </div>
@@ -159,9 +174,9 @@ function PayMongoModePanel({
                                             : 'Configure credentials'}
                                     </h3>
                                     <p className="mt-1 text-caption text-muted-foreground">
-                                        Saving creates a new credential version.
-                                        Existing versions are retained for
-                                        historical payment integrity.
+                                        Saving verifies the account, provisions
+                                        its dedicated webhook, then selects the
+                                        new credential version.
                                     </p>
                                 </div>
 
@@ -232,7 +247,7 @@ function PayMongoModePanel({
                                     <Button type="submit" disabled={processing}>
                                         <RotateCcw aria-hidden="true" />
                                         {processing
-                                            ? 'Verifying...'
+                                            ? 'Provisioning...'
                                             : account.configured
                                               ? 'Replace credentials'
                                               : 'Save credentials'}
@@ -270,6 +285,29 @@ function PayMongoModePanel({
                     </Form>
 
                     <Form
+                        {...PaymentSettingController.reprovision.form(mode)}
+                        options={{ preserveScroll: true }}
+                    >
+                        {({ processing, errors }) => (
+                            <div className="grid gap-2">
+                                <Button
+                                    type="submit"
+                                    variant="outline"
+                                    className="w-full"
+                                    disabled={processing || !account.configured}
+                                >
+                                    <RefreshCw aria-hidden="true" />
+                                    {processing
+                                        ? 'Recovering...'
+                                        : 'Recover webhook'}
+                                </Button>
+
+                                <InputError message={errors[webhookErrorKey]} />
+                            </div>
+                        )}
+                    </Form>
+
+                    <Form
                         {...PaymentSettingController.activate.form(mode)}
                         options={{ preserveScroll: true }}
                     >
@@ -282,7 +320,7 @@ function PayMongoModePanel({
                                     disabled={
                                         processing ||
                                         isActive ||
-                                        !account.configured
+                                        !account.webhookReady
                                     }
                                 >
                                     <KeyRound aria-hidden="true" />
@@ -301,8 +339,9 @@ function PayMongoModePanel({
                     </Form>
 
                     <p className="text-caption leading-relaxed text-muted-foreground">
-                        Credential replacement and environment activation
-                        require recent password confirmation.
+                        Credential replacement, webhook recovery, and
+                        environment activation require recent password
+                        confirmation where sensitive state changes occur.
                     </p>
                 </aside>
             </div>
@@ -373,11 +412,13 @@ export default function PaymentSettingsEdit({
                                     Test account
                                 </p>
                                 <p className="mt-2 text-sm font-medium">
-                                    {accounts.test.verifiedAt
-                                        ? 'Verified'
-                                        : accounts.test.configured
-                                          ? 'Needs verification'
-                                          : 'Not configured'}
+                                    {accounts.test.webhookReady
+                                        ? 'Ready'
+                                        : accounts.test.verifiedAt
+                                          ? 'Webhook required'
+                                          : accounts.test.configured
+                                            ? 'Needs verification'
+                                            : 'Not configured'}
                                 </p>
                             </div>
 
@@ -386,11 +427,13 @@ export default function PaymentSettingsEdit({
                                     Live account
                                 </p>
                                 <p className="mt-2 text-sm font-medium">
-                                    {accounts.live.verifiedAt
-                                        ? 'Verified'
-                                        : accounts.live.configured
-                                          ? 'Needs verification'
-                                          : 'Not configured'}
+                                    {accounts.live.webhookReady
+                                        ? 'Ready'
+                                        : accounts.live.verifiedAt
+                                          ? 'Webhook required'
+                                          : accounts.live.configured
+                                            ? 'Needs verification'
+                                            : 'Not configured'}
                                 </p>
                             </div>
                         </div>

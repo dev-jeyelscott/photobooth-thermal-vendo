@@ -8,8 +8,52 @@ use App\Services\Payments\TenantPayMongoAccountResolver;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use RuntimeException;
+
+/**
+ * Fake successful credential verification and webhook provisioning.
+ */
+function fakeSuccessfulPaymentSettingsProvisioning(): void
+{
+    Http::fake(function (HttpRequest $request) {
+        if (
+            $request->url()
+            === 'https://api.paymongo.com/v1/merchants/capabilities/payment_methods'
+        ) {
+            return Http::response([
+                'card',
+                'qrph',
+            ]);
+        }
+
+        if (
+            $request->url() === 'https://api.paymongo.com/v1/webhooks'
+            && $request->method() === 'POST'
+        ) {
+            $attributes = $request->data()['data']['attributes'] ?? [];
+
+            return Http::response([
+                'data' => [
+                    'id' => 'hook_'.Str::random(24),
+                    'type' => 'webhook',
+                    'attributes' => [
+                        'events' => $attributes['events'] ?? [],
+                        'livemode' => false,
+                        'secret_key' => 'whsk_'.Str::random(32),
+                        'status' => 'enabled',
+                        'url' => $attributes['url'] ?? '',
+                        'created_at' => now()->timestamp,
+                        'updated_at' => now()->timestamp,
+                    ],
+                ],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+}
 
 test('business owner sees masked payment settings without decrypted credentials', function () {
     $business = Business::factory()->create();
@@ -18,7 +62,7 @@ test('business owner sees masked payment settings without decrypted credentials'
     $secretKey = 'sk_test_example-secret-5678';
 
     $account = PayMongoAccount::factory()
-        ->verified()
+        ->webhookProvisioned()
         ->for($business)
         ->create([
             'public_key' => $publicKey,
@@ -43,6 +87,7 @@ test('business owner sees masked payment settings without decrypted credentials'
             ->component('admin/payment-settings/edit')
             ->where('businessName', $business->name)
             ->where('activeMode', 'test')
+            ->where('accounts.test.webhookReady', true)
             ->where(
                 'accounts.test.maskedPublicKey',
                 'pk_test_••••1234',
@@ -58,13 +103,15 @@ test('business owner sees masked payment settings without decrypted credentials'
 
     $response
         ->assertDontSee($publicKey)
-        ->assertDontSee($secretKey);
+        ->assertDontSee($secretKey)
+        ->assertDontSee((string) $account->webhook_secret);
 });
 
 test('non owner business member cannot access payment settings', function () {
     $business = Business::factory()->create();
 
     $member = User::factory()->create();
+
     $member
         ->forceFill(['business_id' => $business->id])
         ->save();
@@ -149,15 +196,11 @@ test('credential payload cannot choose another business', function () {
     expect(PayMongoAccount::query()->count())->toBe(0);
 });
 
-test('verified credentials are encrypted at rest and selected for the owner business', function () {
-    Http::preventStrayRequests();
+test('verified and provisioned credentials are encrypted at rest and selected for the owner business', function () {
+    config()->set('app.url', 'https://thermasnap.example.com');
 
-    Http::fake([
-        'https://api.paymongo.com/v1/merchants/capabilities/payment_methods' => Http::response([
-            'card',
-            'qrph',
-        ]),
-    ]);
+    Http::preventStrayRequests();
+    fakeSuccessfulPaymentSettingsProvisioning();
 
     $business = Business::factory()->create();
 
@@ -192,14 +235,24 @@ test('verified credentials are encrypted at rest and selected for the owner busi
         ->toBe($secretKey)
         ->and($account->verified_at)
         ->not->toBeNull()
+        ->and($account->webhook_provisioned_at)
+        ->not->toBeNull()
+        ->and($account->webhook_status)
+        ->toBe('enabled')
+        ->and($account->isReadyForPayments())
+        ->toBeTrue()
         ->and((string) $rawAccount->public_key)
         ->not->toBe($publicKey)
         ->and((string) $rawAccount->secret_key)
         ->not->toBe($secretKey)
+        ->and((string) $rawAccount->webhook_secret)
+        ->not->toBe($account->webhook_secret)
         ->and((string) $rawAccount->public_key)
         ->not->toContain('pk_test_')
         ->and((string) $rawAccount->secret_key)
-        ->not->toContain('sk_test_');
+        ->not->toContain('sk_test_')
+        ->and((string) $rawAccount->webhook_secret)
+        ->not->toContain('whsk_');
 
     $serialized = $account->toArray();
 
@@ -257,14 +310,11 @@ test('qrph capability is required before a credential version is stored', functi
         ->toBeNull();
 });
 
-test('credential replacement creates a new version and retains the old row', function () {
-    Http::preventStrayRequests();
+test('credential replacement retains historical account and webhook secret', function () {
+    config()->set('app.url', 'https://thermasnap.example.com');
 
-    Http::fake([
-        'https://api.paymongo.com/v1/merchants/capabilities/payment_methods' => Http::response([
-            'qrph',
-        ]),
-    ]);
+    Http::preventStrayRequests();
+    fakeSuccessfulPaymentSettingsProvisioning();
 
     $business = Business::factory()->create();
 
@@ -285,6 +335,8 @@ test('credential replacement creates a new version and retains the old row', fun
         ->assertRedirect(route('admin.payment-settings.edit'));
 
     $oldAccount = PayMongoAccount::query()->firstOrFail();
+    $oldWebhookId = $oldAccount->webhook_id;
+    $oldWebhookSecret = $oldAccount->webhook_secret;
 
     $this
         ->actingAs($business->owner)
@@ -306,14 +358,22 @@ test('credential replacement creates a new version and retains the old row', fun
         ->latest('id')
         ->firstOrFail();
 
+    $oldAccount->refresh();
+
     expect(PayMongoAccount::query()
         ->where('business_id', $business->id)
         ->count())
         ->toBe(2)
-        ->and($oldAccount->fresh()->superseded_at)
+        ->and($oldAccount->superseded_at)
         ->not->toBeNull()
+        ->and($oldAccount->webhook_id)
+        ->toBe($oldWebhookId)
+        ->and($oldAccount->webhook_secret)
+        ->toBe($oldWebhookSecret)
         ->and($newAccount->id)
         ->not->toBe($oldAccount->id)
+        ->and($newAccount->isReadyForPayments())
+        ->toBeTrue()
         ->and($business->fresh()->test_paymongo_account_id)
         ->toBe($newAccount->id);
 });
@@ -351,7 +411,7 @@ test('test connection revalidates the currently selected account', function () {
     expect($account->fresh()->verified_at)->not->toBeNull();
 });
 
-test('mode activation requires password confirmation and current provider verification', function () {
+test('mode activation requires password confirmation current verification and provisioned webhook', function () {
     Http::preventStrayRequests();
 
     Http::fake([
@@ -364,7 +424,7 @@ test('mode activation requires password confirmation and current provider verifi
 
     $liveAccount = PayMongoAccount::factory()
         ->live()
-        ->verified()
+        ->webhookProvisioned()
         ->for($business)
         ->create();
 
@@ -407,6 +467,7 @@ test('tenant account resolver never falls back to platform credentials', functio
         'services.paymongo.platform.public_key',
         'pk_live_platform-public',
     );
+
     config()->set(
         'services.paymongo.platform.secret_key',
         'sk_live_platform-secret',
@@ -419,7 +480,30 @@ test('tenant account resolver never falls back to platform credentials', functio
             ->resolve($business),
     )->toThrow(
         RuntimeException::class,
-        'The business does not have a verified PayMongo account for its active mode.',
+        'The business does not have a verified and webhook-provisioned PayMongo account for its active mode.',
+    );
+});
+
+test('tenant resolver rejects verified credentials without a provisioned webhook', function () {
+    $business = Business::factory()->create();
+
+    $account = PayMongoAccount::factory()
+        ->verified()
+        ->for($business)
+        ->create();
+
+    $business
+        ->forceFill([
+            'test_paymongo_account_id' => $account->id,
+        ])
+        ->save();
+
+    expect(
+        fn () => app(TenantPayMongoAccountResolver::class)
+            ->resolve($business->fresh()),
+    )->toThrow(
+        RuntimeException::class,
+        'The business does not have a verified and webhook-provisioned PayMongo account for its active mode.',
     );
 });
 
@@ -428,7 +512,7 @@ test('tenant resolver rejects a selected account owned by another business', fun
     $otherBusiness = Business::factory()->create();
 
     $otherAccount = PayMongoAccount::factory()
-        ->verified()
+        ->webhookProvisioned()
         ->for($otherBusiness)
         ->create();
 

@@ -10,9 +10,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * @property int $id
+ * @property string $public_id
  * @property int $business_id
  * @property PayMongoMode $mode
  * @property string $public_key
@@ -55,12 +57,42 @@ class PayMongoAccount extends Model
     use HasFactory;
 
     /**
-     * Use the canonical tenant PayMongo credential table defined by the
-     * payment migration roadmap and schema.
-     *
-     * @var string
+     * Generate the non-secret public routing UUID before persistence.
      */
-    protected $table = 'paymongo_accounts';
+    protected static function booted(): void
+    {
+        static::creating(function (PayMongoAccount $account): void {
+            if (
+                ! is_string($account->public_id)
+                || $account->public_id === ''
+            ) {
+                $account->public_id = (string) Str::uuid();
+            }
+        });
+    }
+
+    /**
+     * Use the opaque UUID for public route-model binding.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'public_id';
+    }
+
+    /**
+     * Determine whether this credential version may create new booth payments.
+     */
+    public function isReadyForPayments(): bool
+    {
+        return $this->verified_at !== null
+            && is_string($this->webhook_id)
+            && $this->webhook_id !== ''
+            && is_string($this->webhook_secret)
+            && $this->webhook_secret !== ''
+            && $this->webhook_provisioned_at !== null
+            && $this->webhook_status === 'enabled'
+            && $this->superseded_at === null;
+    }
 
     /**
      * Get the Business that owns this immutable credential version.

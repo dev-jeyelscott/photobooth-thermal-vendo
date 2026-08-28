@@ -7,6 +7,7 @@ use App\Http\Controllers\KioskController;
 use App\Http\Controllers\KioskRedirectController;
 use App\Http\Controllers\MayaWebhookController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PayMongoWebhookController;
 use App\Http\Controllers\PhotoboothSessionController;
 use App\Http\Controllers\PhotoTemplateController;
 use App\Http\Controllers\PreviewController;
@@ -114,6 +115,13 @@ Route::get(
     'gallery/{capturedMedia:public_token}/qr-code',
     [GalleryController::class, 'qrCode'],
 )->name('gallery.qr-code');
+
+Route::post(
+    'webhooks/paymongo/{paymongoAccount:public_id}',
+    PayMongoWebhookController::class,
+)
+    ->whereUuid('paymongoAccount')
+    ->name('webhooks.paymongo');
 
 Route::post(
     'webhooks/maya',

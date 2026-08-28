@@ -70,4 +70,18 @@ class PayMongoAccountFactory extends Factory
             'verified_at' => now(),
         ]);
     }
+
+    /**
+     * Mark the credential version as verified with an enabled webhook.
+     */
+    public function webhookProvisioned(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'verified_at' => now(),
+            'webhook_id' => 'hook_'.Str::random(24),
+            'webhook_secret' => 'whsk_'.Str::random(32),
+            'webhook_status' => 'enabled',
+            'webhook_provisioned_at' => now(),
+        ]);
+    }
 }
