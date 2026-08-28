@@ -106,8 +106,6 @@ class PhotoboothSession extends Model
 
     /**
      * Mark this session as expired if it is past due and not already in a terminal state.
-     *
-     * Returns whether the session is expired after this check.
      */
     public function expireIfPast(): bool
     {
@@ -125,6 +123,8 @@ class PhotoboothSession extends Model
     }
 
     /**
+     * Get the selected photo template.
+     *
      * @return BelongsTo<PhotoTemplate, $this>
      */
     public function photoTemplate(): BelongsTo
@@ -133,6 +133,8 @@ class PhotoboothSession extends Model
     }
 
     /**
+     * Get the selected sticker design.
+     *
      * @return BelongsTo<StickerDesign, $this>
      */
     public function stickerDesign(): BelongsTo
@@ -141,6 +143,8 @@ class PhotoboothSession extends Model
     }
 
     /**
+     * Get the redeemed voucher.
+     *
      * @return BelongsTo<Voucher, $this>
      */
     public function voucher(): BelongsTo
@@ -149,14 +153,28 @@ class PhotoboothSession extends Model
     }
 
     /**
+     * Get every payment attempt so failed and cancelled history remains auditable.
+     *
+     * @return HasMany<Payment, $this>
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Get the latest payment attempt for existing polling and monitoring consumers.
+     *
      * @return HasOne<Payment, $this>
      */
     public function payment(): HasOne
     {
-        return $this->hasOne(Payment::class);
+        return $this->hasOne(Payment::class)->latestOfMany();
     }
 
     /**
+     * Get captured media belonging to the session.
+     *
      * @return HasMany<CapturedMedia, $this>
      */
     public function capturedMedia(): HasMany
@@ -165,6 +183,8 @@ class PhotoboothSession extends Model
     }
 
     /**
+     * Get the session print job.
+     *
      * @return HasOne<PrintJob, $this>
      */
     public function printJob(): HasOne

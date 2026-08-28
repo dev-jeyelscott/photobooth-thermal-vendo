@@ -1,396 +1,519 @@
 <?php
 
-use App\Actions\Payments\CreateMayaCheckout;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Enums\PayMongoMode;
 use App\Enums\PhotoboothSessionStatus;
 use App\Models\ApplicationSetting;
+use App\Models\Business;
 use App\Models\Payment;
+use App\Models\PayMongoAccount;
 use App\Models\PhotoboothSession;
-use App\Models\User;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\Client\Request as HttpRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Route;
-use RuntimeException;
+
+/**
+ * Create and select a payment-ready Test PayMongo account for one Business.
+ */
+function thPay004ReadyAccount(
+    Business $business,
+    string $publicKey = 'pk_test_tenant-public-1234',
+    string $secretKey = 'sk_test_tenant-secret-5678',
+    string $webhookSecret = 'whsk_tenant-webhook-9012',
+): PayMongoAccount {
+    $account = PayMongoAccount::factory()
+        ->for($business)
+        ->webhookProvisioned()
+        ->create([
+            'public_key' => $publicKey,
+            'secret_key' => $secretKey,
+            'public_key_last4' => substr($publicKey, -4),
+            'secret_key_last4' => substr($secretKey, -4),
+            'webhook_secret' => $webhookSecret,
+        ]);
+
+    $business->forceFill([
+        'active_paymongo_mode' => PayMongoMode::Test,
+        'test_paymongo_account_id' => $account->id,
+    ])->save();
+
+    return $account;
+}
+
+/**
+ * Create a payable session with durable payment snapshots.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function thPay004Session(
+    Business $business,
+    array $overrides = [],
+): PhotoboothSession {
+    return PhotoboothSession::factory()
+        ->for($business)
+        ->create([
+            'price' => '150.01',
+            'currency' => 'PHP',
+            'required_capture_count' => 4,
+            'expires_at' => now()->addMinutes(15),
+            ...$overrides,
+        ]);
+}
+
+/**
+ * Fake a complete PayMongo QR Ph creation sequence.
+ */
+function thPay004FakeSuccessfulProviderFlow(
+    string $intentId = 'pi_test_123',
+    string $paymentMethodId = 'pm_test_123',
+    string $paymentId = 'pay_test_123',
+    string $clientKey = 'pi_test_123_client_private-value',
+    string $qrImageUrl = 'data:image/png;base64,cXJwaC10ZXN0',
+): void {
+    Http::fake(function (HttpRequest $request) use (
+        $intentId,
+        $paymentMethodId,
+        $paymentId,
+        $clientKey,
+        $qrImageUrl,
+    ) {
+        if ($request->url() === 'https://api.paymongo.com/v1/payment_intents') {
+            return Http::response([
+                'data' => [
+                    'id' => $intentId,
+                    'attributes' => [
+                        'client_key' => $clientKey,
+                        'status' => 'awaiting_payment_method',
+                        'payments' => [],
+                    ],
+                ],
+            ]);
+        }
+
+        if ($request->url() === 'https://api.paymongo.com/v1/payment_methods') {
+            return Http::response([
+                'data' => [
+                    'id' => $paymentMethodId,
+                    'attributes' => ['type' => 'qrph'],
+                ],
+            ]);
+        }
+
+        if (
+            $request->url()
+                === "https://api.paymongo.com/v1/payment_intents/{$intentId}/attach"
+        ) {
+            return Http::response([
+                'data' => [
+                    'id' => $intentId,
+                    'attributes' => [
+                        'status' => 'awaiting_next_action',
+                        'payments' => [['id' => $paymentId]],
+                        'next_action' => [
+                            'code' => ['image_url' => $qrImageUrl],
+                        ],
+                    ],
+                ],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+}
 
 beforeEach(function () {
-    ApplicationSetting::factory()->create([
-        'key' => 'session_price',
-        'value' => '150.00',
-    ]);
+    config()->set('services.paymongo.api_base_url', 'https://api.paymongo.com');
+    config()->set(
+        'services.paymongo.platform.public_key',
+        'pk_test_platform-do-not-use',
+    );
+    config()->set(
+        'services.paymongo.platform.secret_key',
+        'sk_test_platform-do-not-use',
+    );
+
+    Http::preventStrayRequests();
 });
 
-test('a maya checkout session is created and associated with the photobooth session', function () {
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-123',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
-        ], 200),
-    ]);
-
-    $session = PhotoboothSession::factory()->create();
-
-    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
-
-    $response->assertCreated();
-    $response->assertJson([
-        'checkoutUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
-    ]);
-
-    $payment = Payment::first();
-
-    expect($payment)->not->toBeNull()
-        ->and($payment->photobooth_session_id)->toBe($session->id)
-        ->and($payment->status)->toBe(PaymentStatus::Pending)
-        ->and($payment->maya_checkout_id)->toBe('checkout-123')
-        ->and((float) $payment->amount)->toBe(150.0);
+afterEach(function () {
+    Carbon::setTestNow();
 });
 
-test('a second active payment request for the same session is rejected', function () {
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-123',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
-        ], 200),
+test('tenant QR Ph payment returns safe QR metadata', function () {
+    $business = Business::factory()->create();
+    $account = thPay004ReadyAccount($business);
+    $session = thPay004Session($business);
+
+    thPay004FakeSuccessfulProviderFlow();
+
+    $response = $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    );
+
+    $response->assertCreated()
+        ->assertJsonPath('payment.amount', '150.01')
+        ->assertJsonPath('payment.currency', 'PHP')
+        ->assertJsonPath('payment.providerStatus', 'awaiting_next_action')
+        ->assertJsonPath(
+            'qrImageUrl',
+            'data:image/png;base64,cXJwaC10ZXN0',
+        );
+
+    $payment = Payment::firstOrFail();
+
+    expect($payment->paymongo_account_id)->toBe($account->id)
+        ->and($payment->method)->toBe(PaymentMethod::PayMongoQrPh)
+        ->and($payment->paymongo_payment_intent_id)->toBe('pi_test_123')
+        ->and($payment->paymongo_payment_method_id)->toBe('pm_test_123')
+        ->and($payment->paymongo_payment_id)->toBe('pay_test_123')
+        ->and($session->fresh()->status)
+        ->toBe(PhotoboothSessionStatus::PaymentPending);
+
+    expect($response->getContent())
+        ->not->toContain($account->secret_key)
+        ->not->toContain($account->public_key)
+        ->not->toContain((string) $account->webhook_secret)
+        ->not->toContain('pi_test_123_client_private-value')
+        ->not->toContain('sk_test_platform-do-not-use');
+});
+
+test('provider requests use exact tenant auth payload and idempotency', function () {
+    Carbon::setTestNow('2026-08-28 10:00:00');
+
+    $business = Business::factory()->create();
+    $account = thPay004ReadyAccount($business);
+    $session = thPay004Session($business, [
+        'expires_at' => now()->addSeconds(120),
     ]);
 
-    $session = PhotoboothSession::factory()->create();
-    Payment::factory()->for($session, 'photoboothSession')->create(['status' => PaymentStatus::Pending]);
+    thPay004FakeSuccessfulProviderFlow();
 
-    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertCreated();
 
-    $response->assertStatus(409);
+    $payment = Payment::firstOrFail();
+    $baseKey = $payment->provider_idempotency_key;
+
+    Http::assertSent(function (HttpRequest $request) use (
+        $account,
+        $baseKey,
+    ): bool {
+        $attributes = $request->data()['data']['attributes'] ?? [];
+
+        return $request->url()
+                === 'https://api.paymongo.com/v1/payment_intents'
+            && $request->hasHeader(
+                'Authorization',
+                'Basic '.base64_encode($account->secret_key.':'),
+            )
+            && $request->hasHeader(
+                'Idempotency-Key',
+                $baseKey.'-intent',
+            )
+            && ($attributes['amount'] ?? null) === 15001
+            && ($attributes['currency'] ?? null) === 'PHP'
+            && ($attributes['payment_method_allowed'] ?? null) === ['qrph'];
+    });
+
+    Http::assertSent(function (HttpRequest $request) use (
+        $account,
+        $baseKey,
+    ): bool {
+        $attributes = $request->data()['data']['attributes'] ?? [];
+
+        return $request->url()
+                === 'https://api.paymongo.com/v1/payment_methods'
+            && $request->hasHeader(
+                'Authorization',
+                'Basic '.base64_encode($account->public_key.':'),
+            )
+            && $request->hasHeader(
+                'Idempotency-Key',
+                $baseKey.'-method',
+            )
+            && ($attributes['type'] ?? null) === 'qrph'
+            && ($attributes['expiry_seconds'] ?? null) === 120;
+    });
+
+    Http::assertSent(function (HttpRequest $request) use (
+        $account,
+        $baseKey,
+    ): bool {
+        $attributes = $request->data()['data']['attributes'] ?? [];
+
+        return str_ends_with($request->url(), '/pi_test_123/attach')
+            && $request->hasHeader(
+                'Authorization',
+                'Basic '.base64_encode($account->public_key.':'),
+            )
+            && $request->hasHeader(
+                'Idempotency-Key',
+                $baseKey.'-attach',
+            )
+            && ($attributes['payment_method'] ?? null) === 'pm_test_123'
+            && ($attributes['client_key'] ?? null)
+                === 'pi_test_123_client_private-value';
+    });
+});
+
+test('unready tenant account never falls back to platform keys', function () {
+    $business = Business::factory()->create();
+
+    $account = PayMongoAccount::factory()
+        ->for($business)
+        ->verified()
+        ->create();
+
+    $business->forceFill([
+        'test_paymongo_account_id' => $account->id,
+    ])->save();
+
+    $session = thPay004Session($business);
+
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertStatus(409);
+
+    expect(Payment::count())->toBe(0);
+
+    Http::assertNothingSent();
+});
+
+test('decimal money is converted to integer centavos', function () {
+    $business = Business::factory()->create();
+    thPay004ReadyAccount($business);
+
+    $session = thPay004Session($business, ['price' => '1234.56']);
+
+    thPay004FakeSuccessfulProviderFlow();
+
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertCreated();
+
+    Http::assertSent(fn (HttpRequest $request): bool => $request->url() === 'https://api.paymongo.com/v1/payment_intents'
+        && ($request->data()['data']['attributes']['amount'] ?? null)
+            === 123456
+    );
+});
+
+test('QR expiry is bounded by session time and PayMongo maximum', function (
+    int $remaining,
+    int $expected,
+) {
+    Carbon::setTestNow('2026-08-28 10:00:00');
+
+    $business = Business::factory()->create();
+    thPay004ReadyAccount($business);
+
+    $session = thPay004Session($business, [
+        'expires_at' => now()->addSeconds($remaining),
+    ]);
+
+    thPay004FakeSuccessfulProviderFlow();
+
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertCreated();
+
+    Http::assertSent(fn (HttpRequest $request): bool => $request->url() === 'https://api.paymongo.com/v1/payment_methods'
+        && ($request->data()['data']['attributes']['expiry_seconds'] ?? null)
+            === $expected
+    );
+})->with([
+    'local session wins' => [120, 120],
+    'PayMongo maximum wins' => [12000, 9000],
+]);
+
+test('less than sixty seconds rejects before provider creation', function () {
+    Carbon::setTestNow('2026-08-28 10:00:00');
+
+    $business = Business::factory()->create();
+    thPay004ReadyAccount($business);
+
+    $session = thPay004Session($business, [
+        'expires_at' => now()->addSeconds(59),
+    ]);
+
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertStatus(409);
+
+    expect(Payment::count())->toBe(0);
+
+    Http::assertNothingSent();
+});
+
+test('duplicate pending payment is rejected before remote creation', function () {
+    $business = Business::factory()->create();
+    $account = thPay004ReadyAccount($business);
+    $session = thPay004Session($business, [
+        'status' => PhotoboothSessionStatus::PaymentPending,
+    ]);
+
+    Payment::factory()
+        ->for($session, 'photoboothSession')
+        ->payMongoQrPh($account)
+        ->create();
+
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertStatus(409);
+
     expect(Payment::count())->toBe(1);
+
+    Http::assertNothingSent();
 });
 
-test('a new payment request is allowed once the prior payment has failed', function () {
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-456',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-456',
-        ], 200),
-    ]);
+test('database enforces one pending attempt for a session', function () {
+    $business = Business::factory()->create();
+    $account = thPay004ReadyAccount($business);
+    $session = thPay004Session($business);
 
-    $session = PhotoboothSession::factory()->create();
-    Payment::factory()->for($session, 'photoboothSession')->create(['status' => PaymentStatus::Failed]);
+    Payment::factory()
+        ->for($session, 'photoboothSession')
+        ->payMongoQrPh($account)
+        ->create();
 
-    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
-
-    $response->assertCreated();
-    expect(Payment::count())->toBe(2);
+    expect(fn () => Payment::factory()
+        ->for($session, 'photoboothSession')
+        ->payMongoQrPh($account)
+        ->create())
+        ->toThrow(QueryException::class);
 });
 
-test('a retried checkout after a failed payment charges and keeps the original session snapshot even after settings change', function () {
-    config(['photobooth.capture_shot_count' => 4]);
-
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::sequence()
-            ->push([
-                'checkoutId' => 'checkout-initial',
-                'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-initial',
-            ], 200)
-            ->push([
-                'checkoutId' => 'checkout-retry',
-                'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-retry',
-            ], 200),
-    ]);
-
-    $session = PhotoboothSession::factory()->create();
-
-    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
-
-    Payment::first()->update(['status' => PaymentStatus::Failed]);
-
-    ApplicationSetting::where('key', 'session_price')->update(['value' => '999.00']);
-    config(['photobooth.capture_shot_count' => 10]);
-
-    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
-
-    $response->assertCreated();
-
-    $retryPayment = Payment::where('maya_checkout_id', 'checkout-retry')->firstOrFail();
-
-    expect((float) $retryPayment->amount)->toBe(150.0)
-        ->and((float) $session->fresh()->price)->toBe(150.0)
-        ->and($session->fresh()->required_capture_count)->toBe(4);
-});
-
-test('a payment request for an already paid session is rejected without creating a payment', function () {
-    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Paid]);
-
-    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
-
-    $response->assertStatus(409);
-    expect(Payment::count())->toBe(0)
-        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Paid);
-});
-
-test('a payment request for a completed session is rejected without creating a payment', function () {
-    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::Completed]);
-
-    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
-
-    $response->assertStatus(409);
-    expect(Payment::count())->toBe(0)
-        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::Completed);
-});
-
-test('a maya checkout snapshots the price, currency, payment method, and required capture count on the session', function () {
-    config(['photobooth.capture_shot_count' => 4]);
+test('definitive provider failure terminalizes attempt for retry', function () {
+    $business = Business::factory()->create();
+    thPay004ReadyAccount($business);
+    $session = thPay004Session($business);
 
     Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-123',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
-        ], 200),
+        'https://api.paymongo.com/v1/payment_intents' => Http::response([], 422),
     ]);
 
-    $session = PhotoboothSession::factory()->create();
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertStatus(502);
 
-    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+    $payment = Payment::firstOrFail();
 
-    $session->refresh();
+    expect($payment->status)->toBe(PaymentStatus::Failed)
+        ->and($payment->provider_status)->toBe('creation_failed')
+        ->and($payment->failed_at)->not->toBeNull();
 
-    expect((float) $session->price)->toBe(150.0)
-        ->and($session->currency)->toBe('PHP')
-        ->and($session->payment_method)->toBe(PaymentMethod::Maya)
-        ->and($session->required_capture_count)->toBe(4);
+    Http::assertSentCount(1);
 });
 
-test('a maya checkout sets the payment method on a session that already has creation-time snapshots', function () {
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-123',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
-        ], 200),
-    ]);
+test('exhausted transient failure remains reconcilable and blocks duplicates', function () {
+    $business = Business::factory()->create();
+    thPay004ReadyAccount($business);
+    $session = thPay004Session($business);
 
-    $session = PhotoboothSession::factory()->create([
-        'price' => '150.00',
-        'currency' => 'PHP',
-        'required_capture_count' => 3,
-        'payment_method' => null,
-    ]);
+    $attempts = 0;
 
-    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
+    Http::fake(function (HttpRequest $request) use (&$attempts) {
+        if ($request->url() === 'https://api.paymongo.com/v1/payment_intents') {
+            $attempts++;
 
-    $session->refresh();
+            return Http::response([], 503);
+        }
 
-    expect($session->payment_method)->toBe(PaymentMethod::Maya)
-        ->and((float) $session->price)->toBe(150.0)
-        ->and($session->currency)->toBe('PHP')
-        ->and($session->required_capture_count)->toBe(3);
-});
+        return Http::response([], 404);
+    });
 
-test('a maya checkout snapshots the currency application setting rather than a hardcoded value', function () {
-    ApplicationSetting::updateOrCreate(['key' => 'currency'], ['value' => 'USD']);
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertStatus(503);
 
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-123',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
-        ], 200),
-    ]);
+    $payment = Payment::firstOrFail();
 
-    $session = PhotoboothSession::factory()->create();
+    expect($attempts)->toBe(3)
+        ->and($payment->status)->toBe(PaymentStatus::Pending)
+        ->and($payment->provider_status)->toBe('provider_uncertain');
 
-    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
-
-    expect($session->fresh()->currency)->toBe('USD');
-
-    Http::assertSent(fn ($request) => $request['totalAmount']['currency'] === 'USD');
-});
-
-test('changing the session price setting after checkout does not alter an already snapshotted session', function () {
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-123',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-123',
-        ], 200),
-    ]);
-
-    $session = PhotoboothSession::factory()->create();
-
-    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
-
-    ApplicationSetting::where('key', 'session_price')->update(['value' => '999.00']);
-
-    expect((float) $session->fresh()->price)->toBe(150.0);
-});
-
-test('a real session snapshots price, currency, and capture count at creation and keeps them when settings change before checkout', function () {
-    config(['photobooth.capture_shot_count' => 4]);
-
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-early-snapshot',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-early-snapshot',
-        ], 200),
-    ]);
-
-    $sessionToken = $this->postJson(businessRoute('kiosk.sessions.store'))->json('sessionToken');
-    $session = PhotoboothSession::where('session_token', $sessionToken)->firstOrFail();
-
-    expect((float) $session->price)->toBe(150.0)
-        ->and($session->currency)->toBe('PHP')
-        ->and($session->required_capture_count)->toBe(4);
-
-    ApplicationSetting::where('key', 'session_price')->update(['value' => '999.00']);
-    ApplicationSetting::updateOrCreate(['key' => 'currency'], ['value' => 'USD']);
-    config(['photobooth.capture_shot_count' => 10]);
-
-    $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token))->assertCreated();
-
-    $session->refresh();
-
-    expect((float) $session->price)->toBe(150.0)
-        ->and($session->currency)->toBe('PHP')
-        ->and($session->required_capture_count)->toBe(4);
-});
-
-test('no maya secret key appears in the checkout response', function () {
-    config(['services.maya.secret_key' => 'sk_super_secret_value']);
-
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-789',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-789',
-        ], 200),
-    ]);
-
-    $session = PhotoboothSession::factory()->create();
-
-    $response = $this->postJson(kioskSessionRoute('kiosk.sessions.payments.store', $session->session_token));
-
-    $response->assertCreated();
-    $response->assertDontSee('sk_super_secret_value');
-});
-
-test('a concurrent duplicate checkout guard tripped mid-transaction leaves no partial payment or session snapshot', function () {
-    Http::fake([
-        '*/checkout/v1/checkouts' => Http::response([
-            'checkoutId' => 'checkout-race',
-            'redirectUrl' => 'https://pg-sandbox.paymaya.com/checkout/checkout-race',
-        ], 200),
-    ]);
-
-    $session = PhotoboothSession::factory()->create();
-
-    // Simulates a second concurrent checkout request landing after the
-    // Maya API call has already succeeded but before the local write commits.
-    Payment::factory()->for($session, 'photoboothSession')->create(['status' => PaymentStatus::Pending]);
-
-    expect(fn () => app(CreateMayaCheckout::class)->handle($session))
-        ->toThrow(RuntimeException::class);
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertStatus(409);
 
     expect(Payment::count())->toBe(1)
-        ->and(Payment::first()->maya_checkout_id)->not->toBe('checkout-race')
-        ->and($session->fresh()->price)->toBeNull()
-        ->and($session->fresh()->payment_method)->toBeNull();
+        ->and($attempts)->toBe(3);
 });
 
-test('a duplicate maya_checkout_id is rejected at the database layer', function () {
-    Payment::factory()->create(['maya_checkout_id' => 'checkout-duplicate']);
+test('retry preserves original session snapshots', function () {
+    $business = Business::factory()->create();
+    thPay004ReadyAccount($business);
 
-    expect(fn () => Payment::factory()->create(['maya_checkout_id' => 'checkout-duplicate']))
-        ->toThrow(QueryException::class);
-});
-
-test('a duplicate maya_payment_id is rejected at the database layer', function () {
-    Payment::factory()->create(['maya_payment_id' => 'payment-duplicate']);
-
-    expect(fn () => Payment::factory()->create(['maya_payment_id' => 'payment-duplicate']))
-        ->toThrow(QueryException::class);
-});
-
-test('multiple pending payments without a maya reference can coexist', function () {
-    Payment::factory()->count(2)->create([
-        'maya_checkout_id' => null,
-        'maya_payment_id' => null,
+    $session = thPay004Session($business, [
+        'price' => '150.01',
+        'currency' => 'PHP',
+        'required_capture_count' => 4,
     ]);
 
-    expect(Payment::count())->toBe(2);
-});
-
-test('admin payment index requires authentication', function () {
-    $this->get(route('admin.payments.index'))->assertRedirect(route('login'));
-});
-
-test('admin can view a paginated list of payments with evidence fields', function () {
-    $user = User::factory()->create();
-    $session = PhotoboothSession::factory()->create();
-    $payment = Payment::factory()->for($session, 'photoboothSession')->success()->create([
-        'maya_payment_id' => 'payment-visible',
-        'maya_checkout_id' => 'checkout-visible',
+    Http::fake([
+        'https://api.paymongo.com/v1/payment_intents' => Http::response([], 422),
     ]);
 
-    $response = $this->actingAs($user)->get(route('admin.payments.index'));
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertStatus(502);
 
-    $response->assertOk();
-    $response->assertInertia(fn ($page) => $page
-        ->component('admin/payments/index')
-        ->where('payments.data.0.sessionToken', $session->session_token)
-        ->where('payments.data.0.method', $payment->method->value)
-        ->where('payments.data.0.status', PaymentStatus::Success->value)
-        ->where('payments.data.0.mayaPaymentId', 'payment-visible')
-        ->where('payments.data.0.mayaCheckoutId', 'checkout-visible')
-        ->where('payments.data.0.amount', $payment->amount)
+    ApplicationSetting::updateOrCreate(
+        ['key' => 'session_price'],
+        ['value' => '999.99'],
     );
-});
 
-test('admin can filter payments by status', function () {
-    $user = User::factory()->create();
-    $matching = Payment::factory()->success()->create();
-    Payment::factory()->create(['status' => PaymentStatus::Pending]);
-
-    $response = $this->actingAs($user)->get(route('admin.payments.index', ['status' => 'success']));
-
-    $response->assertOk();
-    $response->assertInertia(fn ($page) => $page
-        ->component('admin/payments/index')
-        ->has('payments.data', 1)
-        ->where('payments.data.0.mayaCheckoutId', $matching->maya_checkout_id)
+    ApplicationSetting::updateOrCreate(
+        ['key' => 'currency'],
+        ['value' => 'USD'],
     );
-});
 
-test('admin can filter payments by date range', function () {
-    $user = User::factory()->create();
-    $inRange = Payment::factory()->create(['created_at' => now()->subDays(1)]);
-    Payment::factory()->create(['created_at' => now()->subDays(10)]);
+    config()->set('photobooth.capture_shot_count', 10);
 
-    $response = $this->actingAs($user)->get(route('admin.payments.index', [
-        'from' => now()->subDays(2)->toDateString(),
-        'to' => now()->toDateString(),
-    ]));
-
-    $response->assertOk();
-    $response->assertInertia(fn ($page) => $page
-        ->component('admin/payments/index')
-        ->has('payments.data', 1)
-        ->where('payments.data.0.mayaCheckoutId', $inRange->maya_checkout_id)
+    thPay004FakeSuccessfulProviderFlow(
+        intentId: 'pi_retry',
+        paymentMethodId: 'pm_retry',
+        paymentId: 'pay_retry',
+        clientKey: 'pi_retry_client_value',
     );
+
+    $this->postJson(
+        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+    )->assertCreated();
+
+    $payments = Payment::orderBy('id')->get();
+    $freshSession = $session->fresh();
+
+    expect($payments)->toHaveCount(2)
+        ->and($payments[0]->status)->toBe(PaymentStatus::Failed)
+        ->and($payments[1]->amount)->toBe('150.01')
+        ->and($payments[1]->currency)->toBe('PHP')
+        ->and($freshSession->price)->toBe('150.01')
+        ->and($freshSession->currency)->toBe('PHP')
+        ->and($freshSession->required_capture_count)->toBe(4);
 });
 
-test('the admin payment response never exposes maya secret credentials', function () {
-    config(['services.maya.secret_key' => 'sk_super_secret_value']);
+test('historical attempts remain auditable and latest attempt is exposed', function () {
+    $business = Business::factory()->create();
+    $account = thPay004ReadyAccount($business);
+    $session = thPay004Session($business);
 
-    $user = User::factory()->create();
-    Payment::factory()->success()->create();
+    $failed = Payment::factory()
+        ->for($session, 'photoboothSession')
+        ->create([
+            'status' => PaymentStatus::Failed,
+            'created_at' => now()->subMinute(),
+        ]);
 
-    $response = $this->actingAs($user)->get(route('admin.payments.index'));
+    $pending = Payment::factory()
+        ->for($session, 'photoboothSession')
+        ->payMongoQrPh($account)
+        ->create();
 
-    $response->assertOk();
-    $response->assertDontSee('sk_super_secret_value');
-});
-
-test('no admin route exists that can mutate a payment status', function () {
-    $adminPaymentRoutes = collect(Route::getRoutes())
-        ->filter(fn ($route) => str_starts_with($route->getName() ?? '', 'admin.payments.'));
-
-    expect($adminPaymentRoutes)->toHaveCount(1);
-
-    $indexRoute = $adminPaymentRoutes->first();
-
-    expect($indexRoute->getName())->toBe('admin.payments.index')
-        ->and($indexRoute->methods())->toEqualCanonicalizing(['GET', 'HEAD']);
+    expect($session->payments()->count())->toBe(2)
+        ->and($session->payment()->firstOrFail()->id)->toBe($pending->id)
+        ->and($session->payments()->pluck('id')->all())
+        ->toContain($failed->id, $pending->id);
 });
