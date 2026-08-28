@@ -174,11 +174,26 @@ docker compose -f compose.production.yaml exec app php artisan queue:failed
 
 ## Laravel scheduler
 
-The `scheduler` service runs:
+The required scheduler mechanism is the standard Laravel cron entry, run every
+minute:
 
-```bash
-php artisan schedule:work
+```cron
+* * * * * cd /srv/photobooth && php artisan schedule:run >> /dev/null 2>&1
 ```
+
+When running the application inside the Docker Compose stack, the equivalent
+invocation is:
+
+```cron
+* * * * * docker compose -f compose.production.yaml exec -T app php artisan schedule:run >> /dev/null 2>&1
+```
+
+The bundled `scheduler` service runs `php artisan schedule:work` as a
+long-running convenience process that internally invokes `schedule:run` every
+minute on the same schedule; it satisfies the same requirement without a host
+crontab when the Compose stack is kept running, but a host Cron entry
+(as above) or an equivalent supervised per-minute trigger for
+`schedule:run` remains the documented production requirement.
 
 It owns the repository's current scheduled tasks:
 
@@ -187,8 +202,6 @@ It owns the repository's current scheduled tasks:
 - `payments:reconcile-stale-maya` every five minutes. It flags Maya payments
   pending for more than 15 minutes for operator review; it never marks a
   payment successful because only a verified Maya webhook is authoritative.
-
-No host Laravel Cron entry is required.
 
 Inspect it with:
 
