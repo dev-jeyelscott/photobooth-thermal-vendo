@@ -14,7 +14,7 @@ class KioskRedirectController extends Controller
     public function __invoke(Request $request): RedirectResponse
     {
         $user = $request->user();
-        $business = $user?->business ?? $user?->ownedBusiness;
+        $business = $user->business ?? $user?->ownedBusiness;
 
         if ($business === null) {
             $businesses = Business::query()
