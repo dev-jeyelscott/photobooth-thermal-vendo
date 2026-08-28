@@ -902,6 +902,30 @@ describe('Kiosk', () => {
         const galleryQr = await screen.findByTestId('kiosk-gallery-qr-code');
 
         expect(galleryQr.getAttribute('src')).toContain('gallery-token-xyz');
+
+        expect(
+            window.sessionStorage.getItem('photobooth.session_token'),
+        ).toBe(SESSION_TOKEN);
+
+        // Phase 8: starting a new session from the completed gallery screen
+        // must clear every trace of the finished session (session token,
+        // gallery token, sticker/voucher selections) before the next
+        // customer's session begins.
+        await user.click(
+            screen.getByRole('button', { name: 'Start a New Session' }),
+        );
+
+        expect(screen.getByTestId('kiosk-welcome')).toBeInTheDocument();
+        expect(
+            window.sessionStorage.getItem('photobooth.session_token'),
+        ).toBeNull();
+        expect(
+            screen.queryByTestId('kiosk-gallery-qr-code'),
+        ).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
+
+        expect(screen.getByTestId('kiosk-voucher-input')).toHaveValue('');
     });
 
     it('resets session state when returning to the welcome screen (session reset)', async () => {
