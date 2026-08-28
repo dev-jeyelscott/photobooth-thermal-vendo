@@ -64,6 +64,19 @@ Populate all placeholders through the host secret-management process.
 
 `DB_PASSWORD` in `app.env` must equal `APP_DB_PASSWORD` in `postgres.env`.
 
+`photobooth.env.example` is the production environment reference. It sets the
+application to `APP_ENV=production`, uses an HTTPS `APP_URL`, and configures
+the existing `pgsql` connection with `DB_HOST`, `DB_PORT`, `DB_DATABASE`,
+`DB_USERNAME`, `DB_PASSWORD`, and `DB_SSLMODE`. Its `DB_SSLMODE=prefer` value
+is appropriate for the private Docker network; use `require` when a managed
+PostgreSQL provider requires TLS. It also selects the existing database queue,
+database cache and sessions, `stderr` logging, and Laravel's durable `public`
+filesystem disk.
+
+The `MAYA_BASE_URL`, `MAYA_PUBLIC_KEY`, `MAYA_SECRET_KEY`, and
+`MAYA_WEBHOOK_SECRET` values are environment-managed only. Never store or
+expose them through an admin-editable application setting.
+
 Generate an application key without writing it into an image:
 
 ```bash
