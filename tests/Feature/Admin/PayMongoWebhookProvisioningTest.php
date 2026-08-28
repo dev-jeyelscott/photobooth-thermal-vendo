@@ -733,13 +733,15 @@ test('webhook callback uses the opaque public id and rejects unsigned requests w
         ->assertDontSee($account->secret_key)
         ->assertDontSee((string) $account->webhook_secret);
 
-    expect(route('webhooks.paymongo', [
+    $webhookUrl = route('webhooks.paymongo', [
         'paymongoAccount' => $account,
-    ]))
-        ->toContain(
-            '/webhooks/paymongo/'.$account->public_id,
-        )
-        ->not->toContain('/'.$account->id);
+    ]);
+
+    $webhookPath = parse_url($webhookUrl, PHP_URL_PATH);
+
+    expect($webhookPath)
+        ->toBe('/webhooks/paymongo/'.$account->public_id)
+        ->not->toBe('/webhooks/paymongo/'.$account->id);
 });
 
 test('structured webhook logs contain operational identifiers but no secrets', function () {
