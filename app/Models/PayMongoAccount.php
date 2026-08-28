@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 
 /**
  * @property int $id
- * @property string $public_id
+ * @property string|null $public_id
  * @property int $business_id
  * @property PayMongoMode $mode
  * @property string $public_key
