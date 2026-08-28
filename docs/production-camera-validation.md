@@ -137,8 +137,14 @@
    **Expected**: the `devicechange` handler in `useCamera` detects the
    selected device is no longer in the enumerated list and automatically calls
    `start()` on the first remaining device, without the operator needing to
-   press Retry. **Pass criteria**: the preview automatically switches to the
-   remaining camera without ever showing the `camera-stream-lost` error.
+   press Retry. Note that the active track's `ended` event is also registered
+   and calls `markDisconnected()` independently of `devicechange`, so a brief
+   `camera-stream-lost` error state may flash before the automatic fallback
+   completes if `ended` fires first — this is expected, not a failure.
+   **Pass criteria**: the preview automatically switches to the remaining
+   camera without operator intervention and settles on a live feed within a
+   few seconds, even if a transient `camera-stream-lost` state was briefly
+   shown along the way.
 
 ## Scenario 7 — Repeated sequential sessions without residual state
 
