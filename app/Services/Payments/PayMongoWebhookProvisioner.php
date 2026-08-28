@@ -6,10 +6,12 @@ use App\Enums\PayMongoMode;
 use App\Models\PayMongoAccount;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 class PayMongoWebhookProvisioner
 {
@@ -271,6 +273,17 @@ class PayMongoWebhookProvisioner
             ->withBasicAuth($account->secret_key, '')
             ->acceptJson()
             ->asJson()
+            ->retry(
+                [100, 200],
+                0,
+                function (Throwable $exception): bool {
+                    return $exception instanceof ConnectionException
+                        || ($exception instanceof RequestException
+                            && $exception->response->serverError());
+                },
+                throw: false,
+            )
+            ->connectTimeout(5)
             ->timeout(10);
     }
 

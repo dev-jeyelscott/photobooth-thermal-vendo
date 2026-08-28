@@ -171,6 +171,76 @@ test('replacement provisions the exact required webhook before selecting the acc
     });
 });
 
+test('webhook provisioning retries a transient PayMongo server failure', function () {
+    config()->set('app.url', 'https://thermasnap.example.com');
+
+    Http::preventStrayRequests();
+
+    $webhookAttempts = 0;
+
+    Http::fake(function (HttpRequest $request) use (&$webhookAttempts) {
+        if (
+            $request->url()
+            === 'https://api.paymongo.com/v1/merchants/capabilities/payment_methods'
+        ) {
+            return Http::response(['qrph']);
+        }
+
+        if (
+            $request->url() === 'https://api.paymongo.com/v1/webhooks'
+            && $request->method() === 'POST'
+        ) {
+            $webhookAttempts++;
+
+            if ($webhookAttempts === 1) {
+                return Http::response([], 503);
+            }
+
+            $attributes = $request->data()['data']['attributes'];
+
+            return Http::response(
+                fakePayMongoWebhookResource(
+                    'hook_retry_123',
+                    $attributes['url'],
+                    $attributes['events'],
+                    false,
+                    'enabled',
+                    'whsk_retry_1234',
+                ),
+            );
+        }
+
+        return Http::response([], 404);
+    });
+
+    $business = Business::factory()->create();
+
+    $this
+        ->actingAs($business->owner)
+        ->withSession([
+            'auth.password_confirmed_at' => time(),
+        ])
+        ->put(
+            route('admin.payment-settings.replace', [
+                'mode' => 'test',
+            ]),
+            [
+                'public_key' => 'pk_test_retry-public-1234',
+                'secret_key' => 'sk_test_retry-secret-5678',
+            ],
+        )
+        ->assertRedirect(route('admin.payment-settings.edit'));
+
+    $account = PayMongoAccount::query()->firstOrFail();
+
+    expect($webhookAttempts)
+        ->toBe(2)
+        ->and($account->webhook_id)
+        ->toBe('hook_retry_123')
+        ->and($account->isReadyForPayments())
+        ->toBeTrue();
+});
+
 test('test and live credentials receive isolated webhook resources', function () {
     config()->set('app.url', 'https://thermasnap.example.com');
 
