@@ -86,16 +86,13 @@ export default function Login({ status, canResetPassword }: Props) {
                                                     )}
 
                                                 {hasAuthenticationErrors && (
-                                                    <div
-                                                        role="alert"
-                                                        className="mb-6 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive"
-                                                    >
+                                                    <div className="mb-6 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive">
                                                         <AlertCircle
                                                             aria-hidden="true"
                                                             className="mt-0.5 size-5 shrink-0"
                                                         />
 
-                                                        <p>
+                                                        <p role="alert">
                                                             We couldn&apos;t
                                                             sign you in. Please
                                                             check your email or
@@ -207,7 +204,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                                         data-test="login-button"
                                                     >
                                                         {processing && (
-                                                            <Spinner />
+                                                            <Spinner aria-hidden="true" />
                                                         )}
                                                         Log in
                                                     </Button>

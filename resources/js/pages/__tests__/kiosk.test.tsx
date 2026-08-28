@@ -5,8 +5,17 @@ import type { PhotoTemplateOption } from '@/hooks/use-photobooth-session';
 import type { StickerDesignOption } from '@/hooks/use-photobooth-session';
 import Kiosk from '@/pages/kiosk';
 
+const KIOSK_BUSINESS_SLUG = 'acme-photo';
+const KIOSK_BASE_PATH = `/b/${KIOSK_BUSINESS_SLUG}`;
+const KIOSK_STORAGE_KEY = `photobooth.session_token.${KIOSK_BUSINESS_SLUG}`;
+
 vi.mock('@inertiajs/react', () => ({
     Head: () => null,
+    usePage: () => ({
+        props: {
+            businessSlug: 'acme-photo',
+        },
+    }),
 }));
 
 vi.mock('@/components/capture-step', () => ({
@@ -71,7 +80,7 @@ const jsonResponse = (status: number, body: unknown) => ({
 
 /**
  * Creates a deterministic fetch mock that dispatches requests to matching
- * method and pathname handlers.
+ * method and Business-scoped pathname handlers.
  */
 const createFetchMock = (routes: Route[]) =>
     vi.fn(async (input: string | URL, init?: RequestInit) => {
@@ -110,7 +119,7 @@ const processingState = {
 const baseRoutes: Route[] = [
     {
         method: 'post',
-        pattern: /^\/kiosk\/sessions$/,
+        pattern: /^\/b\/acme-photo\/kiosk\/sessions$/,
         handler: () => ({
             status: 200,
             body: {
@@ -127,7 +136,7 @@ const baseRoutes: Route[] = [
     },
     {
         method: 'post',
-        pattern: /^\/kiosk\/sessions\/[^/]+\/voucher$/,
+        pattern: /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+\/voucher$/,
         handler: () => ({
             status: 200,
             body: { status: 'template_selection' },
@@ -135,7 +144,7 @@ const baseRoutes: Route[] = [
     },
     {
         method: 'post',
-        pattern: /^\/kiosk\/sessions\/[^/]+\/payments$/,
+        pattern: /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+\/payments$/,
         handler: () => ({
             status: 200,
             body: {
@@ -146,7 +155,7 @@ const baseRoutes: Route[] = [
     },
     {
         method: 'get',
-        pattern: /^\/kiosk\/sessions\/[^/]+$/,
+        pattern: /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+$/,
         handler: () => ({
             status: 200,
             body: {
@@ -163,32 +172,47 @@ const baseRoutes: Route[] = [
     },
     {
         method: 'get',
-        pattern: /^\/templates$/,
-        handler: () => ({ status: 200, body: { templates: [template] } }),
+        pattern: /^\/b\/acme-photo\/templates$/,
+        handler: () => ({
+            status: 200,
+            body: { templates: [template] },
+        }),
     },
     {
         method: 'post',
-        pattern: /^\/kiosk\/sessions\/[^/]+\/template$/,
-        handler: () => ({ status: 200, body: { status: 'capture' } }),
+        pattern: /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+\/template$/,
+        handler: () => ({
+            status: 200,
+            body: { status: 'capture' },
+        }),
     },
     {
         method: 'get',
-        pattern: /^\/stickers$/,
-        handler: () => ({ status: 200, body: { stickers: [sticker] } }),
+        pattern: /^\/b\/acme-photo\/stickers$/,
+        handler: () => ({
+            status: 200,
+            body: { stickers: [sticker] },
+        }),
     },
     {
         method: 'post',
-        pattern: /^\/kiosk\/sessions\/[^/]+\/sticker$/,
-        handler: () => ({ status: 200, body: { status: 'preview' } }),
+        pattern: /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+\/sticker$/,
+        handler: () => ({
+            status: 200,
+            body: { status: 'preview' },
+        }),
     },
     {
         method: 'post',
-        pattern: /^\/kiosk\/sessions\/[^/]+\/preview$/,
-        handler: () => ({ status: 200, body: { status: 'processing' } }),
+        pattern: /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+\/preview$/,
+        handler: () => ({
+            status: 200,
+            body: { status: 'processing' },
+        }),
     },
     {
         method: 'post',
-        pattern: /^\/kiosk\/sessions\/[^/]+\/color-output$/,
+        pattern: /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+\/color-output$/,
         handler: () => {
             processingState.galleryToken = 'gallery-token-xyz';
 
@@ -229,14 +253,20 @@ describe('Kiosk', () => {
 
         await waitFor(() => {
             expect(global.fetch).toHaveBeenCalledWith(
-                '/kiosk/sessions',
+                `${KIOSK_BASE_PATH}/kiosk/sessions`,
                 expect.objectContaining({ method: 'post' }),
             );
         });
+
+        expect(window.sessionStorage.getItem(KIOSK_STORAGE_KEY)).toBe(
+            SESSION_TOKEN,
+        );
     });
 
     it('waits for payment and advances once paid (payment waiting state)', async () => {
-        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        const user = userEvent.setup({
+            advanceTimers: vi.advanceTimersByTime,
+        });
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
         paymentStatusState.status = 'pending';
@@ -258,8 +288,6 @@ describe('Kiosk', () => {
             'href',
             'https://pay.example.test/checkout',
         );
-        // The checkout action must use the large touch-target Button
-        // treatment, not a plain text link, to stay touch-first.
         expect(checkoutLink).toHaveAttribute('data-slot', 'button');
         expect(checkoutLink.className).toContain('min-h-12');
 
@@ -317,7 +345,9 @@ describe('Kiosk', () => {
     );
 
     it('ends an expired payment session and returns the customer to start', async () => {
-        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        const user = userEvent.setup({
+            advanceTimers: vi.advanceTimersByTime,
+        });
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
         paymentStatusState.status = 'expired';
@@ -342,13 +372,13 @@ describe('Kiosk', () => {
         await user.click(screen.getByRole('button', { name: 'Back to Start' }));
 
         expect(screen.getByTestId('kiosk-welcome')).toBeInTheDocument();
-        expect(
-            window.sessionStorage.getItem('photobooth.session_token'),
-        ).toBeNull();
+        expect(window.sessionStorage.getItem(KIOSK_STORAGE_KEY)).toBeNull();
     });
 
     it('recovers from a transient network failure during payment polling without re-issuing the checkout', async () => {
-        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        const user = userEvent.setup({
+            advanceTimers: vi.advanceTimersByTime,
+        });
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
         paymentStatusState.status = 'pending';
@@ -363,7 +393,9 @@ describe('Kiosk', () => {
 
                 if (
                     method === 'post' &&
-                    /^\/kiosk\/sessions\/[^/]+\/payments$/.test(pathname)
+                    /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+\/payments$/.test(
+                        pathname,
+                    )
                 ) {
                     paymentPostCalls.push(pathname);
 
@@ -375,12 +407,10 @@ describe('Kiosk', () => {
 
                 if (
                     method === 'get' &&
-                    /^\/kiosk\/sessions\/[^/]+$/.test(pathname)
+                    /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+$/.test(pathname)
                 ) {
                     sessionPollCount += 1;
 
-                    // The very first poll after checkout creation fails
-                    // transiently, such as a dropped connection.
                     if (sessionPollCount === 1) {
                         throw new TypeError('Failed to fetch');
                     }
@@ -428,8 +458,6 @@ describe('Kiosk', () => {
             await screen.findByTestId('kiosk-payment-checkout-link'),
         ).toBeInTheDocument();
 
-        // First poll fails transiently. The kiosk keeps waiting instead of
-        // surfacing a hard error immediately.
         await act(async () => {
             vi.advanceTimersByTime(3000);
         });
@@ -438,8 +466,6 @@ describe('Kiosk', () => {
             screen.queryByTestId('kiosk-error-network-interruption'),
         ).not.toBeInTheDocument();
 
-        // Subsequent polls succeed once connectivity returns, and the
-        // session advances once payment is confirmed.
         for (let i = 0; i < 5; i += 1) {
             await act(async () => {
                 vi.advanceTimersByTime(3000);
@@ -454,7 +480,9 @@ describe('Kiosk', () => {
     });
 
     it('resumes polling the pending checkout after a payment timeout instead of re-issuing a new checkout', async () => {
-        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        const user = userEvent.setup({
+            advanceTimers: vi.advanceTimersByTime,
+        });
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
         paymentStatusState.status = 'pending';
@@ -468,7 +496,9 @@ describe('Kiosk', () => {
 
                 if (
                     method === 'post' &&
-                    /^\/kiosk\/sessions\/[^/]+\/payments$/.test(pathname)
+                    /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+\/payments$/.test(
+                        pathname,
+                    )
                 ) {
                     paymentPostCount += 1;
 
@@ -480,7 +510,7 @@ describe('Kiosk', () => {
 
                 if (
                     method === 'get' &&
-                    /^\/kiosk\/sessions\/[^/]+$/.test(pathname)
+                    /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+$/.test(pathname)
                 ) {
                     return jsonResponse(200, {
                         sessionToken: SESSION_TOKEN,
@@ -520,9 +550,6 @@ describe('Kiosk', () => {
             await screen.findByTestId('kiosk-payment-checkout-link'),
         ).toBeInTheDocument();
 
-        // The session remains pending until after the client-side payment
-        // timeout elapses, e.g. because a connectivity gap delayed the
-        // paid-session response.
         await act(async () => {
             vi.advanceTimersByTime(30_000);
         });
@@ -532,8 +559,6 @@ describe('Kiosk', () => {
         ).toBeInTheDocument();
         expect(paymentPostCount).toBe(1);
 
-        // Recovering from the timeout must resume polling the existing
-        // checkout, not create a second one.
         await user.click(screen.getByRole('button', { name: 'Retry Payment' }));
 
         expect(paymentPostCount).toBe(1);
@@ -569,7 +594,7 @@ describe('Kiosk', () => {
 
                 if (
                     method === 'get' &&
-                    /^\/kiosk\/sessions\/[^/]+$/.test(pathname)
+                    /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+$/.test(pathname)
                 ) {
                     if (!galleryPublished) {
                         galleryPublished = true;
@@ -590,9 +615,6 @@ describe('Kiosk', () => {
 
                     printPollCount += 1;
 
-                    // The five polls immediately following gallery
-                    // completion fail transiently, such as a dropped
-                    // connection, before connectivity is restored.
                     if (printPollCount <= 5) {
                         throw new TypeError('Failed to fetch');
                     }
@@ -638,11 +660,15 @@ describe('Kiosk', () => {
         await user.click(await screen.findByTestId('kiosk-template-1'));
 
         await user.click(
-            screen.getByRole('button', { name: 'Use selected template' }),
+            screen.getByRole('button', {
+                name: 'Use selected template',
+            }),
         );
 
         await user.click(
-            await screen.findByRole('button', { name: 'complete capture' }),
+            await screen.findByRole('button', {
+                name: 'complete capture',
+            }),
         );
 
         const stickerOption = await screen.findByTestId('kiosk-sticker-1');
@@ -657,7 +683,9 @@ describe('Kiosk', () => {
         await user.click(screen.getByRole('button', { name: 'Continue' }));
 
         await user.click(
-            await screen.findByRole('button', { name: 'Confirm preview' }),
+            await screen.findByRole('button', {
+                name: 'Confirm preview',
+            }),
         );
 
         await act(async () => {
@@ -668,9 +696,6 @@ describe('Kiosk', () => {
             await screen.findByTestId('kiosk-gallery-qr-code'),
         ).toBeInTheDocument();
 
-        // Advance well past five consecutive transient poll failures; the
-        // print-status poll must keep retrying at the capped backoff
-        // interval instead of stopping permanently.
         for (let i = 0; i < 7; i += 1) {
             await act(async () => {
                 vi.advanceTimersByTime(15000);
@@ -698,7 +723,7 @@ describe('Kiosk', () => {
 
                 if (
                     method === 'get' &&
-                    /^\/kiosk\/sessions\/[^/]+$/.test(pathname)
+                    /^\/b\/acme-photo\/kiosk\/sessions\/[^/]+$/.test(pathname)
                 ) {
                     if (!galleryPublished) {
                         galleryPublished = true;
@@ -717,9 +742,6 @@ describe('Kiosk', () => {
                         }) as unknown as Response;
                     }
 
-                    // The print job never reaches a terminal status within
-                    // the local poll budget, e.g. because the printer is
-                    // still spooling a long queue.
                     return jsonResponse(200, {
                         sessionToken: SESSION_TOKEN,
                         status: 'complete',
@@ -761,11 +783,15 @@ describe('Kiosk', () => {
         await user.click(await screen.findByTestId('kiosk-template-1'));
 
         await user.click(
-            screen.getByRole('button', { name: 'Use selected template' }),
+            screen.getByRole('button', {
+                name: 'Use selected template',
+            }),
         );
 
         await user.click(
-            await screen.findByRole('button', { name: 'complete capture' }),
+            await screen.findByRole('button', {
+                name: 'complete capture',
+            }),
         );
 
         const stickerOption = await screen.findByTestId('kiosk-sticker-1');
@@ -780,7 +806,9 @@ describe('Kiosk', () => {
         await user.click(screen.getByRole('button', { name: 'Continue' }));
 
         await user.click(
-            await screen.findByRole('button', { name: 'Confirm preview' }),
+            await screen.findByRole('button', {
+                name: 'Confirm preview',
+            }),
         );
 
         await act(async () => {
@@ -791,9 +819,6 @@ describe('Kiosk', () => {
             await screen.findByTestId('kiosk-gallery-qr-code'),
         ).toBeInTheDocument();
 
-        // Advance past the local print-poll attempt budget (5 polls at
-        // 3000ms each) without the print job ever reaching a terminal
-        // status.
         for (let i = 0; i < 6; i += 1) {
             await act(async () => {
                 vi.advanceTimersByTime(3000);
@@ -804,8 +829,6 @@ describe('Kiosk', () => {
             'kiosk-printing-status',
         );
 
-        // Feedback must stay explicit and non-ambiguous instead of
-        // silently disappearing once the poll budget is exhausted.
         expect(printingStatus).toHaveTextContent(
             'Your receipt is taking longer than expected to print.',
         );
@@ -815,7 +838,9 @@ describe('Kiosk', () => {
     });
 
     it('resets an idle payment session back to the welcome screen', async () => {
-        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        const user = userEvent.setup({
+            advanceTimers: vi.advanceTimersByTime,
+        });
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
         paymentStatusState.status = 'pending';
@@ -846,32 +871,31 @@ describe('Kiosk', () => {
 
         render(<Kiosk />);
 
-        // Phase 2: start flow via voucher redemption.
         await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
         await user.type(screen.getByTestId('kiosk-voucher-input'), 'FREE-2026');
         await user.click(
             screen.getByRole('button', { name: 'Redeem Voucher' }),
         );
 
-        // Phase 5: template selection.
         const templateOption = await screen.findByTestId('kiosk-template-1');
         await user.click(templateOption);
 
         await user.click(
-            screen.getByRole('button', { name: 'Use selected template' }),
+            screen.getByRole('button', {
+                name: 'Use selected template',
+            }),
         );
 
-        // Phase 4: capture workflow. The component is tested separately and
-        // stubbed here so this test can focus on the complete kiosk state flow.
         expect(
             await screen.findByTestId('kiosk-capture-stub'),
         ).toBeInTheDocument();
 
         await user.click(
-            screen.getByRole('button', { name: 'complete capture' }),
+            screen.getByRole('button', {
+                name: 'complete capture',
+            }),
         );
 
-        // Phase 5: sticker selection.
         const stickerOption = await screen.findByTestId('kiosk-sticker-1');
         await user.click(stickerOption);
 
@@ -883,42 +907,36 @@ describe('Kiosk', () => {
 
         await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-        // Preview confirmation queues final composition and enters processing.
         await user.click(
-            await screen.findByRole('button', { name: 'Confirm preview' }),
+            await screen.findByRole('button', {
+                name: 'Confirm preview',
+            }),
         );
 
         expect(
             await screen.findByTestId('kiosk-processing'),
         ).toBeInTheDocument();
 
-        // The real kiosk polls durable session state every two seconds until
-        // the queued composition job publishes its gallery token.
         await act(async () => {
             vi.advanceTimersByTime(2000);
         });
 
-        // Phase 7: the session poll exposes the generated gallery token.
         const galleryQr = await screen.findByTestId('kiosk-gallery-qr-code');
 
         expect(galleryQr.getAttribute('src')).toContain('gallery-token-xyz');
 
-        expect(window.sessionStorage.getItem('photobooth.session_token')).toBe(
+        expect(window.sessionStorage.getItem(KIOSK_STORAGE_KEY)).toBe(
             SESSION_TOKEN,
         );
 
-        // Phase 8: starting a new session from the completed gallery screen
-        // must clear every trace of the finished session (session token,
-        // gallery token, sticker/voucher selections) before the next
-        // customer's session begins.
         await user.click(
-            screen.getByRole('button', { name: 'Start a New Session' }),
+            screen.getByRole('button', {
+                name: 'Start a New Session',
+            }),
         );
 
         expect(screen.getByTestId('kiosk-welcome')).toBeInTheDocument();
-        expect(
-            window.sessionStorage.getItem('photobooth.session_token'),
-        ).toBeNull();
+        expect(window.sessionStorage.getItem(KIOSK_STORAGE_KEY)).toBeNull();
         expect(
             screen.queryByTestId('kiosk-gallery-qr-code'),
         ).not.toBeInTheDocument();
@@ -936,16 +954,14 @@ describe('Kiosk', () => {
         await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
         await user.type(screen.getByTestId('kiosk-voucher-input'), 'FREE-2026');
 
-        expect(window.sessionStorage.getItem('photobooth.session_token')).toBe(
+        expect(window.sessionStorage.getItem(KIOSK_STORAGE_KEY)).toBe(
             SESSION_TOKEN,
         );
 
         await user.click(screen.getByRole('button', { name: 'Back to Start' }));
 
         expect(screen.getByTestId('kiosk-welcome')).toBeInTheDocument();
-        expect(
-            window.sessionStorage.getItem('photobooth.session_token'),
-        ).toBeNull();
+        expect(window.sessionStorage.getItem(KIOSK_STORAGE_KEY)).toBeNull();
 
         await user.click(screen.getByRole('button', { name: 'Enter Voucher' }));
 

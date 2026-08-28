@@ -161,7 +161,7 @@ export default function ForgotPassword({
                                                     data-test="resend-password-reset-link-button"
                                                 >
                                                     {processing ? (
-                                                        <Spinner />
+                                                        <Spinner aria-hidden="true" />
                                                     ) : (
                                                         <RefreshCw
                                                             aria-hidden="true"
@@ -270,7 +270,7 @@ export default function ForgotPassword({
                                         data-test="email-password-reset-link-button"
                                     >
                                         {processing ? (
-                                            <Spinner />
+                                            <Spinner aria-hidden="true" />
                                         ) : (
                                             <Send
                                                 aria-hidden="true"
