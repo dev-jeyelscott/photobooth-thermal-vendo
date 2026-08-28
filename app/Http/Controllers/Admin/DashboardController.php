@@ -539,10 +539,7 @@ class DashboardController extends Controller
                 default => 'Payment updated',
             };
 
-            $method = match ($payment->method) {
-                PaymentMethod::Maya => 'Maya',
-                PaymentMethod::Voucher => 'voucher',
-            };
+            $method = $payment->method->label();
 
             $activity[] = [
                 'type' => "payment_{$payment->status->value}",

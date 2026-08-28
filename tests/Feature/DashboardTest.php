@@ -301,3 +301,38 @@ test('dashboard does not fabricate percentage comparisons without a prior baseli
                 ->where('summary.needsAttention.pendingPaymentTotal', '0.00'),
         );
 });
+
+test('dashboard presents PayMongo QR Ph payment activity with the canonical method label', function () {
+    $user = User::factory()->create();
+
+    $session = PhotoboothSession::factory()->create([
+        'status' => PhotoboothSessionStatus::PaymentPending,
+        'payment_method' => PaymentMethod::PayMongoQrPh,
+        'price' => '150.00',
+        'currency' => 'PHP',
+        'started_at' => now()->subMinute(),
+        'created_at' => now()->subMinute(),
+        'updated_at' => now()->subMinute(),
+    ]);
+
+    Payment::factory()->create([
+        'photobooth_session_id' => $session->id,
+        'method' => PaymentMethod::PayMongoQrPh,
+        'status' => PaymentStatus::Pending,
+        'amount' => '150.00',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('admin.dashboard'))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->where('recentActivity.0.type', 'payment_pending')
+                ->where(
+                    'recentActivity.0.description',
+                    'PHP 150.00 via PayMongo QR Ph',
+                ),
+        );
+});
