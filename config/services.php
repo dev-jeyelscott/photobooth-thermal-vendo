@@ -35,6 +35,18 @@ return [
         ],
     ],
 
+    'paymongo' => [
+        'api_base_url' => env(
+            'PAYMONGO_API_BASE_URL',
+            'https://api.paymongo.com',
+        ),
+
+        'platform' => [
+            'public_key' => env('PAYMONGO_PLATFORM_PUBLIC_KEY'),
+            'secret_key' => env('PAYMONGO_PLATFORM_SECRET_KEY'),
+        ],
+    ],
+
     'maya' => [
         'base_url' => env('MAYA_BASE_URL', 'https://pg-sandbox.paymaya.com'),
         'public_key' => env('MAYA_PUBLIC_KEY'),

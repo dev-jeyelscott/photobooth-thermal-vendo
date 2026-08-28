@@ -2,7 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Business;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -17,7 +20,7 @@ class HandleInertiaRequests extends Middleware
     protected $rootView = 'app';
 
     /**
-     * Determines the current asset version.
+     * Determine the current asset version.
      *
      * @see https://inertiajs.com/asset-versioning
      */
@@ -35,13 +38,36 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
+                'canManagePaymentSettings' => $user instanceof User
+                    && $this->canManagePaymentSettings($user),
             ],
-            'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'sidebarOpen' => ! $request->hasCookie('sidebar_state')
+                || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    /**
+     * Determine whether the authenticated user owns their assigned Business.
+     */
+    private function canManagePaymentSettings(User $user): bool
+    {
+        if ($user->business_id === null) {
+            return false;
+        }
+
+        $business = $user->business()->first();
+
+        return $business instanceof Business
+            && Gate::forUser($user)->allows(
+                'managePaymentSettings',
+                $business,
+            );
     }
 }

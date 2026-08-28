@@ -1,10 +1,11 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     BarChart3,
     BookOpen,
     CreditCard,
     FolderGit2,
     Images,
+    KeyRound,
     LayoutGrid,
     Monitor,
     Settings,
@@ -25,6 +26,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes/admin';
+import { edit as paymentSettingsEdit } from '@/routes/admin/payment-settings';
 import { index as paymentsIndex } from '@/routes/admin/payments';
 import { daily as reportsDaily } from '@/routes/admin/reports';
 import { index as sessionsIndex } from '@/routes/admin/sessions';
@@ -34,55 +36,75 @@ import { index as templatesIndex } from '@/routes/admin/templates';
 import { index as vouchersIndex } from '@/routes/admin/vouchers';
 import type { NavItem } from '@/types';
 
-export const adminNavigationItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Templates',
-        href: templatesIndex(),
-        icon: Images,
-        matches: 'prefix',
-    },
-    {
-        title: 'Stickers',
-        href: stickersIndex(),
-        icon: Sticker,
-        matches: 'prefix',
-    },
-    {
-        title: 'Vouchers',
-        href: vouchersIndex(),
-        icon: Ticket,
-        matches: 'prefix',
-    },
-    {
-        title: 'Sessions',
-        href: sessionsIndex(),
-        icon: Monitor,
-        matches: 'prefix',
-    },
-    {
-        title: 'Payments',
-        href: paymentsIndex(),
-        icon: CreditCard,
-        matches: 'prefix',
-    },
-    {
-        title: 'Reports',
-        href: reportsDaily(),
-        icon: BarChart3,
-        matches: 'prefix',
-    },
-    {
-        title: 'System settings',
-        href: settingsEdit(),
-        icon: Settings,
-        matches: 'prefix',
-    },
-];
+/**
+ * Build the authenticated admin navigation while hiding owner-only payment
+ * configuration from ordinary Business members.
+ */
+export function buildAdminNavigationItems(
+    canManagePaymentSettings: boolean,
+): NavItem[] {
+    return [
+        {
+            title: 'Dashboard',
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+        {
+            title: 'Templates',
+            href: templatesIndex(),
+            icon: Images,
+            matches: 'prefix',
+        },
+        {
+            title: 'Stickers',
+            href: stickersIndex(),
+            icon: Sticker,
+            matches: 'prefix',
+        },
+        {
+            title: 'Vouchers',
+            href: vouchersIndex(),
+            icon: Ticket,
+            matches: 'prefix',
+        },
+        {
+            title: 'Sessions',
+            href: sessionsIndex(),
+            icon: Monitor,
+            matches: 'prefix',
+        },
+        {
+            title: 'Payments',
+            href: paymentsIndex(),
+            icon: CreditCard,
+            matches: 'prefix',
+        },
+        ...(canManagePaymentSettings
+            ? [
+                  {
+                      title: 'Payment settings',
+                      href: paymentSettingsEdit(),
+                      icon: KeyRound,
+                      matches: 'prefix' as const,
+                  },
+              ]
+            : []),
+        {
+            title: 'Reports',
+            href: reportsDaily(),
+            icon: BarChart3,
+            matches: 'prefix',
+        },
+        {
+            title: 'System settings',
+            href: settingsEdit(),
+            icon: Settings,
+            matches: 'prefix',
+        },
+    ];
+}
+
+export const adminNavigationItems: NavItem[] = buildAdminNavigationItems(false);
 
 const footerNavItems: NavItem[] = [
     {
@@ -98,9 +120,11 @@ const footerNavItems: NavItem[] = [
 ];
 
 /**
- * Renders the authenticated admin navigation shell.
+ * Render the authenticated admin navigation shell.
  */
 export function AppSidebar() {
+    const { auth } = usePage().props;
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -116,7 +140,11 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={adminNavigationItems} />
+                <NavMain
+                    items={buildAdminNavigationItems(
+                        auth.canManagePaymentSettings,
+                    )}
+                />
             </SidebarContent>
 
             <SidebarFooter>

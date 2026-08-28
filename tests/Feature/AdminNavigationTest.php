@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Business;
 use App\Models\User;
 
 test('admin routes use the canonical admin hierarchy', function () {
@@ -9,6 +10,7 @@ test('admin routes use the canonical admin hierarchy', function () {
         ->and(route('admin.vouchers.index', absolute: false))->toBe('/admin/vouchers')
         ->and(route('admin.sessions.index', absolute: false))->toBe('/admin/sessions')
         ->and(route('admin.payments.index', absolute: false))->toBe('/admin/payments')
+        ->and(route('admin.payment-settings.edit', absolute: false))->toBe('/admin/payment-settings')
         ->and(route('admin.reports.daily', absolute: false))->toBe('/admin/reports/daily')
         ->and(route('admin.settings.edit', absolute: false))->toBe('/admin/settings');
 
@@ -38,4 +40,18 @@ test('authenticated users can directly load primary admin pages', function () {
                 fn ($page) => $page->component($component),
             );
     }
+});
+
+test('business owner can directly load payment settings', function () {
+    $business = Business::factory()->create();
+
+    $this
+        ->actingAs($business->owner)
+        ->get(route('admin.payment-settings.edit'))
+        ->assertOk()
+        ->assertInertia(
+            fn ($page) => $page->component(
+                'admin/payment-settings/edit',
+            ),
+        );
 });

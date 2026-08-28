@@ -2,12 +2,14 @@
 
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\PaymentController;
+use App\Http\Controllers\Admin\PaymentSettingController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SessionMonitorController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\StickerController;
 use App\Http\Controllers\Admin\TemplateController;
 use App\Http\Controllers\Admin\VoucherController;
+use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
@@ -27,6 +29,20 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('sessions', [SessionMonitorController::class, 'index'])->name('sessions.index');
 
     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
+
+    Route::get('payment-settings', [PaymentSettingController::class, 'edit'])
+        ->name('payment-settings.edit');
+
+    Route::put('payment-settings/{mode}', [PaymentSettingController::class, 'replace'])
+        ->middleware(RequirePassword::class)
+        ->name('payment-settings.replace');
+
+    Route::post('payment-settings/{mode}/test', [PaymentSettingController::class, 'test'])
+        ->name('payment-settings.test');
+
+    Route::post('payment-settings/{mode}/activate', [PaymentSettingController::class, 'activate'])
+        ->middleware(RequirePassword::class)
+        ->name('payment-settings.activate');
 
     Route::get('reports/daily', [ReportController::class, 'daily'])->name('reports.daily');
     Route::get('reports/monthly', [ReportController::class, 'monthly'])->name('reports.monthly');
