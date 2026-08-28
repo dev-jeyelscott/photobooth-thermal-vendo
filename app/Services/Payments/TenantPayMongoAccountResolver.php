@@ -16,12 +16,6 @@ class TenantPayMongoAccountResolver
     {
         $mode = $business->active_paymongo_mode;
 
-        if (! $mode instanceof PayMongoMode) {
-            throw new RuntimeException(
-                'The business PayMongo mode is invalid.',
-            );
-        }
-
         $account = $this->selectedForMode($business, $mode);
 
         if ($account === null || $account->verified_at === null) {
