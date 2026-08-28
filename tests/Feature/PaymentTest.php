@@ -124,11 +124,16 @@ function thPay004FakeSuccessfulProviderFlow(
 }
 
 beforeEach(function () {
-    config()->set('services.paymongo.api_base_url', 'https://api.paymongo.com');
+    config()->set(
+        'services.paymongo.api_base_url',
+        'https://api.paymongo.com',
+    );
+
     config()->set(
         'services.paymongo.platform.public_key',
         'pk_test_platform-do-not-use',
     );
+
     config()->set(
         'services.paymongo.platform.secret_key',
         'sk_test_platform-do-not-use',
@@ -149,13 +154,20 @@ test('tenant QR Ph payment returns safe QR metadata', function () {
     thPay004FakeSuccessfulProviderFlow();
 
     $response = $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     );
 
-    $response->assertCreated()
+    $response
+        ->assertCreated()
         ->assertJsonPath('payment.amount', '150.01')
         ->assertJsonPath('payment.currency', 'PHP')
-        ->assertJsonPath('payment.providerStatus', 'awaiting_next_action')
+        ->assertJsonPath(
+            'payment.providerStatus',
+            'awaiting_next_action',
+        )
         ->assertJsonPath(
             'qrImageUrl',
             'data:image/png;base64,cXJwaC10ZXN0',
@@ -164,10 +176,14 @@ test('tenant QR Ph payment returns safe QR metadata', function () {
     $payment = Payment::firstOrFail();
 
     expect($payment->paymongo_account_id)->toBe($account->id)
-        ->and($payment->method)->toBe(PaymentMethod::PayMongoQrPh)
-        ->and($payment->paymongo_payment_intent_id)->toBe('pi_test_123')
-        ->and($payment->paymongo_payment_method_id)->toBe('pm_test_123')
-        ->and($payment->paymongo_payment_id)->toBe('pay_test_123')
+        ->and($payment->method)
+        ->toBe(PaymentMethod::PayMongoQrPh)
+        ->and($payment->paymongo_payment_intent_id)
+        ->toBe('pi_test_123')
+        ->and($payment->paymongo_payment_method_id)
+        ->toBe('pm_test_123')
+        ->and($payment->paymongo_payment_id)
+        ->toBe('pay_test_123')
         ->and($session->fresh()->status)
         ->toBe(PhotoboothSessionStatus::PaymentPending);
 
@@ -184,6 +200,7 @@ test('provider requests use exact tenant auth payload and idempotency', function
 
     $business = Business::factory()->create();
     $account = thPay004ReadyAccount($business);
+
     $session = thPay004Session($business, [
         'expires_at' => now()->addSeconds(120),
     ]);
@@ -191,7 +208,10 @@ test('provider requests use exact tenant auth payload and idempotency', function
     thPay004FakeSuccessfulProviderFlow();
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertCreated();
 
     $payment = Payment::firstOrFail();
@@ -215,7 +235,8 @@ test('provider requests use exact tenant auth payload and idempotency', function
             )
             && ($attributes['amount'] ?? null) === 15001
             && ($attributes['currency'] ?? null) === 'PHP'
-            && ($attributes['payment_method_allowed'] ?? null) === ['qrph'];
+            && ($attributes['payment_method_allowed'] ?? null)
+                === ['qrph'];
     });
 
     Http::assertSent(function (HttpRequest $request) use (
@@ -244,7 +265,10 @@ test('provider requests use exact tenant auth payload and idempotency', function
     ): bool {
         $attributes = $request->data()['data']['attributes'] ?? [];
 
-        return str_ends_with($request->url(), '/pi_test_123/attach')
+        return str_ends_with(
+            $request->url(),
+            '/pi_test_123/attach',
+        )
             && $request->hasHeader(
                 'Authorization',
                 'Basic '.base64_encode($account->public_key.':'),
@@ -253,7 +277,8 @@ test('provider requests use exact tenant auth payload and idempotency', function
                 'Idempotency-Key',
                 $baseKey.'-attach',
             )
-            && ($attributes['payment_method'] ?? null) === 'pm_test_123'
+            && ($attributes['payment_method'] ?? null)
+                === 'pm_test_123'
             && ($attributes['client_key'] ?? null)
                 === 'pi_test_123_client_private-value';
     });
@@ -274,7 +299,10 @@ test('unready tenant account never falls back to platform keys', function () {
     $session = thPay004Session($business);
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertStatus(409);
 
     expect(Payment::count())->toBe(0);
@@ -284,19 +312,30 @@ test('unready tenant account never falls back to platform keys', function () {
 
 test('decimal money is converted to integer centavos', function () {
     $business = Business::factory()->create();
+
     thPay004ReadyAccount($business);
 
-    $session = thPay004Session($business, ['price' => '1234.56']);
+    $session = thPay004Session(
+        $business,
+        ['price' => '1234.56'],
+    );
 
     thPay004FakeSuccessfulProviderFlow();
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertCreated();
 
-    Http::assertSent(fn (HttpRequest $request): bool => $request->url() === 'https://api.paymongo.com/v1/payment_intents'
-        && ($request->data()['data']['attributes']['amount'] ?? null)
-            === 123456
+    Http::assertSent(
+        fn (HttpRequest $request): bool => $request->url()
+                === 'https://api.paymongo.com/v1/payment_intents'
+            && (
+                $request->data()['data']['attributes']['amount']
+                ?? null
+            ) === 123456,
     );
 });
 
@@ -307,6 +346,7 @@ test('QR expiry is bounded by session time and PayMongo maximum', function (
     Carbon::setTestNow('2026-08-28 10:00:00');
 
     $business = Business::factory()->create();
+
     thPay004ReadyAccount($business);
 
     $session = thPay004Session($business, [
@@ -316,12 +356,19 @@ test('QR expiry is bounded by session time and PayMongo maximum', function (
     thPay004FakeSuccessfulProviderFlow();
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertCreated();
 
-    Http::assertSent(fn (HttpRequest $request): bool => $request->url() === 'https://api.paymongo.com/v1/payment_methods'
-        && ($request->data()['data']['attributes']['expiry_seconds'] ?? null)
-            === $expected
+    Http::assertSent(
+        fn (HttpRequest $request): bool => $request->url()
+                === 'https://api.paymongo.com/v1/payment_methods'
+            && (
+                $request->data()['data']['attributes']['expiry_seconds']
+                ?? null
+            ) === $expected,
     );
 })->with([
     'local session wins' => [120, 120],
@@ -332,6 +379,7 @@ test('less than sixty seconds rejects before provider creation', function () {
     Carbon::setTestNow('2026-08-28 10:00:00');
 
     $business = Business::factory()->create();
+
     thPay004ReadyAccount($business);
 
     $session = thPay004Session($business, [
@@ -339,7 +387,10 @@ test('less than sixty seconds rejects before provider creation', function () {
     ]);
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertStatus(409);
 
     expect(Payment::count())->toBe(0);
@@ -350,6 +401,7 @@ test('less than sixty seconds rejects before provider creation', function () {
 test('duplicate pending payment is rejected before remote creation', function () {
     $business = Business::factory()->create();
     $account = thPay004ReadyAccount($business);
+
     $session = thPay004Session($business, [
         'status' => PhotoboothSessionStatus::PaymentPending,
     ]);
@@ -360,7 +412,10 @@ test('duplicate pending payment is rejected before remote creation', function ()
         ->create();
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertStatus(409);
 
     expect(Payment::count())->toBe(1);
@@ -378,44 +433,60 @@ test('database enforces one pending attempt for a session', function () {
         ->payMongoQrPh($account)
         ->create();
 
-    expect(fn () => Payment::factory()
-        ->for($session, 'photoboothSession')
-        ->payMongoQrPh($account)
-        ->create())
-        ->toThrow(QueryException::class);
+    expect(
+        fn () => Payment::factory()
+            ->for($session, 'photoboothSession')
+            ->payMongoQrPh($account)
+            ->create(),
+    )->toThrow(QueryException::class);
 });
 
 test('definitive provider failure terminalizes attempt for retry', function () {
     $business = Business::factory()->create();
+
     thPay004ReadyAccount($business);
+
     $session = thPay004Session($business);
 
     Http::fake([
-        'https://api.paymongo.com/v1/payment_intents' => Http::response([], 422),
+        'https://api.paymongo.com/v1/payment_intents' => Http::response(
+            [],
+            422,
+        ),
     ]);
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertStatus(502);
 
     $payment = Payment::firstOrFail();
 
     expect($payment->status)->toBe(PaymentStatus::Failed)
-        ->and($payment->provider_status)->toBe('creation_failed')
-        ->and($payment->failed_at)->not->toBeNull();
+        ->and($payment->provider_status)
+        ->toBe('creation_failed')
+        ->and($payment->failed_at)
+        ->not->toBeNull();
 
     Http::assertSentCount(1);
 });
 
 test('exhausted transient failure remains reconcilable and blocks duplicates', function () {
     $business = Business::factory()->create();
+
     thPay004ReadyAccount($business);
+
     $session = thPay004Session($business);
 
     $attempts = 0;
 
     Http::fake(function (HttpRequest $request) use (&$attempts) {
-        if ($request->url() === 'https://api.paymongo.com/v1/payment_intents') {
+        if (
+            $request->url()
+            === 'https://api.paymongo.com/v1/payment_intents'
+        ) {
             $attempts++;
 
             return Http::response([], 503);
@@ -425,17 +496,25 @@ test('exhausted transient failure remains reconcilable and blocks duplicates', f
     });
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertStatus(503);
 
     $payment = Payment::firstOrFail();
 
     expect($attempts)->toBe(3)
-        ->and($payment->status)->toBe(PaymentStatus::Pending)
-        ->and($payment->provider_status)->toBe('provider_uncertain');
+        ->and($payment->status)
+        ->toBe(PaymentStatus::Pending)
+        ->and($payment->provider_status)
+        ->toBe('provider_uncertain');
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertStatus(409);
 
     expect(Payment::count())->toBe(1)
@@ -444,6 +523,7 @@ test('exhausted transient failure remains reconcilable and blocks duplicates', f
 
 test('retry preserves original session snapshots', function () {
     $business = Business::factory()->create();
+
     thPay004ReadyAccount($business);
 
     $session = thPay004Session($business, [
@@ -453,11 +533,51 @@ test('retry preserves original session snapshots', function () {
     ]);
 
     Http::fake([
-        'https://api.paymongo.com/v1/payment_intents' => Http::response([], 422),
+        'https://api.paymongo.com/v1/payment_intents' => Http::sequence()
+            ->push([], 422)
+            ->push([
+                'data' => [
+                    'id' => 'pi_retry',
+                    'attributes' => [
+                        'client_key' => 'pi_retry_client_value',
+                        'status' => 'awaiting_payment_method',
+                        'payments' => [],
+                    ],
+                ],
+            ], 200),
+
+        'https://api.paymongo.com/v1/payment_methods' => Http::response([
+            'data' => [
+                'id' => 'pm_retry',
+                'attributes' => [
+                    'type' => 'qrph',
+                ],
+            ],
+        ], 200),
+
+        'https://api.paymongo.com/v1/payment_intents/pi_retry/attach' => Http::response([
+            'data' => [
+                'id' => 'pi_retry',
+                'attributes' => [
+                    'status' => 'awaiting_next_action',
+                    'payments' => [
+                        ['id' => 'pay_retry'],
+                    ],
+                    'next_action' => [
+                        'code' => [
+                            'image_url' => 'data:image/png;base64,cXJwaC10ZXN0',
+                        ],
+                    ],
+                ],
+            ],
+        ], 200),
     ]);
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertStatus(502);
 
     ApplicationSetting::updateOrCreate(
@@ -470,29 +590,39 @@ test('retry preserves original session snapshots', function () {
         ['value' => 'USD'],
     );
 
-    config()->set('photobooth.capture_shot_count', 10);
-
-    thPay004FakeSuccessfulProviderFlow(
-        intentId: 'pi_retry',
-        paymentMethodId: 'pm_retry',
-        paymentId: 'pay_retry',
-        clientKey: 'pi_retry_client_value',
+    config()->set(
+        'photobooth.capture_shot_count',
+        10,
     );
 
     $this->postJson(
-        kioskSessionRoute('kiosk.sessions.payments.store', $session),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     )->assertCreated();
 
-    $payments = Payment::orderBy('id')->get();
+    $payments = Payment::query()
+        ->orderBy('id')
+        ->get();
+
     $freshSession = $session->fresh();
 
     expect($payments)->toHaveCount(2)
-        ->and($payments[0]->status)->toBe(PaymentStatus::Failed)
-        ->and($payments[1]->amount)->toBe('150.01')
-        ->and($payments[1]->currency)->toBe('PHP')
-        ->and($freshSession->price)->toBe('150.01')
-        ->and($freshSession->currency)->toBe('PHP')
-        ->and($freshSession->required_capture_count)->toBe(4);
+        ->and($payments[0]->status)
+        ->toBe(PaymentStatus::Failed)
+        ->and($payments[1]->amount)
+        ->toBe('150.01')
+        ->and($payments[1]->currency)
+        ->toBe('PHP')
+        ->and($freshSession->price)
+        ->toBe('150.01')
+        ->and($freshSession->currency)
+        ->toBe('PHP')
+        ->and($freshSession->required_capture_count)
+        ->toBe(4);
+
+    Http::assertSentCount(4);
 });
 
 test('historical attempts remain auditable and latest attempt is exposed', function () {
@@ -513,7 +643,19 @@ test('historical attempts remain auditable and latest attempt is exposed', funct
         ->create();
 
     expect($session->payments()->count())->toBe(2)
-        ->and($session->payment()->firstOrFail()->id)->toBe($pending->id)
-        ->and($session->payments()->pluck('id')->all())
-        ->toContain($failed->id, $pending->id);
+        ->and(
+            $session->payment()
+                ->firstOrFail()
+                ->id,
+        )
+        ->toBe($pending->id)
+        ->and(
+            $session->payments()
+                ->pluck('id')
+                ->all(),
+        )
+        ->toContain(
+            $failed->id,
+            $pending->id,
+        );
 });
