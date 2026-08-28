@@ -562,14 +562,15 @@ export function usePhotoboothSession() {
     );
 
     /**
-     * Creates the current Maya checkout for the Business-scoped session.
+     * Creates the tenant-owned payment QR for the Business-scoped session.
      *
-     * Maya remains unchanged until the later PayMongo migration slice.
+     * Native PayMongo QR Ph returns qrImageUrl directly. Legacy checkout fields
+     * remain accepted temporarily for staged migration regression coverage.
      */
     const createPayment = useCallback(async (): Promise<
         | {
               ok: true;
-              checkoutUrl: string;
+              checkoutUrl: string | null;
               checkoutQrCode: string;
           }
         | ActionFailure
@@ -598,12 +599,23 @@ export function usePhotoboothSession() {
             );
 
             const body = (await response.json()) as {
+                payment?: {
+                    id?: number;
+                    status?: string;
+                    providerStatus?: string | null;
+                    amount?: string;
+                    currency?: string;
+                    expiresAt?: string | null;
+                };
+                qrImageUrl?: string;
                 checkoutUrl?: string;
                 checkoutQrCode?: string;
                 message?: string;
             };
 
-            if (!response.ok || !body.checkoutUrl || !body.checkoutQrCode) {
+            const checkoutQrCode = body.qrImageUrl ?? body.checkoutQrCode;
+
+            if (!response.ok || !checkoutQrCode) {
                 return {
                     ok: false,
                     message:
@@ -614,8 +626,8 @@ export function usePhotoboothSession() {
 
             return {
                 ok: true,
-                checkoutUrl: body.checkoutUrl,
-                checkoutQrCode: body.checkoutQrCode,
+                checkoutUrl: body.checkoutUrl ?? null,
+                checkoutQrCode,
             };
         } catch {
             return {

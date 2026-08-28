@@ -31,7 +31,8 @@ describe('usePhotoboothSession PayMongo payment contract', () => {
     });
 
     it('accepts a native PayMongo QR response without requiring a checkout URL', async () => {
-        const qrImageUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB';
+        const qrImageUrl =
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB';
 
         const fetchMock = vi
             .fn()
@@ -55,9 +56,7 @@ describe('usePhotoboothSession PayMongo payment contract', () => {
                         providerStatus: 'awaiting_next_action',
                         amount: '50.00',
                         currency: 'PHP',
-                        expiresAt: new Date(
-                            Date.now() + 120_000,
-                        ).toISOString(),
+                        expiresAt: new Date(Date.now() + 120_000).toISOString(),
                     },
                     qrImageUrl,
                 }),

@@ -154,7 +154,7 @@ export default function Kiosk({
 
     const activeStep = isIdle ? 'welcome' : step;
     const showKioskError = kioskError !== null && !isIdle;
-    const hasLiveCheckout = checkoutUrl !== null && checkoutQrCode !== null;
+    const hasLiveCheckout = checkoutQrCode !== null;
 
     /** Clears the current recoverable error state. */
     const clearKioskError = () => {
@@ -198,8 +198,8 @@ export default function Kiosk({
 
     /**
      * Returns to the authorization choice without discarding an already-created
-     * Maya checkout. The start screen disables voucher switching until that
-     * checkout resolves, preventing a second authorization path mid-payment.
+     * payment QR. Voucher switching remains blocked while the payment attempt
+     * is still active.
      */
     const backToAuthorization = () => {
         setStep('welcome');
@@ -296,7 +296,7 @@ export default function Kiosk({
         resetTimer();
     };
 
-    // Creates one checkout, or resumes polling the already-created checkout,
+    // Creates one payment QR, or resumes polling the existing payment attempt,
     // until the backend reports a verified terminal payment state.
     useEffect(() => {
         if (step !== 'pay-via-qr') {
@@ -318,7 +318,7 @@ export default function Kiosk({
             }
         };
 
-        /** Clears a failed checkout so a user-triggered retry can create a new one. */
+        /** Clears a failed payment QR so a user-triggered retry can create a new one. */
         const retryPayment = () => {
             clearKioskError();
             setCheckoutUrl(null);
@@ -326,7 +326,7 @@ export default function Kiosk({
             setPaymentAttempt((attempt) => attempt + 1);
         };
 
-        /** Starts authoritative backend polling for the current checkout. */
+        /** Starts authoritative backend polling for the current payment attempt. */
         const startPolling = () => {
             let consecutiveFailures = 0;
 
@@ -344,7 +344,7 @@ export default function Kiosk({
                 schedulePoll(PAYMENT_POLL_INTERVAL_MS);
             };
 
-            /** Reads our Laravel session state and never calls Maya from React. */
+            /** Reads Laravel payment state and never authorizes payment from React. */
             const poll = async () => {
                 const refreshed = await refreshSessionRef.current();
 
@@ -407,7 +407,7 @@ export default function Kiosk({
             }, paymentTimeoutSeconds * 1000);
         };
 
-        /** Creates the checkout once, then starts polling the same backend session. */
+        /** Creates the payment QR once, then polls only the Laravel session state. */
         const startCheckout = async () => {
             if (hasLiveCheckout) {
                 startPolling();
@@ -646,9 +646,9 @@ export default function Kiosk({
                                                 Pay via QR
                                             </h2>
                                             <p className="mt-2 max-w-sm text-sm leading-5 text-neutral-400 sm:text-base">
-                                                Create a Maya checkout and scan
-                                                the payment QR or open the
-                                                secure checkout page.
+                                                Generate a secure PayMongo QR Ph
+                                                code and scan it using your
+                                                supported payment app.
                                             </p>
                                             <Button
                                                 type="button"
@@ -728,14 +728,14 @@ export default function Kiosk({
                                             <img
                                                 data-testid="kiosk-payment-qr-code"
                                                 src={checkoutQrCode}
-                                                alt="QR code for the secure Maya checkout"
+                                                alt="PayMongo QR Ph payment code"
                                                 className="aspect-square w-full max-w-64 rounded-2xl bg-white p-6 shadow-2xl shadow-black/40"
                                             />
                                         ) : (
                                             <div className="aspect-square w-full max-w-64 animate-pulse rounded-2xl bg-neutral-900" />
                                         )}
                                         <span className="mt-[-1.1rem] mr-2 ml-auto inline-flex rounded-full border border-blue-900 bg-blue-950 px-3 py-1.5 text-xs font-medium text-blue-400">
-                                            • Checkout ready
+                                            • QR ready
                                         </span>
                                     </div>
 
@@ -747,10 +747,11 @@ export default function Kiosk({
                                             Waiting for verified payment
                                         </h2>
                                         <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-400 sm:text-base">
-                                            Complete the Maya checkout.
-                                            ThermaSnap continues automatically
-                                            only after the Laravel backend
-                                            confirms the payment state.
+                                            Scan the PayMongo QR Ph code to
+                                            complete payment. ThermaSnap
+                                            continues automatically only after
+                                            the Laravel backend confirms the
+                                            durable payment state.
                                         </p>
 
                                         <div className="mt-7 rounded-xl border border-neutral-800 p-5">
