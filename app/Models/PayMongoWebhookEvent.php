@@ -46,20 +46,28 @@ class PayMongoWebhookEvent extends Model
     use HasFactory;
 
     /**
-     * The table associated with the model.
+     * Use the canonical PayMongo webhook inbox table.
+     *
+     * Laravel would otherwise infer pay_mongo_webhook_events from the class
+     * name, while the established ThermaSnap schema intentionally uses the
+     * paymongo_webhook_events naming contract.
      *
      * @var string
      */
     protected $table = 'paymongo_webhook_events';
 
     /**
-     * Get the immutable historical PayMongo credential version that authenticated this event.
+     * Get the immutable historical PayMongo credential version that
+     * authenticated this event.
      *
      * @return BelongsTo<PayMongoAccount, $this>
      */
     public function payMongoAccount(): BelongsTo
     {
-        return $this->belongsTo(PayMongoAccount::class, 'paymongo_account_id');
+        return $this->belongsTo(
+            PayMongoAccount::class,
+            'paymongo_account_id',
+        );
     }
 
     /**

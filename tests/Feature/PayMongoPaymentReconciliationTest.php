@@ -64,22 +64,21 @@ test('reconciliation retrieves the exact historical Payment Intent account', fun
     [$account, $payment] = thPay005ReconciliationPayment();
 
     Http::fake([
-        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' =>
-            Http::response([
-                'data' => [
-                    'id' => 'pi_reconcile',
-                    'type' => 'payment_intent',
-                    'attributes' => [
-                        'amount' => 15000,
-                        'currency' => 'PHP',
-                        'status' => 'succeeded',
-                        'livemode' => false,
-                        'payments' => [
-                            ['id' => 'pay_reconciled'],
-                        ],
+        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' => Http::response([
+            'data' => [
+                'id' => 'pi_reconcile',
+                'type' => 'payment_intent',
+                'attributes' => [
+                    'amount' => 15000,
+                    'currency' => 'PHP',
+                    'status' => 'succeeded',
+                    'livemode' => false,
+                    'payments' => [
+                        ['id' => 'pay_reconciled'],
                     ],
                 ],
-            ]),
+            ],
+        ]),
     ]);
 
     app(ReconcilePayMongoPayment::class)->handle($payment);
@@ -92,8 +91,7 @@ test('reconciliation retrieves the exact historical Payment Intent account', fun
         ->toBe(PhotoboothSessionStatus::Paid);
 
     Http::assertSent(
-        fn (HttpRequest $request): bool =>
-            $request->method() === 'GET'
+        fn (HttpRequest $request): bool => $request->method() === 'GET'
             && $request->url()
                 === 'https://api.paymongo.com/v1/payment_intents/pi_reconcile'
             && $request->hasHeader(
@@ -109,22 +107,21 @@ test('reconciliation refuses amount mismatch', function () {
     [, $payment] = thPay005ReconciliationPayment();
 
     Http::fake([
-        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' =>
-            Http::response([
-                'data' => [
-                    'id' => 'pi_reconcile',
-                    'type' => 'payment_intent',
-                    'attributes' => [
-                        'amount' => 14999,
-                        'currency' => 'PHP',
-                        'status' => 'succeeded',
-                        'livemode' => false,
-                        'payments' => [
-                            ['id' => 'pay_wrong_amount'],
-                        ],
+        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' => Http::response([
+            'data' => [
+                'id' => 'pi_reconcile',
+                'type' => 'payment_intent',
+                'attributes' => [
+                    'amount' => 14999,
+                    'currency' => 'PHP',
+                    'status' => 'succeeded',
+                    'livemode' => false,
+                    'payments' => [
+                        ['id' => 'pay_wrong_amount'],
                     ],
                 ],
-            ]),
+            ],
+        ]),
     ]);
 
     expect(
@@ -141,22 +138,21 @@ test('reconciliation refuses currency mismatch', function () {
     [, $payment] = thPay005ReconciliationPayment();
 
     Http::fake([
-        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' =>
-            Http::response([
-                'data' => [
-                    'id' => 'pi_reconcile',
-                    'type' => 'payment_intent',
-                    'attributes' => [
-                        'amount' => 15000,
-                        'currency' => 'USD',
-                        'status' => 'succeeded',
-                        'livemode' => false,
-                        'payments' => [
-                            ['id' => 'pay_wrong_currency'],
-                        ],
+        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' => Http::response([
+            'data' => [
+                'id' => 'pi_reconcile',
+                'type' => 'payment_intent',
+                'attributes' => [
+                    'amount' => 15000,
+                    'currency' => 'USD',
+                    'status' => 'succeeded',
+                    'livemode' => false,
+                    'payments' => [
+                        ['id' => 'pay_wrong_currency'],
                     ],
                 ],
-            ]),
+            ],
+        ]),
     ]);
 
     expect(
@@ -173,22 +169,21 @@ test('reconciliation refuses Test Live mode mismatch', function () {
     [, $payment] = thPay005ReconciliationPayment();
 
     Http::fake([
-        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' =>
-            Http::response([
-                'data' => [
-                    'id' => 'pi_reconcile',
-                    'type' => 'payment_intent',
-                    'attributes' => [
-                        'amount' => 15000,
-                        'currency' => 'PHP',
-                        'status' => 'succeeded',
-                        'livemode' => true,
-                        'payments' => [
-                            ['id' => 'pay_wrong_mode'],
-                        ],
+        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' => Http::response([
+            'data' => [
+                'id' => 'pi_reconcile',
+                'type' => 'payment_intent',
+                'attributes' => [
+                    'amount' => 15000,
+                    'currency' => 'PHP',
+                    'status' => 'succeeded',
+                    'livemode' => true,
+                    'payments' => [
+                        ['id' => 'pay_wrong_mode'],
                     ],
                 ],
-            ]),
+            ],
+        ]),
     ]);
 
     expect(
@@ -209,20 +204,19 @@ test('expired local QR with awaiting payment method becomes cancelled', function
     ]);
 
     Http::fake([
-        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' =>
-            Http::response([
-                'data' => [
-                    'id' => 'pi_reconcile',
-                    'type' => 'payment_intent',
-                    'attributes' => [
-                        'amount' => 15000,
-                        'currency' => 'PHP',
-                        'status' => 'awaiting_payment_method',
-                        'livemode' => false,
-                        'payments' => [],
-                    ],
+        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' => Http::response([
+            'data' => [
+                'id' => 'pi_reconcile',
+                'type' => 'payment_intent',
+                'attributes' => [
+                    'amount' => 15000,
+                    'currency' => 'PHP',
+                    'status' => 'awaiting_payment_method',
+                    'livemode' => false,
+                    'payments' => [],
                 ],
-            ]),
+            ],
+        ]),
     ]);
 
     app(ReconcilePayMongoPayment::class)->handle($payment);
@@ -237,20 +231,19 @@ test('processing Payment Intent remains pending', function () {
     [, $payment] = thPay005ReconciliationPayment();
 
     Http::fake([
-        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' =>
-            Http::response([
-                'data' => [
-                    'id' => 'pi_reconcile',
-                    'type' => 'payment_intent',
-                    'attributes' => [
-                        'amount' => 15000,
-                        'currency' => 'PHP',
-                        'status' => 'processing',
-                        'livemode' => false,
-                        'payments' => [],
-                    ],
+        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' => Http::response([
+            'data' => [
+                'id' => 'pi_reconcile',
+                'type' => 'payment_intent',
+                'attributes' => [
+                    'amount' => 15000,
+                    'currency' => 'PHP',
+                    'status' => 'processing',
+                    'livemode' => false,
+                    'payments' => [],
                 ],
-            ]),
+            ],
+        ]),
     ]);
 
     app(ReconcilePayMongoPayment::class)->handle($payment);
@@ -270,22 +263,21 @@ test('late reconciled success records money without reopening expired session', 
     ]);
 
     Http::fake([
-        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' =>
-            Http::response([
-                'data' => [
-                    'id' => 'pi_reconcile',
-                    'type' => 'payment_intent',
-                    'attributes' => [
-                        'amount' => 15000,
-                        'currency' => 'PHP',
-                        'status' => 'succeeded',
-                        'livemode' => false,
-                        'payments' => [
-                            ['id' => 'pay_late_success'],
-                        ],
+        'https://api.paymongo.com/v1/payment_intents/pi_reconcile' => Http::response([
+            'data' => [
+                'id' => 'pi_reconcile',
+                'type' => 'payment_intent',
+                'attributes' => [
+                    'amount' => 15000,
+                    'currency' => 'PHP',
+                    'status' => 'succeeded',
+                    'livemode' => false,
+                    'payments' => [
+                        ['id' => 'pay_late_success'],
                     ],
                 ],
-            ]),
+            ],
+        ]),
     ]);
 
     app(ReconcilePayMongoPayment::class)->handle($payment);

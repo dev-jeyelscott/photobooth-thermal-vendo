@@ -41,7 +41,7 @@ return [
             'https://api.paymongo.com',
         ),
 
-        'webhook_tolerance_seconds' => env(
+        'webhook_tolerance_seconds' => (int) env(
             'PAYMONGO_WEBHOOK_TOLERANCE_SECONDS',
             300,
         ),

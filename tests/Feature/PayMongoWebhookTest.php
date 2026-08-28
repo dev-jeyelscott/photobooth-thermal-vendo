@@ -203,8 +203,7 @@ test('valid Test signature persists and queues the webhook', function () {
 
     Queue::assertPushed(
         ProcessPayMongoWebhookEvent::class,
-        fn (ProcessPayMongoWebhookEvent $job): bool =>
-            $job->paymongoWebhookEventId === $event->id,
+        fn (ProcessPayMongoWebhookEvent $job): bool => $job->paymongoWebhookEventId === $event->id,
     );
 });
 
@@ -580,8 +579,7 @@ test('late verified financial success does not reopen an expired session', funct
 
     Log::shouldHaveReceived('warning')
         ->withArgs(
-            fn (string $message, array $context): bool =>
-                str_contains($message, 'not reopened')
+            fn (string $message, array $context): bool => str_contains($message, 'not reopened')
                 && $context['payment_id'] === $payment->id,
         );
 });
@@ -672,7 +670,7 @@ test('invalid signature logs no webhook secret or signature', function () {
     thPay005PostWebhook(
         $account,
         $rawBody,
-        "t=".now()->timestamp.",te={$fullSignature},li=",
+        't='.now()->timestamp.",te={$fullSignature},li=",
     )->assertUnauthorized();
 
     Log::shouldHaveReceived('warning')

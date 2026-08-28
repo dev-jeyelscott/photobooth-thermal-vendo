@@ -344,7 +344,7 @@ class ProcessPayMongoWebhookEvent
     /**
      * Require provider evidence to resolve to exactly one local Payment.
      *
-     * @param Collection<int, Payment> $payments
+     * @param  Collection<int, Payment>  $payments
      */
     private function onlyPayment(Collection $payments): Payment
     {

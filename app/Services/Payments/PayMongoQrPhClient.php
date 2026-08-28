@@ -219,7 +219,7 @@ class PayMongoQrPhClient
     /**
      * Execute one idempotent PayMongo POST and classify safe failure semantics.
      *
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function post(
         string $apiKey,

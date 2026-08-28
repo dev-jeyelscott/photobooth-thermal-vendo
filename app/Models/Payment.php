@@ -86,12 +86,20 @@ class Payment extends Model
     }
 
     /**
-     * Get the immutable tenant PayMongo credential version used by this attempt.
+     * Get the immutable tenant PayMongo credential version used by this
+     * payment attempt.
+     *
+     * The explicit foreign key is required because the canonical database
+     * column is paymongo_account_id, while Laravel would otherwise infer
+     * pay_mongo_account_id from this camel-cased relationship method.
      *
      * @return BelongsTo<PayMongoAccount, $this>
      */
     public function payMongoAccount(): BelongsTo
     {
-        return $this->belongsTo(PayMongoAccount::class, 'paymongo_account_id');
+        return $this->belongsTo(
+            PayMongoAccount::class,
+            'paymongo_account_id',
+        );
     }
 }
