@@ -184,6 +184,9 @@ It owns the repository's current scheduled tasks:
 
 - `photobooth:expire-sessions` every minute
 - `media:prune-expired` hourly
+- `payments:reconcile-stale-maya` every five minutes. It flags Maya payments
+  pending for more than 15 minutes for operator review; it never marks a
+  payment successful because only a verified Maya webhook is authoritative.
 
 No host Laravel Cron entry is required.
 

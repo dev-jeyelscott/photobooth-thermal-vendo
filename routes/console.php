@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('photobooth:expire-sessions')->everyMinute();
 Schedule::command('media:prune-expired')->hourly();
+Schedule::command('payments:reconcile-stale-maya')->everyFiveMinutes()->withoutOverlapping();
