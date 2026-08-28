@@ -903,9 +903,9 @@ describe('Kiosk', () => {
 
         expect(galleryQr.getAttribute('src')).toContain('gallery-token-xyz');
 
-        expect(
-            window.sessionStorage.getItem('photobooth.session_token'),
-        ).toBe(SESSION_TOKEN);
+        expect(window.sessionStorage.getItem('photobooth.session_token')).toBe(
+            SESSION_TOKEN,
+        );
 
         // Phase 8: starting a new session from the completed gallery screen
         // must clear every trace of the finished session (session token,

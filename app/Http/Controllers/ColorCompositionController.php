@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\Processing\ComposeColorPhoto;
 use App\Http\Requests\ComposeColorPhotoRequest;
 use App\Jobs\ProcessCapturedMedia;
+use App\Models\Business;
 use App\Models\PhotoboothSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
@@ -13,45 +14,42 @@ use Throwable;
 class ColorCompositionController extends Controller
 {
     /**
-     * Validate the session's confirmed captured photos and queue their final
-     * color, black-and-white, and GIF composition, returning promptly
-     * instead of waiting for the image and GIF encoding to finish.
+     * Queue final media processing for the route-scoped photobooth session.
      */
-    public function store(string $sessionToken, ComposeColorPhotoRequest $request, ComposeColorPhoto $composeColorPhoto): JsonResponse
-    {
-        $session = PhotoboothSession::where('session_token', $sessionToken)->first();
-
-        if (! $session) {
-            return response()->json(['message' => 'Session not found.'], 404);
-        }
-
+    public function store(
+        Business $business,
+        PhotoboothSession $photoboothSession,
+        ComposeColorPhotoRequest $request,
+        ComposeColorPhoto $composeColorPhoto,
+    ): JsonResponse {
         $validated = $request->validated();
 
         $photos = isset($validated['photo_paths'])
             ? array_map(
-                fn (string $path): string => (string) Storage::disk(config('filesystems.media'))->get($path),
+                fn (string $path): string => (string) Storage::disk('public')->get($path),
                 $validated['photo_paths'],
             )
             : $validated['photos'];
 
-        if (! $composeColorPhoto->canCompose($session, $photos)) {
+        if (! $composeColorPhoto->canCompose($photoboothSession, $photos)) {
             return response()->json([
                 'message' => 'The final photo could not be composed for the current session.',
-                'status' => $session->fresh()->status->value,
+                'status' => $photoboothSession->fresh()->status->value,
             ], 422);
         }
 
         try {
-            ProcessCapturedMedia::dispatch($session, array_values(array_map(base64_encode(...), $photos)));
+            ProcessCapturedMedia::dispatch(
+                $photoboothSession,
+                array_values(array_map(base64_encode(...), $photos)),
+            );
         } catch (Throwable) {
-            // The job logs and rethrows on failure so a real queue worker's
-            // automatic retries kick in; under the "sync" queue connection
-            // it runs inline here, so swallow it to keep the response
-            // prompt and let the customer recover via the processing poll.
+            // The queued job owns retry behavior. Under the sync connection,
+            // keep the kiosk response recoverable and let polling reconcile.
         }
 
         return response()->json([
-            'status' => $session->fresh()->status->value,
+            'status' => $photoboothSession->fresh()->status->value,
             'processing' => true,
         ], 202);
     }

@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useState } from 'react';
 import { store as uploadCaptureShotFile } from '@/actions/App/Http/Controllers/CaptureShotController';
 import { store as composeColorOutput } from '@/actions/App/Http/Controllers/ColorCompositionController';
@@ -17,7 +18,11 @@ import {
 } from '@/actions/App/Http/Controllers/StickerDesignController';
 import { store as redeemVoucherCode } from '@/actions/App/Http/Controllers/VoucherController';
 
-const STORAGE_KEY = 'photobooth.session_token';
+const STORAGE_KEY_PREFIX = 'photobooth.session_token';
+
+type KioskPageProps = Record<string, unknown> & {
+    businessSlug: string;
+};
 
 /** Returned as the failure message whenever a kiosk request never reaches the server. */
 export const NETWORK_ERROR_MESSAGE =
@@ -35,6 +40,7 @@ export type PhotoboothSession = {
 };
 
 type ActionFailure = { ok: false; message: string; expired: boolean };
+
 type StartSessionFailure = {
     ok: false;
     message: string;
@@ -59,25 +65,25 @@ export type StickerDesignOption = {
     thumbnailPath: string | null;
 };
 
-/** Reads the active session token from per-tab browser storage. */
-const readStoredToken = (): string | null => {
+/** Reads the active session token from tenant-specific per-tab storage. */
+const readStoredToken = (storageKey: string): string | null => {
     if (typeof window === 'undefined') {
         return null;
     }
 
-    return window.sessionStorage.getItem(STORAGE_KEY);
+    return window.sessionStorage.getItem(storageKey);
 };
 
-/** Stores or clears the active session token without using persistent local storage. */
-const storeToken = (token: string | null): void => {
+/** Stores or clears the tenant-specific session token. */
+const storeToken = (storageKey: string, token: string | null): void => {
     if (typeof window === 'undefined') {
         return;
     }
 
     if (token) {
-        window.sessionStorage.setItem(STORAGE_KEY, token);
+        window.sessionStorage.setItem(storageKey, token);
     } else {
-        window.sessionStorage.removeItem(STORAGE_KEY);
+        window.sessionStorage.removeItem(storageKey);
     }
 };
 
@@ -93,26 +99,34 @@ const readXsrfToken = (): string | null => {
 };
 
 /**
- * Creates or resumes the active photobooth session for the kiosk, persisting
- * the session token client-side so a page refresh resumes the same session.
+ * Creates or resumes the active Business-scoped photobooth session while
+ * keeping Laravel authoritative for all durable state transitions.
  */
 export function usePhotoboothSession() {
+    const { businessSlug } = usePage<KioskPageProps>().props;
+    const storageKey = `${STORAGE_KEY_PREFIX}.${businessSlug}`;
+
     const [session, setSession] = useState<PhotoboothSession | null>(null);
     const [isResuming, setIsResuming] = useState(
-        () => readStoredToken() !== null,
+        () => readStoredToken(storageKey) !== null,
     );
 
-    /** Creates a new backend-owned kiosk session and stores its public token. */
+    /** Creates a new backend-owned Business kiosk session. */
     const startSession = useCallback(async (): Promise<
         { ok: true; session: PhotoboothSession } | StartSessionFailure
     > => {
-        const response = await fetch(store.url(), {
-            method: 'post',
-            headers: {
-                Accept: 'application/json',
-                'X-XSRF-TOKEN': readXsrfToken() ?? '',
+        const response = await fetch(
+            store.url({
+                business: businessSlug,
+            }),
+            {
+                method: 'post',
+                headers: {
+                    Accept: 'application/json',
+                    'X-XSRF-TOKEN': readXsrfToken() ?? '',
+                },
             },
-        });
+        );
 
         if (!response.ok) {
             const body = (await response.json()) as {
@@ -129,20 +143,20 @@ export function usePhotoboothSession() {
 
         const created = (await response.json()) as PhotoboothSession;
 
-        storeToken(created.sessionToken);
+        storeToken(storageKey, created.sessionToken);
         setSession(created);
 
         return { ok: true, session: created };
-    }, []);
+    }, [businessSlug, storageKey]);
 
-    /** Clears browser-visible session state after completion or an unrecoverable reset. */
+    /** Clears browser-visible session state after completion or reset. */
     const resetSession = useCallback((): void => {
-        storeToken(null);
+        storeToken(storageKey, null);
         setSession(null);
         setIsResuming(false);
-    }, []);
+    }, [storageKey]);
 
-    /** Redeems a voucher against the active backend session. */
+    /** Redeems a voucher against the Business-scoped active session. */
     const redeemVoucher = useCallback(
         async (code: string): Promise<{ ok: true } | ActionFailure> => {
             if (!session) {
@@ -155,7 +169,10 @@ export function usePhotoboothSession() {
 
             try {
                 const response = await fetch(
-                    redeemVoucherCode.url(session.sessionToken),
+                    redeemVoucherCode.url({
+                        business: businessSlug,
+                        photoboothSession: session.sessionToken,
+                    }),
                     {
                         method: 'post',
                         headers: {
@@ -196,25 +213,30 @@ export function usePhotoboothSession() {
                 };
             }
         },
-        [session],
+        [businessSlug, session],
     );
 
-    /** Fetches the repository-filtered set of enabled templates. */
+    /** Fetches globally managed templates through the current Business route. */
     const fetchTemplates = useCallback(async (): Promise<
         PhotoTemplateOption[]
     > => {
-        const response = await fetch(listTemplates.url(), {
-            headers: { Accept: 'application/json' },
-        });
+        const response = await fetch(
+            listTemplates.url({
+                business: businessSlug,
+            }),
+            {
+                headers: { Accept: 'application/json' },
+            },
+        );
 
         const body = (await response.json()) as {
             templates: PhotoTemplateOption[];
         };
 
         return body.templates;
-    }, []);
+    }, [businessSlug]);
 
-    /** Persists the selected template for the active session. */
+    /** Persists the selected template for the Business-scoped session. */
     const selectTemplate = useCallback(
         async (
             photoTemplateId: number,
@@ -229,7 +251,10 @@ export function usePhotoboothSession() {
 
             try {
                 const response = await fetch(
-                    selectTemplateId.url(session.sessionToken),
+                    selectTemplateId.url({
+                        business: businessSlug,
+                        photoboothSession: session.sessionToken,
+                    }),
                     {
                         method: 'post',
                         headers: {
@@ -274,18 +299,27 @@ export function usePhotoboothSession() {
                 };
             }
         },
-        [session],
+        [businessSlug, session],
     );
 
-    /** Fetches enabled stickers compatible with the selected session template. */
+    /** Fetches enabled stickers through the current Business route. */
     const fetchStickers = useCallback(async (): Promise<
         StickerDesignOption[]
     > => {
         const response = await fetch(
-            listStickers.url({
-                query: session ? { sessionToken: session.sessionToken } : {},
-            }),
-            { headers: { Accept: 'application/json' } },
+            listStickers.url(
+                {
+                    business: businessSlug,
+                },
+                {
+                    query: session
+                        ? { sessionToken: session.sessionToken }
+                        : {},
+                },
+            ),
+            {
+                headers: { Accept: 'application/json' },
+            },
         );
 
         const body = (await response.json()) as {
@@ -293,7 +327,7 @@ export function usePhotoboothSession() {
         };
 
         return body.stickers;
-    }, [session]);
+    }, [businessSlug, session]);
 
     /** Persists the final sticker selection for the active session. */
     const selectSticker = useCallback(
@@ -310,7 +344,10 @@ export function usePhotoboothSession() {
 
             try {
                 const response = await fetch(
-                    selectStickerId.url(session.sessionToken),
+                    selectStickerId.url({
+                        business: businessSlug,
+                        photoboothSession: session.sessionToken,
+                    }),
                     {
                         method: 'post',
                         headers: {
@@ -351,20 +388,27 @@ export function usePhotoboothSession() {
                 };
             }
         },
-        [session],
+        [businessSlug, session],
     );
 
-    /** Confirms the existing backend preview boundary for the active session. */
+    /** Confirms the existing backend preview boundary. */
     const confirmPreview = useCallback(async (): Promise<
         { ok: true } | ActionFailure
     > => {
         if (!session) {
-            return { ok: false, message: 'No active session.', expired: false };
+            return {
+                ok: false,
+                message: 'No active session.',
+                expired: false,
+            };
         }
 
         try {
             const response = await fetch(
-                confirmSessionPreview.url(session.sessionToken),
+                confirmSessionPreview.url({
+                    business: businessSlug,
+                    photoboothSession: session.sessionToken,
+                }),
                 {
                     method: 'post',
                     headers: {
@@ -388,7 +432,10 @@ export function usePhotoboothSession() {
                 };
             }
 
-            setSession({ ...session, status: body.status ?? session.status });
+            setSession({
+                ...session,
+                status: body.status ?? session.status,
+            });
 
             return { ok: true };
         } catch {
@@ -398,9 +445,9 @@ export function usePhotoboothSession() {
                 expired: false,
             };
         }
-    }, [session]);
+    }, [businessSlug, session]);
 
-    /** Uploads one captured JPEG frame to the active session's public-disk boundary. */
+    /** Uploads one captured JPEG frame for the Business-scoped session. */
     const uploadCaptureShot = useCallback(
         async (dataUrl: string): Promise<string | null> => {
             if (!session) {
@@ -410,10 +457,14 @@ export function usePhotoboothSession() {
             try {
                 const shotBlob = await (await fetch(dataUrl)).blob();
                 const formData = new FormData();
+
                 formData.append('shot', shotBlob, 'shot.jpg');
 
                 const response = await fetch(
-                    uploadCaptureShotFile.url(session.sessionToken),
+                    uploadCaptureShotFile.url({
+                        business: businessSlug,
+                        photoboothSession: session.sessionToken,
+                    }),
                     {
                         method: 'post',
                         headers: {
@@ -424,17 +475,19 @@ export function usePhotoboothSession() {
                     },
                 );
 
-                const body = (await response.json()) as { path?: string };
+                const body = (await response.json()) as {
+                    path?: string;
+                };
 
                 return response.ok && body.path ? body.path : null;
             } catch {
                 return null;
             }
         },
-        [session],
+        [businessSlug, session],
     );
 
-    /** Queues final output generation using stored shot paths whenever possible. */
+    /** Queues final output generation using stored frame paths when possible. */
     const composeFinalOutput = useCallback(
         async (
             photos: string[],
@@ -451,12 +504,16 @@ export function usePhotoboothSession() {
             const storedPaths = photoPaths.filter(
                 (path): path is string => path !== null,
             );
+
             const usableStoredPaths =
                 storedPaths.length === photos.length ? storedPaths : null;
 
             try {
                 const response = await fetch(
-                    composeColorOutput.url(session.sessionToken),
+                    composeColorOutput.url({
+                        business: businessSlug,
+                        photoboothSession: session.sessionToken,
+                    }),
                     {
                         method: 'post',
                         headers: {
@@ -501,25 +558,36 @@ export function usePhotoboothSession() {
                 };
             }
         },
-        [session],
+        [businessSlug, session],
     );
 
     /**
-     * Creates one Maya checkout and returns the backend-rendered QR alongside
-     * the trusted checkout URL. React never generates or authorizes payment
-     * state itself.
+     * Creates the current Maya checkout for the Business-scoped session.
+     *
+     * Maya remains unchanged until the later PayMongo migration slice.
      */
     const createPayment = useCallback(async (): Promise<
-        | { ok: true; checkoutUrl: string; checkoutQrCode: string }
+        | {
+              ok: true;
+              checkoutUrl: string;
+              checkoutQrCode: string;
+          }
         | ActionFailure
     > => {
         if (!session) {
-            return { ok: false, message: 'No active session.', expired: false };
+            return {
+                ok: false,
+                message: 'No active session.',
+                expired: false,
+            };
         }
 
         try {
             const response = await fetch(
-                createPaymentCheckout.url(session.sessionToken),
+                createPaymentCheckout.url({
+                    business: businessSlug,
+                    photoboothSession: session.sessionToken,
+                }),
                 {
                     method: 'post',
                     headers: {
@@ -556,9 +624,9 @@ export function usePhotoboothSession() {
                 expired: false,
             };
         }
-    }, [session]);
+    }, [businessSlug, session]);
 
-    /** Refreshes the active backend session used by payment, processing, and print polls. */
+    /** Refreshes the authoritative Business-scoped backend session. */
     const refreshSession =
         useCallback(async (): Promise<PhotoboothSession | null> => {
             if (!session) {
@@ -566,9 +634,17 @@ export function usePhotoboothSession() {
             }
 
             try {
-                const response = await fetch(show.url(session.sessionToken), {
-                    headers: { Accept: 'application/json' },
-                });
+                const response = await fetch(
+                    show.url({
+                        business: businessSlug,
+                        photoboothSession: session.sessionToken,
+                    }),
+                    {
+                        headers: {
+                            Accept: 'application/json',
+                        },
+                    },
+                );
 
                 if (!response.ok) {
                     if (response.status === 410) {
@@ -593,22 +669,29 @@ export function usePhotoboothSession() {
             } catch {
                 return null;
             }
-        }, [session]);
+        }, [businessSlug, session]);
 
-    // Resume the active session after refresh and discard stale/invalid tokens.
     useEffect(() => {
-        const token = readStoredToken();
+        const token = readStoredToken(storageKey);
 
         if (!token) {
             return;
         }
 
-        fetch(show.url(token), {
-            headers: { Accept: 'application/json' },
-        })
+        fetch(
+            show.url({
+                business: businessSlug,
+                photoboothSession: token,
+            }),
+            {
+                headers: {
+                    Accept: 'application/json',
+                },
+            },
+        )
             .then(async (response) => {
                 if (!response.ok) {
-                    storeToken(null);
+                    storeToken(storageKey, null);
 
                     return;
                 }
@@ -618,7 +701,7 @@ export function usePhotoboothSession() {
             .finally(() => {
                 setIsResuming(false);
             });
-    }, []);
+    }, [businessSlug, storageKey]);
 
     return {
         session,

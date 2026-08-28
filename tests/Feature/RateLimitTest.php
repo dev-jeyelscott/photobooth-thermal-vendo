@@ -1,15 +1,25 @@
 <?php
 
 use App\Models\ApplicationSetting;
+use App\Models\Business;
 use App\Models\PhotoboothSession;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 test('session creation is rate limited per client', function () {
-    config(['photobooth.rate_limits.session_creation_attempts_per_minute' => 2]);
+    config([
+        'photobooth.rate_limits.session_creation_attempts_per_minute' => 2,
+    ]);
+
+    $business = Business::factory()->create();
 
     for ($attempt = 0; $attempt < 3; $attempt++) {
-        $response = $this->postJson(route('kiosk.sessions.store'));
+        $response = $this->postJson(
+            businessRoute(
+                'kiosk.sessions.store',
+                $business,
+            ),
+        );
 
         if ($attempt < 2) {
             $response->assertCreated();
@@ -20,7 +30,9 @@ test('session creation is rate limited per client', function () {
 });
 
 test('payment creation is rate limited per client', function () {
-    config(['photobooth.rate_limits.payment_attempts_per_minute' => 2]);
+    config([
+        'photobooth.rate_limits.payment_attempts_per_minute' => 2,
+    ]);
 
     ApplicationSetting::factory()->create([
         'key' => 'session_price',
@@ -36,10 +48,20 @@ test('payment creation is rate limited per client', function () {
         ], 200);
     });
 
-    $sessions = PhotoboothSession::factory()->count(3)->create();
+    $business = Business::factory()->create();
+
+    $sessions = PhotoboothSession::factory()
+        ->for($business)
+        ->count(3)
+        ->create();
 
     foreach ($sessions as $index => $session) {
-        $response = $this->postJson(route('kiosk.sessions.payments.store', $session->session_token));
+        $response = $this->postJson(
+            kioskSessionRoute(
+                'kiosk.sessions.payments.store',
+                $session,
+            ),
+        );
 
         if ($index < 2) {
             $response->assertCreated();
@@ -50,14 +72,27 @@ test('payment creation is rate limited per client', function () {
 });
 
 test('voucher redemption is rate limited per client', function () {
-    config(['photobooth.rate_limits.voucher_attempts_per_minute' => 2]);
+    config([
+        'photobooth.rate_limits.voucher_attempts_per_minute' => 2,
+    ]);
 
-    $sessions = PhotoboothSession::factory()->count(3)->create();
+    $business = Business::factory()->create();
+
+    $sessions = PhotoboothSession::factory()
+        ->for($business)
+        ->count(3)
+        ->create();
 
     foreach ($sessions as $index => $session) {
-        $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
-            'code' => 'DOES-NOT-EXIST',
-        ]);
+        $response = $this->postJson(
+            kioskSessionRoute(
+                'kiosk.sessions.voucher.store',
+                $session,
+            ),
+            [
+                'code' => 'DOES-NOT-EXIST',
+            ],
+        );
 
         if ($index < 2) {
             $response->assertStatus(422);

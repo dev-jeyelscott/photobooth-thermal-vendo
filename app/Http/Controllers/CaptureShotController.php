@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreCaptureShotRequest;
+use App\Models\Business;
 use App\Models\PhotoboothSession;
 use App\Services\CaptureShotStorage;
 use Illuminate\Http\JsonResponse;
@@ -10,25 +11,25 @@ use Illuminate\Http\JsonResponse;
 class CaptureShotController extends Controller
 {
     /**
-     * Persist a single kept capture-step shot to the session's captures
-     * directory, independent of the final color/bw/gif composition step.
+     * Persist a kept capture shot for the route-scoped photobooth session.
      */
-    public function store(string $sessionToken, StoreCaptureShotRequest $request, CaptureShotStorage $captureShotStorage): JsonResponse
-    {
-        $session = PhotoboothSession::where('session_token', $sessionToken)->first();
-
-        if (! $session) {
-            return response()->json(['message' => 'Session not found.'], 404);
-        }
-
-        if ($session->expireIfPast()) {
+    public function store(
+        Business $business,
+        PhotoboothSession $photoboothSession,
+        StoreCaptureShotRequest $request,
+        CaptureShotStorage $captureShotStorage,
+    ): JsonResponse {
+        if ($photoboothSession->expireIfPast()) {
             return response()->json([
                 'message' => 'This session has expired.',
-                'status' => $session->fresh()->status->value,
+                'status' => $photoboothSession->fresh()->status->value,
             ], 422);
         }
 
-        $path = $captureShotStorage->store($session, $request->file('shot'));
+        $path = $captureShotStorage->store(
+            $photoboothSession,
+            $request->file('shot'),
+        );
 
         return response()->json(['path' => $path]);
     }

@@ -22,7 +22,10 @@ test('payment checkout returns a server generated QR for the trusted Maya checko
     $session = PhotoboothSession::factory()->create();
 
     $response = $this->postJson(
-        route('kiosk.sessions.payments.store', $session->session_token),
+        kioskSessionRoute(
+            'kiosk.sessions.payments.store',
+            $session,
+        ),
     );
 
     $response->assertCreated()
@@ -38,7 +41,10 @@ test('payment checkout returns a server generated QR for the trusted Maya checko
         ->toStartWith('data:image/svg+xml;base64,');
 
     $svg = base64_decode(
-        substr($qrCode, strlen('data:image/svg+xml;base64,')),
+        substr(
+            $qrCode,
+            strlen('data:image/svg+xml;base64,'),
+        ),
         true,
     );
 

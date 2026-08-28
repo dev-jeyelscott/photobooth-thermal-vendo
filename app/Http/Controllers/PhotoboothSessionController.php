@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PhotoboothSessionStatus;
+use App\Models\Business;
 use App\Models\PhotoboothSession;
 use App\Services\Settings;
 use Illuminate\Http\JsonResponse;
@@ -11,9 +12,9 @@ use Illuminate\Support\Str;
 class PhotoboothSessionController extends Controller
 {
     /**
-     * Start a new photobooth session for a customer.
+     * Start a new photobooth session owned by the route-resolved Business.
      */
-    public function store(): JsonResponse
+    public function store(Business $business): JsonResponse
     {
         if (Settings::get('maintenance_mode')) {
             return response()->json([
@@ -22,7 +23,7 @@ class PhotoboothSessionController extends Controller
             ], 503);
         }
 
-        $session = PhotoboothSession::create([
+        $session = $business->photoboothSessions()->create([
             'session_token' => (string) Str::uuid(),
             'status' => PhotoboothSessionStatus::New,
             'price' => (string) Settings::get('session_price'),
@@ -36,31 +37,31 @@ class PhotoboothSessionController extends Controller
     }
 
     /**
-     * Resume an existing photobooth session, e.g. after a page refresh.
+     * Resume the route-scoped photobooth session.
      */
-    public function show(string $sessionToken): JsonResponse
+    public function show(Business $business, PhotoboothSession $photoboothSession): JsonResponse
     {
-        $session = PhotoboothSession::where('session_token', $sessionToken)->first();
-
-        if (! $session) {
-            return response()->json(['message' => 'Session not found.'], 404);
-        }
-
-        if ($session->expireIfPast()) {
+        if ($photoboothSession->expireIfPast()) {
             return response()->json(['message' => 'Session is no longer active.'], 410);
         }
 
-        // Completed sessions remain readable so the kiosk can confirm the
-        // queued composition job's gallery token even if printing finishes
-        // between polls; only abandoned/expired sessions are unrecoverable.
-        if (in_array($session->status, [PhotoboothSessionStatus::Expired, PhotoboothSessionStatus::Abandoned], true)) {
+        if (in_array(
+            $photoboothSession->status,
+            [
+                PhotoboothSessionStatus::Expired,
+                PhotoboothSessionStatus::Abandoned,
+            ],
+            true,
+        )) {
             return response()->json(['message' => 'Session is no longer active.'], 410);
         }
 
-        return response()->json($this->present($session));
+        return response()->json($this->present($photoboothSession));
     }
 
     /**
+     * Present the browser-safe durable session state.
+     *
      * @return array<string, mixed>
      */
     private function present(PhotoboothSession $session): array

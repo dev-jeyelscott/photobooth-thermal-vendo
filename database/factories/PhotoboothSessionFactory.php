@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\PhotoboothSessionStatus;
+use App\Models\Business;
 use App\Models\PhotoboothSession;
 use App\Models\PhotoTemplate;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -21,6 +22,7 @@ class PhotoboothSessionFactory extends Factory
     public function definition(): array
     {
         return [
+            'business_id' => Business::factory(),
             'session_token' => (string) Str::uuid(),
             'status' => PhotoboothSessionStatus::New,
             'photo_template_id' => PhotoTemplate::factory(),

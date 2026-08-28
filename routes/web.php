@@ -3,6 +3,8 @@
 use App\Http\Controllers\CaptureShotController;
 use App\Http\Controllers\ColorCompositionController;
 use App\Http\Controllers\GalleryController;
+use App\Http\Controllers\KioskController;
+use App\Http\Controllers\KioskRedirectController;
 use App\Http\Controllers\MayaWebhookController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PhotoboothSessionController;
@@ -10,69 +12,113 @@ use App\Http\Controllers\PhotoTemplateController;
 use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\StickerDesignController;
 use App\Http\Controllers\VoucherController;
-use App\Services\Settings;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
 
-Route::inertia('kiosk', 'kiosk', [
-    'idleTimeoutSeconds' => config('photobooth.kiosk_idle_timeout_seconds'),
-    'captureShotCount' => config('photobooth.capture_shot_count'),
-    'captureRetakeLimit' => fn () => Settings::get('capture_retake_limit'),
-    'captureCountdownSeconds' => fn () => Settings::get('capture_countdown_seconds'),
-    'paymentTimeoutSeconds' => config('photobooth.payment_timeout_seconds'),
-    'maintenanceMode' => fn () => Settings::get('maintenance_mode'),
-    'maintenanceMessage' => fn () => Settings::get('maintenance_message'),
-])->name('kiosk');
+Route::get('kiosk', KioskRedirectController::class)->name('kiosk');
 
-Route::post('kiosk/sessions', [PhotoboothSessionController::class, 'store'])
-    ->middleware('throttle:session-creation')
-    ->name('kiosk.sessions.store');
-Route::get('kiosk/sessions/{sessionToken}', [PhotoboothSessionController::class, 'show'])
-    ->whereUuid('sessionToken')
-    ->name('kiosk.sessions.show');
+Route::prefix('b/{business:slug}')
+    ->scopeBindings()
+    ->group(function (): void {
+        Route::get('kiosk', KioskController::class)
+            ->name('business.kiosk');
 
-Route::post('kiosk/sessions/{sessionToken}/payments', [PaymentController::class, 'store'])
-    ->whereUuid('sessionToken')
-    ->middleware('throttle:payment-creation')
-    ->name('kiosk.sessions.payments.store');
+        Route::post('kiosk/sessions', [
+            PhotoboothSessionController::class,
+            'store',
+        ])
+            ->middleware('throttle:session-creation')
+            ->name('kiosk.sessions.store');
 
-Route::post('kiosk/sessions/{sessionToken}/voucher', [VoucherController::class, 'store'])
-    ->whereUuid('sessionToken')
-    ->middleware('throttle:voucher-redemption')
-    ->name('kiosk.sessions.voucher.store');
+        Route::get('templates', [
+            PhotoTemplateController::class,
+            'index',
+        ])->name('templates.index');
 
-Route::get('templates', [PhotoTemplateController::class, 'index'])->name('templates.index');
+        Route::get('stickers', [
+            StickerDesignController::class,
+            'index',
+        ])->name('stickers.index');
 
-Route::post('kiosk/sessions/{sessionToken}/template', [PhotoTemplateController::class, 'store'])
-    ->whereUuid('sessionToken')
-    ->name('kiosk.sessions.template.store');
+        Route::get(
+            'kiosk/sessions/{photoboothSession:session_token}',
+            [PhotoboothSessionController::class, 'show'],
+        )
+            ->whereUuid('photoboothSession')
+            ->name('kiosk.sessions.show');
 
-Route::get('stickers', [StickerDesignController::class, 'index'])->name('stickers.index');
+        Route::post(
+            'kiosk/sessions/{photoboothSession:session_token}/payments',
+            [PaymentController::class, 'store'],
+        )
+            ->whereUuid('photoboothSession')
+            ->middleware('throttle:payment-creation')
+            ->name('kiosk.sessions.payments.store');
 
-Route::post('kiosk/sessions/{sessionToken}/sticker', [StickerDesignController::class, 'store'])
-    ->whereUuid('sessionToken')
-    ->name('kiosk.sessions.sticker.store');
+        Route::post(
+            'kiosk/sessions/{photoboothSession:session_token}/voucher',
+            [VoucherController::class, 'store'],
+        )
+            ->whereUuid('photoboothSession')
+            ->middleware('throttle:voucher-redemption')
+            ->name('kiosk.sessions.voucher.store');
 
-Route::post('kiosk/sessions/{sessionToken}/preview', [PreviewController::class, 'store'])
-    ->whereUuid('sessionToken')
-    ->name('kiosk.sessions.preview.store');
+        Route::post(
+            'kiosk/sessions/{photoboothSession:session_token}/template',
+            [PhotoTemplateController::class, 'store'],
+        )
+            ->whereUuid('photoboothSession')
+            ->name('kiosk.sessions.template.store');
 
-Route::post('kiosk/sessions/{sessionToken}/shots', [CaptureShotController::class, 'store'])
-    ->whereUuid('sessionToken')
-    ->name('kiosk.sessions.shots.store');
+        Route::post(
+            'kiosk/sessions/{photoboothSession:session_token}/sticker',
+            [StickerDesignController::class, 'store'],
+        )
+            ->whereUuid('photoboothSession')
+            ->name('kiosk.sessions.sticker.store');
 
-Route::post('kiosk/sessions/{sessionToken}/color-output', [ColorCompositionController::class, 'store'])
-    ->whereUuid('sessionToken')
-    ->name('kiosk.sessions.color-output.store');
+        Route::post(
+            'kiosk/sessions/{photoboothSession:session_token}/preview',
+            [PreviewController::class, 'store'],
+        )
+            ->whereUuid('photoboothSession')
+            ->name('kiosk.sessions.preview.store');
 
-Route::get('gallery/{capturedMedia:public_token}', [GalleryController::class, 'show'])->name('gallery.show');
+        Route::post(
+            'kiosk/sessions/{photoboothSession:session_token}/shots',
+            [CaptureShotController::class, 'store'],
+        )
+            ->whereUuid('photoboothSession')
+            ->name('kiosk.sessions.shots.store');
 
-Route::get('gallery/{capturedMedia:public_token}/media/{variant}', [GalleryController::class, 'media'])->name('gallery.media');
+        Route::post(
+            'kiosk/sessions/{photoboothSession:session_token}/color-output',
+            [ColorCompositionController::class, 'store'],
+        )
+            ->whereUuid('photoboothSession')
+            ->name('kiosk.sessions.color-output.store');
+    });
 
-Route::get('gallery/{capturedMedia:public_token}/qr-code', [GalleryController::class, 'qrCode'])->name('gallery.qr-code');
+Route::get(
+    'gallery/{capturedMedia:public_token}',
+    [GalleryController::class, 'show'],
+)->name('gallery.show');
 
-Route::post('webhooks/maya', [MayaWebhookController::class, 'handle'])->name('webhooks.maya');
+Route::get(
+    'gallery/{capturedMedia:public_token}/media/{variant}',
+    [GalleryController::class, 'media'],
+)->name('gallery.media');
+
+Route::get(
+    'gallery/{capturedMedia:public_token}/qr-code',
+    [GalleryController::class, 'qrCode'],
+)->name('gallery.qr-code');
+
+Route::post(
+    'webhooks/maya',
+    [MayaWebhookController::class, 'handle'],
+)->name('webhooks.maya');
 
 require __DIR__.'/settings.php';
 require __DIR__.'/admin.php';

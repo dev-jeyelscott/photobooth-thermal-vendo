@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
+ * @property int|null $business_id
  * @property string $session_token
  * @property PhotoboothSessionStatus $status
  * @property int|null $photo_template_id
@@ -51,6 +52,16 @@ class PhotoboothSession extends Model
 {
     /** @use HasFactory<PhotoboothSessionFactory> */
     use HasFactory;
+
+    /**
+     * Get the Business that owns this customer session.
+     *
+     * @return BelongsTo<Business, $this>
+     */
+    public function business(): BelongsTo
+    {
+        return $this->belongsTo(Business::class);
+    }
 
     /**
      * Get the attributes that should be cast.
