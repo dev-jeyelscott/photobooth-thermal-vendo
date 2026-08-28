@@ -427,6 +427,7 @@ test('webhook recovery is owner only and requires password confirmation', functi
         ->assertForbidden();
 
     $this
+        ->flushSession()
         ->actingAs($business->owner)
         ->post(
             route('admin.payment-settings.webhook.reprovision', [
