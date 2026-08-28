@@ -43,6 +43,11 @@ class PayMongoWebhookEventFactory extends Factory
             ],
         ];
 
+        $encodedPayload = json_encode(
+            $payload,
+            JSON_THROW_ON_ERROR,
+        );
+
         return [
             'paymongo_account_id' => PayMongoAccount::factory()
                 ->webhookProvisioned(),
@@ -50,7 +55,10 @@ class PayMongoWebhookEventFactory extends Factory
             'event_type' => 'payment.paid',
             'livemode' => false,
             'payload' => $payload,
-            'payload_sha256' => hash('sha256', json_encode($payload)),
+            'payload_sha256' => hash(
+                'sha256',
+                $encodedPayload,
+            ),
             'received_at' => now(),
             'processed_at' => null,
             'failed_at' => null,

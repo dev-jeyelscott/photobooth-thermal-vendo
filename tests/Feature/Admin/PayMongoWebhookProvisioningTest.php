@@ -708,7 +708,7 @@ test('production webhook provisioning rejects non public https application urls'
     Http::assertSentCount(1);
 });
 
-test('webhook callback uses the opaque public id and exposes no credential material', function () {
+test('webhook callback uses the opaque public id and rejects unsigned requests without exposing credential material', function () {
     $account = PayMongoAccount::factory()
         ->webhookProvisioned()
         ->create();
@@ -725,9 +725,9 @@ test('webhook callback uses the opaque public id and exposes no credential mater
     );
 
     $response
-        ->assertOk()
+        ->assertUnauthorized()
         ->assertExactJson([
-            'message' => 'Webhook endpoint ready.',
+            'message' => 'Invalid webhook signature.',
         ])
         ->assertDontSee($account->public_key)
         ->assertDontSee($account->secret_key)
