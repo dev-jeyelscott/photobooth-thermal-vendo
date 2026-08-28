@@ -78,6 +78,22 @@ test('an expired voucher is rejected without mutating usage_count or the session
         ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::New);
 });
 
+test('a not-yet-valid voucher is rejected without mutating usage_count or the session', function () {
+    $voucher = Voucher::factory()->notYetValid()->create(['usage_limit' => 1, 'usage_count' => 0]);
+    $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);
+
+    $response = $this->postJson(route('kiosk.sessions.voucher.store', $session->session_token), [
+        'code' => $voucher->code,
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJson(['message' => 'This voucher code is invalid or can no longer be used.']);
+
+    expect($voucher->fresh()->usage_count)->toBe(0)
+        ->and($session->fresh()->voucher_id)->toBeNull()
+        ->and($session->fresh()->status)->toBe(PhotoboothSessionStatus::New);
+});
+
 test('an inactive voucher is rejected without mutating usage_count or the session', function () {
     $voucher = Voucher::factory()->inactive()->create(['usage_limit' => 1, 'usage_count' => 0]);
     $session = PhotoboothSession::factory()->create(['status' => PhotoboothSessionStatus::New]);

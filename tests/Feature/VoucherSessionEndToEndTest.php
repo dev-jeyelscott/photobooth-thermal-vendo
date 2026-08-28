@@ -9,6 +9,7 @@ use App\Models\PhotoboothSession;
 use App\Models\PhotoTemplate;
 use App\Models\PrintJob;
 use App\Models\StickerDesign;
+use App\Models\User;
 use App\Models\Voucher;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
@@ -67,6 +68,19 @@ test('the full voucher commercial journey succeeds end to end without Maya', fun
         ->and($session->price)->toBe('0.00')
         ->and($voucher->fresh()->usage_count)->toBe(1)
         ->and(Payment::count())->toBe(0);
+
+    $admin = User::factory()->create();
+
+    $this->actingAs($admin)
+        ->get(route('admin.vouchers.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/vouchers/index')
+            ->where('vouchers.0.code', $voucher->code)
+            ->where('vouchers.0.usageCount', 1)
+            ->where('vouchers.0.usageLimit', 1)
+            ->where('vouchers.0.redemptions.0.sessionToken', $sessionToken)
+        );
 
     $this->postJson(route('kiosk.sessions.template.store', $sessionToken), [
         'photoTemplateId' => $template->id,

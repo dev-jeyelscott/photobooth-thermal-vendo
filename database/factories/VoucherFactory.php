@@ -56,4 +56,14 @@ class VoucherFactory extends Factory
             'active' => false,
         ]);
     }
+
+    /**
+     * Indicate that the voucher's valid-from date has not yet been reached.
+     */
+    public function notYetValid(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'valid_from' => now()->addDay(),
+        ]);
+    }
 }
