@@ -46,13 +46,20 @@ class PayMongoWebhookEvent extends Model
     use HasFactory;
 
     /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
+    protected $table = 'paymongo_webhook_events';
+
+    /**
      * Get the immutable historical PayMongo credential version that authenticated this event.
      *
      * @return BelongsTo<PayMongoAccount, $this>
      */
     public function payMongoAccount(): BelongsTo
     {
-        return $this->belongsTo(PayMongoAccount::class);
+        return $this->belongsTo(PayMongoAccount::class, 'paymongo_account_id');
     }
 
     /**

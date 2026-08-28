@@ -52,7 +52,9 @@ function paidSessionEndToEndFixturePng(int $red): string
     return ob_get_clean();
 }
 
-test('the paid commercial journey creates a PayMongo QR checkout and confirms payment only through a trusted signed webhook', function () {
+test('the paid commercial journey confirms payment through a trusted signed webhook and continues through print and gallery delivery', function () {
+    Storage::fake('public');
+
     config()->set('services.paymongo.api_base_url', 'https://api.paymongo.com');
 
     // 1. Start the session through the real business-scoped kiosk endpoint.
@@ -199,31 +201,17 @@ test('the paid commercial journey creates a PayMongo QR checkout and confirms pa
         $rawWebhookBody,
     );
 
-    // KNOWN DEFECT (see docs/paid-customer-acceptance-record.md): the
-    // production PayMongoWebhookController depends on
-    // App\Services\Payments\PayMongoWebhookSignatureVerifier, a class that
-    // does not exist anywhere in the codebase, so every real, correctly
-    // signed PayMongo webhook currently 500s and the paid journey can never
-    // progress past payment confirmation. This assertion pins that exact
-    // reproduction until the missing class is implemented; flip it to
-    // ->assertOk() as part of that fix.
-    $webhookResponse->assertStatus(500);
+    $webhookResponse->assertOk();
 
     expect($session->fresh()->status)
-        ->toBe(PhotoboothSessionStatus::PaymentPending)
+        ->toBe(PhotoboothSessionStatus::Paid)
         ->and($payment->fresh()->status)
-        ->toBe(PaymentStatus::Pending);
-});
+        ->toBe(PaymentStatus::Success)
+        ->and($payment->fresh()->paymongo_payment_id)
+        ->toBe('pay_e2e');
 
-/**
- * Cover the downstream commercial journey from a confirmed Paid session,
- * independent of the separately pinned webhook-confirmation defect above:
- * template selection, capture, sticker, preview, synchronous
- * composition/print processing, and gallery/QR availability.
- */
-test('the paid commercial journey continues from a confirmed Paid session through print and gallery delivery', function () {
-    Storage::fake('public');
-
+    // 5-10. Continue the exact same session through template selection,
+    // capture, sticker, preview, processing/print, and gallery delivery.
     $template = PhotoTemplate::factory()->create([
         'layout_path' => 'templates/e2e-template.png',
         'photo_slots' => 2,
@@ -250,18 +238,6 @@ test('the paid commercial journey continues from a confirmed Paid session throug
         'stickers/e2e-sticker.png',
         paidSessionEndToEndFixturePng(80),
     );
-
-    $session = PhotoboothSession::factory()->create([
-        'status' => PhotoboothSessionStatus::Paid,
-    ]);
-
-    $sessionToken = $session->session_token;
-
-    expect(
-        PhotoboothSession::query()
-            ->where('status', PhotoboothSessionStatus::Paid)
-            ->count(),
-    )->toBe(1);
 
     // 5. Select the template.
     $this->postJson(

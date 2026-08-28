@@ -41,6 +41,11 @@ return [
             'https://api.paymongo.com',
         ),
 
+        'webhook_tolerance_seconds' => env(
+            'PAYMONGO_WEBHOOK_TOLERANCE_SECONDS',
+            300,
+        ),
+
         'platform' => [
             'public_key' => env('PAYMONGO_PLATFORM_PUBLIC_KEY'),
             'secret_key' => env('PAYMONGO_PLATFORM_SECRET_KEY'),

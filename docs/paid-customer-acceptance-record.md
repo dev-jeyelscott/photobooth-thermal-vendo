@@ -5,10 +5,40 @@ kiosk -> PayMongo QR Ph payment -> signed webhook confirmation -> template
 selection -> capture -> sticker -> preview -> processing -> print -> QR
 gallery -> digital download -> completion -> reset.
 
-This record supersedes the previous version, which described the legacy
-Maya checkout/webhook path. The application's payment provider was replaced
-with native PayMongo QR Ph (see `5cdcf23` onward) before this run, so the
-acceptance walkthrough below exercises PayMongo end to end instead.
+This record supersedes the previous version, which recorded a critical
+blocker (`App\Services\Payments\PayMongoWebhookSignatureVerifier` did not
+exist, so every real PayMongo webhook 500'd and no session could ever reach
+`Paid` through the real payment path). That blocker, and two further root
+causes it was masking, have been fixed; the full journey now succeeds
+end-to-end through the application's real code paths.
+
+## Root causes fixed in this run
+
+1. **Missing webhook signature verifier.**
+   `App\Http\Controllers\PayMongoWebhookController` depended on
+   `App\Services\Payments\PayMongoWebhookSignatureVerifier`, which did not
+   exist anywhere in the codebase. Implemented it to parse the
+   `Paymongo-Signature` header (`t=...,te=...,li=...`), enforce the
+   configured tolerance window (`services.paymongo.webhook_tolerance_seconds`,
+   defaulting to 300s), and verify the `te` (Test mode) or `li` (Live mode)
+   HMAC-SHA256 signature with `hash_equals`.
+2. **Table name mismatch.** `App\Models\PayMongoWebhookEvent` had no
+   explicit `$table`, so Eloquent's naming convention resolved it to
+   `pay_mongo_webhook_events`, but the migration creates
+   `paymongo_webhook_events` (matching `PayMongoAccount`'s explicit
+   `paymongo_accounts` table). Every insert/query against the model failed
+   with `no such table`. Fixed by adding `protected $table =
+   'paymongo_webhook_events';`, consistent with the sibling
+   `PayMongoAccount` model.
+3. **Wrong inferred foreign key on `payMongoAccount()` relations.**
+   `PayMongoWebhookEvent::payMongoAccount()` and `Payment::payMongoAccount()`
+   both called `belongsTo(PayMongoAccount::class)` without an explicit
+   foreign key. Eloquent's convention infers the foreign key from the
+   relation method name (`payMongoAccount` -> `pay_mongo_account_id`), but
+   the actual column on both tables is `paymongo_account_id`. This silently
+   resolved to `null` (querying `where id is null`) instead of throwing,
+   masking the defect. Fixed both relations to specify the foreign key
+   explicitly.
 
 ## Evidence sources
 
@@ -17,43 +47,47 @@ points (routes, controllers, actions, the `PhotoboothSession` state machine,
 and the kiosk UI state machine) rather than by hand-waving intermediate
 steps:
 
-- `tests/Feature/PaidSessionEndToEndTest.php` — server-side journey, split
-  into two tests during this run (see "Why the test was split" below):
-  - `the paid commercial journey creates a PayMongo QR checkout and
-    confirms payment only through a trusted signed webhook` — session
-    creation, PayMongo QR Ph checkout creation, and a real HMAC-signed
-    `webhooks.paymongo` call (no fabricated payment success).
-  - `the paid commercial journey continues from a confirmed Paid session
-    through print and gallery delivery` — template selection, capture
-    uploads, sticker selection, preview confirmation, synchronous
-    composition/print processing, and gallery/QR availability, asserted
-    directly against the `photobooth_sessions`, `captured_media`, and
-    `print_jobs` tables.
+- `tests/Feature/PaidSessionEndToEndTest.php` — one continuous server-side
+  test (`the paid commercial journey confirms payment through a trusted
+  signed webhook and continues through print and gallery delivery`):
+  session creation, PayMongo QR Ph checkout creation, a real HMAC-signed
+  `webhooks.paymongo` call that now succeeds and transitions the session
+  `PaymentPending -> Paid`, then template selection, capture uploads,
+  sticker selection, preview confirmation, synchronous composition/print
+  processing, and gallery/QR availability — all against the same session
+  produced by the real payment flow (no factory-created `Paid` session).
 - `resources/js/pages/__tests__/kiosk.test.tsx` (`runs the full happy-path
   session through to the QR gallery screen`) and
   `resources/js/pages/__tests__/gallery.test.tsx` — client-side journey:
   idle/welcome screen, template/sticker selection, capture handoff, preview
   confirmation, processing screen, gallery QR code, digital download links,
   and reset behavior after a completed session.
-- `tests/Feature/PayMongoWebhookTest.php` and
-  `tests/Feature/PayMongoPaymentReconciliationTest.php` — corroborating
-  evidence for the webhook-confirmation defect recorded below.
+- `tests/Feature/PayMongoWebhookTest.php` — signature verification
+  (valid/cross-mode/stale/mutated-body/redacted-log cases), idempotent
+  inbox persistence, encrypted-at-rest payload storage, and financial
+  state-machine correctness (payment.paid/failed, qrph.expired, wrong
+  amount/currency, cross-account, late/expired-session, failure-then-success
+  ordering).
 
 ## Run log
 
 Executed via:
 
-- `docker compose exec -T app php artisan test --testsuite=Feature` — 393
-  passed, 20 failed (2716 assertions). The 20 failures are pre-existing
-  defects unrelated to this task's changes (see "Failures encountered").
+- `docker compose exec -T app php artisan test --testsuite=Feature` — 410
+  passed, 2 failed (2756 assertions). The 2 remaining failures are
+  pre-existing defects unrelated to this task (see "Related pre-existing
+  failures" below).
 - `docker compose exec -T app php artisan test tests/Feature/PaidSessionEndToEndTest.php` —
-  2 passed (42 assertions).
+  1 passed (42 assertions).
+- `docker compose exec -T app php artisan test tests/Feature/PayMongoWebhookTest.php` —
+  14 passed (48 assertions).
 - `npx vitest run resources/js/pages/__tests__/kiosk.test.tsx resources/js/pages/__tests__/gallery.test.tsx` —
   19 passed.
-- `docker compose exec -T app php artisan route:list --path=kiosk|gallery|webhooks` —
-  confirmed all kiosk, PayMongo webhook, and gallery routes referenced below
-  are registered.
-- `docker compose exec -T app ./vendor/bin/pint tests/Feature/PaidSessionEndToEndTest.php --test` —
+- `docker compose exec -T app php artisan route:list --path=kiosk` —
+  confirmed all kiosk routes referenced below are registered.
+- `docker compose exec -T app ./vendor/bin/phpstan analyse app/Services/Payments/PayMongoWebhookSignatureVerifier.php app/Models/PayMongoWebhookEvent.php app/Models/Payment.php app/Http/Controllers/PayMongoWebhookController.php` —
+  no errors.
+- `docker compose exec -T app ./vendor/bin/pint --test app/Services/Payments/PayMongoWebhookSignatureVerifier.php app/Http/Controllers/PayMongoWebhookController.php app/Models/PayMongoWebhookEvent.php app/Models/Payment.php config/services.php tests/Feature/PaidSessionEndToEndTest.php` —
   formatted.
 
 ## Step-by-step result
@@ -65,11 +99,11 @@ Executed via:
 | 3 | `POST kiosk/sessions` creates a `New` session | PaidSessionEndToEndTest | Pass |
 | 4 | `POST kiosk/sessions/{token}/payments` creates a PayMongo QR Ph checkout and `Payment(status=pending)` | PaidSessionEndToEndTest | Pass |
 | 5 | Kiosk displays the PayMongo QR Ph image | kiosk.test.tsx | Pass |
-| 6 | A genuine, correctly HMAC-signed PayMongo webhook (`POST webhooks/paymongo/{account}`, `payment.paid`) is delivered | PaidSessionEndToEndTest | **Fail** — see below |
-| 7 | Webhook handler marks `Payment(status=success)` | PaidSessionEndToEndTest | **Fail** — blocked by step 6 |
-| 8 | Session transitions `PaymentPending -> Paid` | PaidSessionEndToEndTest | **Fail** — blocked by step 6 |
-| 9 | Kiosk poll observes the `Paid` status and advances past payment | Not exercisable against the real backend (kiosk.test.tsx exercises this against a mocked poll response only) | **Not verifiable end-to-end** — blocked by step 6 |
-| 10 | Template list loads (`GET templates`) | kiosk.test.tsx / PaidSessionEndToEndTest (second test, from a `Paid` session) | Pass |
+| 6 | A genuine, correctly HMAC-signed PayMongo webhook (`POST webhooks/paymongo/{account}`, `payment.paid`) is delivered | PaidSessionEndToEndTest | Pass |
+| 7 | Webhook handler marks `Payment(status=success)` | PaidSessionEndToEndTest | Pass |
+| 8 | Session transitions `PaymentPending -> Paid` | PaidSessionEndToEndTest | Pass |
+| 9 | Kiosk poll observes the `Paid` status and advances past payment | kiosk.test.tsx (mocked poll response) + PaidSessionEndToEndTest (`GET kiosk/sessions/{token}` reflects `Paid`/downstream status on the real session) | Pass |
+| 10 | Template list loads (`GET templates`) | kiosk.test.tsx / PaidSessionEndToEndTest | Pass |
 | 11 | `POST kiosk/sessions/{token}/template` selects a template, session -> `TemplateSelected`, `requiredCaptureCount` returned | PaidSessionEndToEndTest | Pass |
 | 12 | Kiosk enters capture flow with the required shot count | kiosk.test.tsx | Pass |
 | 13 | Each shot is uploaded via `POST kiosk/sessions/{token}/shots` | PaidSessionEndToEndTest | Pass |
@@ -91,84 +125,34 @@ Executed via:
 | 29 | Operator/customer taps `Start a New Session`; kiosk returns to the welcome/idle screen | kiosk.test.tsx | Pass |
 | 30 | No leftover state after reset: `sessionStorage` session token is cleared, the gallery QR is unmounted, and re-entering the payment path starts with empty fields (no residual captured-photo or template selection carried into the next session) | kiosk.test.tsx | Pass |
 
-Steps 10–30 above are verified against a session that has already reached
-`Paid` (created directly for the test), since the only way to reach `Paid`
-through the application's real code paths — a genuinely signed PayMongo
-webhook — is currently broken (step 6). This is the same trust boundary the
-end-to-end test previously crossed by fabricating payment success; that
-approach has been removed so the coverage gap is visible rather than hidden.
+Steps 1–30 above are now all verified against the same session, produced
+entirely through the application's real code paths, including a genuinely
+signed PayMongo webhook (per the "no fabricated payment success" constraint).
 
-## Failures encountered
+## Related pre-existing failures (out of scope)
 
-### Step 6–9: PayMongo webhook confirmation is broken (500 on every call)
+`docker compose exec -T app php artisan test --testsuite=Feature` shows 2
+failing tests, both pre-existing and unrelated to the paid customer journey
+or the webhook fix above:
 
-**Symptom:** Posting a genuinely HMAC-signed PayMongo webhook to
-`POST webhooks/paymongo/{paymongoAccount}` (any event type) returns
-`500 Internal Server Error` instead of being processed. No payment can ever
-be confirmed through the real webhook path, so no session can reach `Paid`
-via the actual production trust boundary.
-
-**Root cause:** `App\Http\Controllers\PayMongoWebhookController` type-hints
-and depends on `App\Services\Payments\PayMongoWebhookSignatureVerifier` in
-its `__invoke` method, but that class does not exist anywhere in the
-codebase (`grep -rn "class PayMongoWebhookSignatureVerifier" app` returns
-nothing). Laravel's container throws a `ReflectionException` while
-resolving the controller's route dependencies before the request body is
-ever inspected.
-
-**Reproduction:**
-
-```
-docker compose exec -T app php artisan test tests/Feature/PayMongoWebhookTest.php
-# 14 of 14 tests fail with:
-# ReflectionException: Class "App\Services\Payments\PayMongoWebhookSignatureVerifier" does not exist
-```
-
-or, exactly as pinned in this task's regression test:
-
-```
-docker compose exec -T app php artisan test tests/Feature/PaidSessionEndToEndTest.php --filter="confirms payment only through a trusted signed webhook"
-```
-
-**Evidence:** `tests/Feature/PaidSessionEndToEndTest.php` — the first test
-in this file drives a real checkout, then posts a correctly signed webhook
-and asserts the current (broken) `500` response, with a comment pointing at
-this defect and instructing the assertion to be flipped to `assertOk()`
-once the missing class is implemented.
-
-**Impact on acceptance:** This is a full customer-journey blocker in
-production: no paid session can ever be confirmed and no customer photos
-can ever reach `Processing`/`Completed`, printing, or the gallery through
-the real payment flow. This is a functional regression from the prior
-(also broken, but at least explicitly-stubbed) webhook state documented in
-`docs/failure-recovery-acceptance-record.md`'s "Known gaps" section — the
-webhook is no longer a documented stub, it is a controller that crashes.
-
-This defect was not fixed as part of this task, per this task's scope
-("do not fix speculative code beyond the acceptance evidence gathering").
-It should be triaged as an urgent follow-up ticket: implement
-`App\Services\Payments\PayMongoWebhookSignatureVerifier` (the signature
-verification logic exercised, but never actually invoked correctly, by
-`tests/Feature/PayMongoWebhookTest.php`).
-
-### Related pre-existing failures surfaced by the same run
-
-`docker compose exec -T app php artisan test --testsuite=Feature` shows 20
-failing tests, all attributable to two root causes already present in the
-repository before this task and out of this task's scope to fix:
-
-- The missing `PayMongoWebhookSignatureVerifier` class above, which also
-  breaks `tests/Feature/PayMongoWebhookTest.php` (14 tests),
-  `tests/Feature/Admin/PayMongoWebhookProvisioningTest.php` (1 test), and
-  `tests/Feature/PayMongoPaymentReconciliationTest.php` (4 tests, which
-  additionally depend on the same verifier indirectly through webhook
-  fixtures).
-- `tests/Feature/ReconcileStaleMayaPaymentsTest.php` (1 test) calls the
-  `payments:reconcile-stale-maya` Artisan command, which no longer exists —
-  it was replaced by `payments:reconcile-paymongo`
+- `tests/Feature/Admin/PayMongoWebhookProvisioningTest.php` (`webhook
+  callback uses the opaque public id and exposes no credential material`)
+  asserts an outdated stub response (`200` / `"Webhook endpoint ready."`)
+  for an unsigned webhook POST. That expectation predates the real webhook
+  controller implemented in `f318a34`, which correctly returns `401` for an
+  unsigned/invalid-signature request. The test itself is stale and needs to
+  be updated to assert the real signed-webhook contract; this is a separate,
+  narrowly-scoped test-maintenance task, not a paid-journey defect.
+- `tests/Feature/ReconcileStaleMayaPaymentsTest.php` calls the Artisan
+  command `payments:reconcile-stale-maya`, which no longer exists — it was
+  replaced by `payments:reconcile-paymongo`
   (`app/Console/Commands/ReconcileStaleMayaPayments.php` was removed in
   favor of `app/Console/Commands/ReconcilePendingPayMongoPayments.php`, but
   the old test was not removed alongside it).
+
+Neither failure touches the `PhotoboothSession` state machine, the payment
+webhook trust boundary, or any step of the paid customer journey exercised
+above.
 
 ## Leftover-state verification (acceptance criterion 2)
 
@@ -191,6 +175,5 @@ released when the component unmounts on reset.
 This record exercises the reachable parts of the state machine and UI
 journey against the application's real code paths, including a genuinely
 HMAC-signed PayMongo webhook call (per the "no fabricated payment success"
-constraint) that demonstrates the payment-confirmation defect above. It
-does not perform a live transaction against PayMongo's hosted QR Ph flow
-with a real payment instrument in production.
+constraint). It does not perform a live transaction against PayMongo's
+hosted QR Ph flow with a real payment instrument in production.

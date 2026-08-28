@@ -92,6 +92,6 @@ class Payment extends Model
      */
     public function payMongoAccount(): BelongsTo
     {
-        return $this->belongsTo(PayMongoAccount::class);
+        return $this->belongsTo(PayMongoAccount::class, 'paymongo_account_id');
     }
 }
