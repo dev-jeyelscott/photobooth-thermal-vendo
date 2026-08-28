@@ -55,6 +55,14 @@ class PayMongoAccount extends Model
     use HasFactory;
 
     /**
+     * Use the canonical tenant PayMongo credential table defined by the
+     * payment migration roadmap and schema.
+     *
+     * @var string
+     */
+    protected $table = 'paymongo_accounts';
+
+    /**
      * Get the Business that owns this immutable credential version.
      *
      * @return BelongsTo<Business, $this>

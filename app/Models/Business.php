@@ -30,6 +30,16 @@ class Business extends Model
     use HasFactory;
 
     /**
+     * Keep newly-created in-memory Business instances aligned with the
+     * database-level default before they are refreshed from persistence.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'active_paymongo_mode' => 'test',
+    ];
+
+    /**
      * Use the stable public slug for implicit route-model binding.
      */
     public function getRouteKeyName(): string
