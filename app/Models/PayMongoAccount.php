@@ -57,6 +57,14 @@ class PayMongoAccount extends Model
     use HasFactory;
 
     /**
+     * Use the canonical tenant PayMongo credential table defined by the
+     * payment migration roadmap and schema.
+     *
+     * @var string
+     */
+    protected $table = 'paymongo_accounts';
+
+    /**
      * Generate the non-secret public routing UUID before persistence.
      */
     protected static function booted(): void
