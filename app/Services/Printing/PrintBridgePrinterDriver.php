@@ -3,7 +3,6 @@
 namespace App\Services\Printing;
 
 use App\Models\PrintJob;
-use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
@@ -13,6 +12,8 @@ use RuntimeException;
  */
 class PrintBridgePrinterDriver implements PrinterDriver
 {
+    public function __construct(private readonly PrintBridgeTransport $transport) {}
+
     public function send(PrintJob $job, string $imagePath): void
     {
         $endpoint = config('photobooth.print_bridge.endpoint');
@@ -21,27 +22,22 @@ class PrintBridgePrinterDriver implements PrinterDriver
             throw new RuntimeException('Print bridge endpoint is not configured.');
         }
 
-        $request = Http::timeout((int) config('photobooth.print_bridge.timeout_seconds'));
-
-        $authToken = config('photobooth.print_bridge.auth_token');
-
-        if (! empty($authToken)) {
-            $request = $request->withToken($authToken);
-        }
-
         $imageContents = file_get_contents($imagePath);
 
         if ($imageContents === false) {
             throw new RuntimeException("Unable to read receipt image at [{$imagePath}].");
         }
 
-        $response = $request
-            ->attach('image', $imageContents, basename($imagePath))
-            ->post($endpoint, [
+        $this->transport->send(
+            endpoint: $endpoint,
+            timeoutSeconds: (int) config('photobooth.print_bridge.timeout_seconds'),
+            authToken: config('photobooth.print_bridge.auth_token'),
+            imageContents: $imageContents,
+            imageFilename: basename($imagePath),
+            payload: [
                 'print_job_id' => $job->id,
                 'photobooth_session_id' => $job->photobooth_session_id,
-            ]);
-
-        $response->throw();
+            ],
+        );
     }
 }

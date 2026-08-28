@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Services\Printing\HttpPrintBridgeTransport;
 use App\Services\Printing\LocalMockPrinterDriver;
+use App\Services\Printing\PrintBridgeTransport;
 use App\Services\Printing\PrinterDriver;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -26,6 +28,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ImageManager::class, fn (): ImageManager => new ImageManager(
             config('image.driver') === 'imagick' ? new ImagickDriver : new GdDriver,
         ));
+
+        $this->app->bind(PrintBridgeTransport::class, HttpPrintBridgeTransport::class);
 
         $this->app->bind(PrinterDriver::class, function ($app): PrinterDriver {
             $driverKey = config('photobooth.default_printer_driver');

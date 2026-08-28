@@ -4,9 +4,9 @@ use App\Models\CapturedMedia;
 use App\Models\PhotoboothSession;
 use App\Models\PrintJob;
 use App\Services\Printing\PrintBridgePrinterDriver;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Http;
+use App\Services\Printing\PrintBridgeTransport;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 function printBridgeFixtureImagePath(): string
 {
@@ -32,46 +32,76 @@ function makePrintBridgePrintJob(): PrintJob
     return PrintJob::factory()->for($session, 'photoboothSession')->create();
 }
 
-test('the print bridge driver sends the receipt image to the configured endpoint', function () {
+test('the print bridge driver sends the receipt image to the configured transport', function () {
     config([
         'photobooth.print_bridge.endpoint' => 'https://print-bridge.test/print',
         'photobooth.print_bridge.timeout_seconds' => 10,
         'photobooth.print_bridge.auth_token' => 'secret-token',
     ]);
 
-    Http::fake([
-        'print-bridge.test/*' => Http::response(['status' => 'accepted'], 200),
-    ]);
-
     $printJob = makePrintBridgePrintJob();
     $imagePath = printBridgeFixtureImagePath();
 
-    (new PrintBridgePrinterDriver)->send($printJob, $imagePath);
+    $transport = new class implements PrintBridgeTransport
+    {
+        public ?array $received = null;
 
-    Http::assertSent(function ($request) use ($printJob): bool {
-        return $request->url() === 'https://print-bridge.test/print'
-            && $request->hasHeader('Authorization', 'Bearer secret-token')
-            && $request->isMultipart()
-            && str_contains($request->body(), (string) $printJob->id);
-    });
+        public function send(
+            string $endpoint,
+            int $timeoutSeconds,
+            ?string $authToken,
+            string $imageContents,
+            string $imageFilename,
+            array $payload,
+        ): void {
+            $this->received = compact(
+                'endpoint',
+                'timeoutSeconds',
+                'authToken',
+                'imageFilename',
+                'payload',
+            );
+        }
+    };
+
+    (new PrintBridgePrinterDriver($transport))->send($printJob, $imagePath);
+
+    expect($transport->received)->not->toBeNull();
+    expect($transport->received['endpoint'])->toBe('https://print-bridge.test/print');
+    expect($transport->received['timeoutSeconds'])->toBe(10);
+    expect($transport->received['authToken'])->toBe('secret-token');
+    expect($transport->received['payload'])->toBe([
+        'print_job_id' => $printJob->id,
+        'photobooth_session_id' => $printJob->photobooth_session_id,
+    ]);
 });
 
-test('the print bridge driver throws when the transport returns an error response', function () {
+test('the print bridge driver propagates a transport failure', function () {
     config([
         'photobooth.print_bridge.endpoint' => 'https://print-bridge.test/print',
         'photobooth.print_bridge.timeout_seconds' => 10,
         'photobooth.print_bridge.auth_token' => null,
     ]);
 
-    Http::fake([
-        'print-bridge.test/*' => Http::response(['error' => 'printer offline'], 503),
-    ]);
-
     $printJob = makePrintBridgePrintJob();
     $imagePath = printBridgeFixtureImagePath();
 
-    expect(fn () => (new PrintBridgePrinterDriver)->send($printJob, $imagePath))
-        ->toThrow(RequestException::class);
+    $transport = new class implements PrintBridgeTransport
+    {
+        public function send(
+            string $endpoint,
+            int $timeoutSeconds,
+            ?string $authToken,
+            string $imageContents,
+            string $imageFilename,
+            array $payload,
+        ): void {
+            throw new RuntimeException('printer offline');
+        }
+    };
+
+    expect(fn () => (new PrintBridgePrinterDriver($transport))->send($printJob, $imagePath))
+        ->toThrow(RuntimeException::class, 'printer offline');
 });
 
 test('the print bridge driver throws when no endpoint is configured', function () {
@@ -80,6 +110,20 @@ test('the print bridge driver throws when no endpoint is configured', function (
     $printJob = makePrintBridgePrintJob();
     $imagePath = printBridgeFixtureImagePath();
 
-    expect(fn () => (new PrintBridgePrinterDriver)->send($printJob, $imagePath))
-        ->toThrow(RuntimeException::class);
+    $transport = new class implements PrintBridgeTransport
+    {
+        public function send(
+            string $endpoint,
+            int $timeoutSeconds,
+            ?string $authToken,
+            string $imageContents,
+            string $imageFilename,
+            array $payload,
+        ): void {
+            throw new RuntimeException('should not be called');
+        }
+    };
+
+    expect(fn () => (new PrintBridgePrinterDriver($transport))->send($printJob, $imagePath))
+        ->toThrow(RuntimeException::class, 'Print bridge endpoint is not configured.');
 });
